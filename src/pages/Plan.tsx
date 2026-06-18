@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Check, Clock, Pill, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { mealPlan, supplements } from "@/data/mockData";
+import { useQuery } from "@tanstack/react-query";
+import { getMyMeals } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 
@@ -14,6 +16,15 @@ export default function Plan() {
   const [, setExpandedWorkout] = useState<number | null>(null);
 
   useEffect(() => { tracker.track('plan_viewed'); }, []);
+
+  // 4c-3b: real meals (web-authored) with graceful fallback to mock so the screen never breaks.
+  const { data: realMeals, isError: mealsError } = useQuery({ queryKey: ["meals"], queryFn: getMyMeals });
+  useEffect(() => {
+    if (mealsError && import.meta.env.DEV) {
+      console.warn("[VERTEXA Plan] failed to load real meals; using mock", mealsError);
+    }
+  }, [mealsError]);
+  const meals = realMeals && realMeals.length > 0 ? realMeals : mealPlan;
 
   const handleTabChange = (t: Tab) => {
     setTab(t);
@@ -50,7 +61,7 @@ export default function Plan() {
         <AnimatePresence mode="wait">
           {tab === "alimentar" && (
             <motion.div key="alimentar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
-              {mealPlan.map((meal, i) => (
+              {meals.map((meal, i) => (
                 <div key={i} className={`bg-card rounded-xl p-4 ${meal.done ? "border border-success/20" : ""}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
