@@ -65,3 +65,39 @@ export interface ChatMessageView {
   specialty: string | null;
   type: ProfessionalType | null;
 }
+
+// muscle_recovery_states.status enum (web color: fatigued=red, recovering=yellow,
+// recovered=blue, weakened=green, neutral=grey). Freshly trained = 'fatigued'.
+export type MuscleStatus =
+  | "fatigued"
+  | "recovering"
+  | "recovered"
+  | "weakened"
+  | "neutral";
+
+// Canonical muscle keys the web BodyMap paints (English lowercase). The ONLY
+// values allowed in muscle_recovery_states.muscle_group. See CONTRATO_INTEGRACAO.
+export type CanonicalMuscle =
+  | "chest"
+  | "biceps"
+  | "triceps"
+  | "lats"
+  | "shoulders"
+  | "abs"
+  | "forearms"
+  | "quadriceps"
+  | "hamstrings"
+  | "glutes"
+  | "calves"
+  | "traps"
+  | "lower_back";
+
+export interface MuscleRecoveryState {
+  id: string;
+  patient_id: string;
+  muscle_group: CanonicalMuscle;
+  last_trained_at: string | null;
+  last_intensity: number | null;
+  status: MuscleStatus;
+  calculated_at: string | null;
+}

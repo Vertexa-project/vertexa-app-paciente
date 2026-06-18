@@ -11,3 +11,5 @@ export {
 export type { SendPatientMessageInput, ChannelSubscriptionHandlers } from "./chat";
 export { logActivityEvent } from "./events";
 export type { LogActivityEventInput } from "./events";
+export { upsertMuscleRecovery } from "./recovery";
+export type { UpsertMuscleRecoveryInput } from "./recovery";
