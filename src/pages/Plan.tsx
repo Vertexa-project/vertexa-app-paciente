@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Clock, Pill, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { mealPlan, supplements } from "@/data/mockData";
 import { useQuery } from "@tanstack/react-query";
-import { getMyMeals } from "@/lib/api";
+import { getMyNutritionPlan } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 
@@ -17,14 +17,16 @@ export default function Plan() {
 
   useEffect(() => { tracker.track('plan_viewed'); }, []);
 
-  // 4c-3b: real meals (web-authored) with graceful fallback to mock so the screen never breaks.
-  const { data: realMeals, isError: mealsError } = useQuery({ queryKey: ["meals"], queryFn: getMyMeals });
+  // 4c-3b: real nutrition plan (web-authored) with graceful fallback to mock so the screen never breaks.
+  const { data: nutritionPlan, isError: planError } = useQuery({ queryKey: ["nutritionPlan"], queryFn: getMyNutritionPlan });
   useEffect(() => {
-    if (mealsError && import.meta.env.DEV) {
-      console.warn("[VERTEXA Plan] failed to load real meals; using mock", mealsError);
+    if (planError && import.meta.env.DEV) {
+      console.warn("[VERTEXA Plan] failed to load real nutrition plan; using mock", planError);
     }
-  }, [mealsError]);
-  const meals = realMeals && realMeals.length > 0 ? realMeals : mealPlan;
+  }, [planError]);
+  const usingRealMeals = !!(nutritionPlan && nutritionPlan.meals.length > 0);
+  const meals = usingRealMeals ? nutritionPlan!.meals : mealPlan;
+  const planTitle = usingRealMeals ? nutritionPlan!.title : "";
 
   const handleTabChange = (t: Tab) => {
     setTab(t);
@@ -61,6 +63,12 @@ export default function Plan() {
         <AnimatePresence mode="wait">
           {tab === "alimentar" && (
             <motion.div key="alimentar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
+              {planTitle && (
+                <div className="flex items-center gap-2 mb-1 px-1">
+                  <BookOpen size={16} className="text-primary" />
+                  <span className="text-sm font-semibold text-foreground">{planTitle}</span>
+                </div>
+              )}
               {meals.map((meal, i) => (
                 <div key={i} className={`bg-card rounded-xl p-4 ${meal.done ? "border border-success/20" : ""}`}>
                   <div className="flex items-center justify-between mb-2">

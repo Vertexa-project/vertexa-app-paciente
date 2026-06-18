@@ -10,6 +10,12 @@ export interface MealView {
   done: boolean;
 }
 
+export interface NutritionPlanView {
+  title: string;
+  status: string;
+  meals: MealView[];
+}
+
 interface RawMeal {
   time: string | null;
   name: string | null;
@@ -19,23 +25,24 @@ interface RawMeal {
 }
 
 /**
- * Real meals for the current patient (most recent nutrition plan), ordered.
- * Returns [] when there is no plan/meals so the screen can fall back to mock.
- * The web writes nutrition_plans/meals; the app only reads them.
+ * Real nutrition plan for the current patient (most recent), with meals ordered by
+ * order_index. Returns null when there is no plan so the screen can fall back to mock.
+ * Read-only: the web writes nutrition_plans/meals; the app only reads them. No "done"
+ * column in the schema -> done is always false.
  */
-export async function getMyMeals(): Promise<MealView[]> {
+export async function getMyNutritionPlan(): Promise<NutritionPlanView | null> {
   const patientId = await getMyPatientId();
-  if (!patientId) return [];
+  if (!patientId) return null;
 
   const { data: plan, error: planError } = await supabase
     .from("nutrition_plans")
-    .select("id")
+    .select("id, title, status")
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (planError) throw planError;
-  if (!plan) return [];
+  if (!plan) return null;
 
   const { data, error } = await supabase
     .from("meals")
@@ -45,11 +52,13 @@ export async function getMyMeals(): Promise<MealView[]> {
   if (error) throw error;
 
   const rows = (data ?? []) as RawMeal[];
-  return rows.map((m) => ({
+  const meals: MealView[] = rows.map((m) => ({
     time: m.time ?? "",
     name: m.name ?? "",
     items: m.items ?? [],
     calories: m.calories,
     done: false,
   }));
+
+  return { title: plan.title ?? "", status: plan.status ?? "", meals };
 }
