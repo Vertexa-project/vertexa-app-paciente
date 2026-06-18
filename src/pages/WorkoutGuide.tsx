@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Play, X, ChevronRight, Clock, Flame, Dumbbell, CheckCircle2, Timer, StickyNote, Trophy, Zap, Video, Camera, Upload, Sparkles, AlertCircle, ChevronDown, StretchHorizontal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { workoutSchedule, getTodayWorkout, getDayColor, getWarmupForWorkout, getWarmupFocusLabel, type Workout, type Exercise, type WarmupExercise } from "@/data/workoutData";
+import { workoutSchedule, getDayColor, getWarmupForWorkout, getWarmupFocusLabel, type Workout, type Exercise, type WarmupExercise } from "@/data/workoutData";
+import { useQuery } from "@tanstack/react-query";
+import { getMyWorkoutPlan } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 
@@ -86,8 +88,11 @@ export default function WorkoutGuide() {
   const [warmupTimer, setWarmupTimer] = useState(0);
   const warmupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const todayWorkout = getTodayWorkout();
-  const todayId = todayWorkout?.id || workoutSchedule[0]?.id;
+  // 4c-3b: real plan (web-authored) with graceful fallback to the mock so the screen never breaks.
+  const { data: realPlan } = useQuery({ queryKey: ["workoutPlan"], queryFn: getMyWorkoutPlan });
+  const schedule = realPlan && realPlan.length > 0 ? realPlan : workoutSchedule;
+  const todayWorkout = schedule.find((w) => w.dayIndex === new Date().getDay());
+  const todayId = todayWorkout?.id || schedule[0]?.id;
 
   useEffect(() => {
     tracker.track('training_plan_viewed');
@@ -287,7 +292,7 @@ export default function WorkoutGuide() {
           )}
 
           <div className="flex flex-col gap-3">
-            {workoutSchedule.map((w) => {
+            {schedule.map((w) => {
               const isToday = w.id === todayId;
               return (
                 <motion.button

@@ -28,7 +28,7 @@ const RULES: { match: string[]; keys: CanonicalMuscle[] }[] = [
   { match: ["trapezio"], keys: ["traps"] },
   { match: ["antebraco"], keys: ["forearms"] },
   { match: ["quadriceps"], keys: ["quadriceps"] },
-  { match: ["posterior", "isquio", "femoral"], keys: ["hamstrings"] }, // posterior de coxa
+  { match: ["posterior", "isquio", "femoral"], keys: ["hamstrings"] }, // posterior de coxa, posteriores
   { match: ["gluteo"], keys: ["glutes"] }, // gluteos, gluteo medio
   { match: ["panturrilha", "soleo", "gastrocnemio"], keys: ["calves"] },
   { match: ["lombar"], keys: ["lower_back"] },
@@ -53,11 +53,32 @@ export function translatePtMuscle(ptMuscle: string): CanonicalMuscle[] {
   return [];
 }
 
+function tokensToCanonical(ptTokens: string[]): CanonicalMuscle[] {
+  const set = new Set<CanonicalMuscle>();
+  for (const mg of ptTokens) {
+    for (const key of translatePtMuscle(mg)) set.add(key);
+  }
+  return [...set];
+}
+
+// 4c-3b: registry of REAL workout id -> its PT muscle tokens, populated when the real
+// plan loads (api/workouts.getMyWorkoutPlan). Lets the recovery loop resolve real workout
+// ids without touching eventSync/recovery. Mock workout ids still resolve via workoutData.
+const realWorkoutMuscles = new Map<string, string[]>();
+
+export function registerWorkoutMuscles(workoutId: string, ptMuscleTokens: string[]): void {
+  realWorkoutMuscles.set(workoutId, ptMuscleTokens);
+}
+
 /**
  * Canonical muscles trained by a workout = union of its exercises' muscle groups,
- * translated and de-duplicated. Reads the mock workoutData (4c-3 will read the real plan).
+ * translated and de-duplicated. Resolves a REAL workout id first (registered from the
+ * loaded plan), then falls back to the mock workoutData by id.
  */
 export function musclesForWorkout(workoutId: string): CanonicalMuscle[] {
+  const real = realWorkoutMuscles.get(workoutId);
+  if (real) return tokensToCanonical(real);
+
   const workout = workoutSchedule.find((w) => w.id === workoutId);
   if (!workout) {
     if (import.meta.env.DEV) {
@@ -65,11 +86,5 @@ export function musclesForWorkout(workoutId: string): CanonicalMuscle[] {
     }
     return [];
   }
-  const set = new Set<CanonicalMuscle>();
-  for (const ex of workout.exercises) {
-    for (const mg of ex.muscleGroups) {
-      for (const key of translatePtMuscle(mg)) set.add(key);
-    }
-  }
-  return [...set];
+  return tokensToCanonical(workout.exercises.flatMap((ex) => ex.muscleGroups));
 }

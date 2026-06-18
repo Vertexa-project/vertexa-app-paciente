@@ -17,3 +17,4 @@ export { getMyMeals } from "./plan";
 export type { MealView } from "./plan";
 export { insertAdherenceSnapshot } from "./adherence";
 export type { InsertAdherenceSnapshotInput } from "./adherence";
+export { getMyWorkoutPlan } from "./workouts";
