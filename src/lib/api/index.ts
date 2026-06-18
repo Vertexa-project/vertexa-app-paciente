@@ -15,3 +15,5 @@ export { upsertMuscleRecovery } from "./recovery";
 export type { UpsertMuscleRecoveryInput } from "./recovery";
 export { getMyMeals } from "./plan";
 export type { MealView } from "./plan";
+export { insertAdherenceSnapshot } from "./adherence";
+export type { InsertAdherenceSnapshotInput } from "./adherence";

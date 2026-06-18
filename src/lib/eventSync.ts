@@ -1,9 +1,15 @@
 // Event sink: mirrors relevant eventTracker events into Supabase activity_events,
-// and (4c-2) updates muscle_recovery_states when a workout is completed.
-// The eventTracker and all ~15 call sites stay untouched - we only listen.
+// updates muscle_recovery_states (4c-2) and writes an adherence snapshot (4c-2b)
+// when a workout is completed. The eventTracker and all ~15 call sites stay untouched.
 import { tracker } from "@/lib/eventTracker";
 import type { EventType } from "@/lib/eventTracker";
-import { getMyPatientId, logActivityEvent, upsertMuscleRecovery } from "@/lib/api";
+import { getAdherenceState } from "@/lib/adherenceEngine";
+import {
+  getMyPatientId,
+  logActivityEvent,
+  upsertMuscleRecovery,
+  insertAdherenceSnapshot,
+} from "@/lib/api";
 import { musclesForWorkout } from "@/lib/muscleMap";
 
 // EXPLICIT allow-list of patient-action events to persist. Everything else
@@ -19,6 +25,7 @@ const RELEVANT_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
 ]);
 
 let started = false;
+let adherenceWritten = false; // 4c-2b: write at most once per session
 
 /**
  * Starts mirroring relevant events. Call once at boot. Uses tracker.onEvent, which
@@ -33,9 +40,9 @@ export function startEventSync(): void {
       void mirror(event.type, event.payload);
     }
 
-    // 4c-2: only a COMPLETED workout (from WorkoutGuide, which carries workoutId)
-    // drives muscle recovery. The Records check-in ({source:'records'}) has no
-    // workoutId/action -> intentionally ignored here.
+    // A COMPLETED workout (from WorkoutGuide, which carries workoutId) drives muscle
+    // recovery (4c-2) and an adherence snapshot (4c-2b). The Records check-in
+    // ({source:'records'}) has no workoutId/action -> intentionally ignored.
     const payload = event.payload;
     if (
       event.type === "workout_checked" &&
@@ -43,6 +50,7 @@ export function startEventSync(): void {
       typeof payload?.workoutId === "string"
     ) {
       void updateMuscleRecovery(payload.workoutId);
+      void updateAdherence();
     }
   });
 }
@@ -69,6 +77,21 @@ async function updateMuscleRecovery(workoutId: string): Promise<void> {
   } catch (err) {
     if (import.meta.env.DEV) {
       console.error("[VERTEXA eventSync] failed to update muscle recovery", workoutId, err);
+    }
+  }
+}
+
+async function updateAdherence(): Promise<void> {
+  if (adherenceWritten) return; // dedup: at most once per session
+  try {
+    const patientId = await getMyPatientId();
+    if (!patientId) return;
+    const state = getAdherenceState();
+    await insertAdherenceSnapshot({ patientId, state });
+    adherenceWritten = true;
+  } catch (err) {
+    if (import.meta.env.DEV) {
+      console.error("[VERTEXA eventSync] failed to write adherence snapshot", err);
     }
   }
 }
