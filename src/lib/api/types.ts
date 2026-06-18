@@ -3,6 +3,13 @@
 
 export type UserRole = "professional" | "patient" | "admin";
 
+export type ProfessionalType =
+  | "doctor"
+  | "nutritionist"
+  | "physiotherapist"
+  | "personal_trainer"
+  | "other";
+
 export interface Profile {
   id: string;
   auth_user_id: string | null;
@@ -35,4 +42,26 @@ export interface ChatChannel {
   id: string;
   patient_id: string;
   created_at: string | null;
+}
+
+// A professional participant of a chat channel (source for the @ selector).
+export interface ChannelProfessional {
+  profileId: string;
+  name: string;
+  specialty: string | null;
+  type: ProfessionalType | null;
+}
+
+// A chat message with sender display already resolved for the UI.
+export interface ChatMessageView {
+  id: string;
+  channelId: string;
+  body: string;
+  createdAt: string | null;
+  senderProfileId: string | null;
+  senderRole: UserRole;
+  isOwn: boolean; // true when sent by the current (demo) patient
+  displayName: string; // "Você" for own messages, professional full name otherwise
+  specialty: string | null;
+  type: ProfessionalType | null;
 }

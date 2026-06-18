@@ -2,171 +2,156 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Send, Paperclip, Camera, Image as ImageIcon, FileText,
-  ChevronRight, Lock, Users, AtSign, X, Check, CheckCheck, Clock,
-  Stethoscope, Apple, Dumbbell, ChevronDown, Plus, Shield
+  Lock, Users, AtSign, X, Check, Stethoscope, Apple, Dumbbell, Activity,
+  Shield, Loader2, AlertCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tracker } from "@/lib/eventTracker";
+import {
+  getMyChannel,
+  listChannelProfessionals,
+  sendPatientMessage,
+} from "@/lib/api";
+import type { ChannelProfessional, ProfessionalType } from "@/lib/api";
+import { useChannelMessages } from "@/hooks/useChannelMessages";
 
-interface Professional {
-  id: string;
-  name: string;
-  role: string;
-  roleLabel: string;
-  avatar: string;
-  color: string;
-  online: boolean;
-  isExternal?: boolean;
-}
-
-interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | string; // 'user' or professional id
-  timestamp: string;
-  status: 'sent' | 'delivered' | 'read';
-  mentionedProfessional?: string | null; // null = all, id = private
-  attachmentType?: 'image' | 'video' | 'document';
-  attachmentPreview?: string;
-}
-
-const professionals: Professional[] = [
-  { id: 'med', name: 'Dra. Juliana', role: 'médico', roleLabel: 'Médica', avatar: 'JC', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', online: true },
-  { id: 'nutri', name: 'Gabriel', role: 'nutricionista', roleLabel: 'Nutricionista', avatar: 'GS', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', online: true },
-  { id: 'personal', name: 'Rafael', role: 'personal', roleLabel: 'Personal Trainer', avatar: 'RM', color: 'bg-primary/20 text-primary border-primary/30', online: false },
-  { id: 'external', name: 'Dr. Marcos', role: 'fisioterapeuta', roleLabel: 'Fisioterapeuta', avatar: 'ML', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', online: false, isExternal: true },
-];
-
-const getRoleIcon = (role: string) => {
-  if (role === 'médico') return <Stethoscope size={12} />;
-  if (role === 'nutricionista') return <Apple size={12} />;
-  return <Dumbbell size={12} />;
+const TYPE_STYLES: Record<string, string> = {
+  doctor: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  nutritionist: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  personal_trainer: "bg-primary/20 text-primary border-primary/30",
+  physiotherapist: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  other: "bg-secondary text-muted-foreground border-border",
 };
 
-const initialMessages: Message[] = [
-  { id: '1', text: 'Bom dia! Como está se sentindo esta semana?', sender: 'med', timestamp: '09:15', status: 'read' },
-  { id: '2', text: 'Estou bem, doutora! Mantendo a rotina certinho.', sender: 'user', timestamp: '09:22', status: 'read', mentionedProfessional: null },
-  { id: '3', text: 'Ótimo! Seus exames ficaram excelentes. Continue assim.', sender: 'med', timestamp: '09:25', status: 'read' },
-  { id: '4', text: 'Gabriel, posso trocar o lanche da tarde por uma fruta com pasta de amendoim?', sender: 'user', timestamp: '10:40', status: 'read', mentionedProfessional: 'nutri' },
-  { id: '5', text: 'Pode sim! Boa escolha. Mantenha a porção de 1 colher de sopa da pasta.', sender: 'nutri', timestamp: '10:55', status: 'read' },
-  { id: '6', text: 'Rafael, ontem senti um desconforto no ombro durante o supino. É normal?', sender: 'user', timestamp: '14:10', status: 'read', mentionedProfessional: 'personal' },
-  { id: '7', text: 'Vamos ajustar a amplitude e a pegada. No treino de hoje, faz com a carga 10% menor e me manda um vídeo pela análise de IA do app.', sender: 'personal', timestamp: '14:30', status: 'read' },
-  { id: '8', text: 'Equipe, viajo na semana que vem. Consigo manter a rotina viajando?', sender: 'user', timestamp: '16:05', status: 'delivered', mentionedProfessional: null },
-];
+const TITLE_RE = /^(dra?\.?|prof\.?|sr\.?|sra\.?)\s+/i;
+
+function typeColor(type: ProfessionalType | null): string {
+  return TYPE_STYLES[type ?? "other"] ?? TYPE_STYLES.other;
+}
+
+function getInitials(name: string): string {
+  const parts = name.replace(TITLE_RE, "").trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
+function shortName(name: string): string {
+  const parts = name.replace(TITLE_RE, "").trim().split(/\s+/);
+  return parts[0] || name;
+}
+
+function getRoleIcon(type: ProfessionalType | null) {
+  if (type === "doctor") return <Stethoscope size={12} />;
+  if (type === "nutritionist") return <Apple size={12} />;
+  if (type === "physiotherapist") return <Activity size={12} />;
+  return <Dumbbell size={12} />;
+}
+
+function formatTime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
 
 const quickSuggestions = [
-  'Dúvida sobre dieta',
-  'Dúvida sobre treino',
-  'Ajustar rotina',
-  'Enviar exame',
+  "Dúvida sobre dieta",
+  "Dúvida sobre treino",
+  "Ajustar rotina",
+  "Enviar exame",
 ];
 
 export default function TeamChat() {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [input, setInput] = useState('');
+  const queryClient = useQueryClient();
+
+  const [input, setInput] = useState("");
   const [showMentions, setShowMentions] = useState(false);
-  const [selectedMention, setSelectedMention] = useState<Professional | null>(null);
+  const [selectedMention, setSelectedMention] = useState<ChannelProfessional | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showTeamInfo, setShowTeamInfo] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // B2B module flag: external professional only visible when plan includes it
-  const [hasExternalModule] = useState(false);
-
-  // Visible professionals based on module status
-  const visibleProfessionals = professionals.filter(p => !p.isExternal || hasExternalModule);
-  const coreTeam = professionals.filter(p => !p.isExternal);
-  const externalTeam = professionals.filter(p => p.isExternal);
-
+  // Preserve existing analytics event for this screen.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  useEffect(() => {
-    tracker.track('plan_viewed', { context: 'team_chat' });
+    tracker.track("plan_viewed", { context: "team_chat" });
   }, []);
+
+  const channelQuery = useQuery({ queryKey: ["myChannel"], queryFn: getMyChannel });
+  const channelId = channelQuery.data?.id;
+
+  const professionalsQuery = useQuery({
+    queryKey: ["channelProfessionals", channelId],
+    queryFn: () => listChannelProfessionals(channelId as string),
+    enabled: !!channelId,
+  });
+  const professionals = professionalsQuery.data ?? [];
+
+  const messagesQuery = useChannelMessages(channelId);
+  const messages = messagesQuery.data ?? [];
+
+  const sendMutation = useMutation({
+    mutationFn: sendPatientMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["channelMessages", channelId] });
+    },
+  });
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const handleInputChange = (val: string) => {
     setInput(val);
-    const lastAt = val.lastIndexOf('@');
-    if (lastAt !== -1 && lastAt === val.length - 1) {
+    const lastAt = val.lastIndexOf("@");
+    if (lastAt !== -1 && lastAt === val.length - 1 && professionals.length > 0) {
       setShowMentions(true);
-    } else if (showMentions && !val.includes('@')) {
+    } else if (showMentions && !val.includes("@")) {
       setShowMentions(false);
     }
   };
 
-  const handleMention = (prof: Professional) => {
+  const handleMention = (prof: ChannelProfessional) => {
     setSelectedMention(prof);
-    const lastAt = input.lastIndexOf('@');
-    setInput(input.substring(0, lastAt) + `@${prof.role} `);
+    const lastAt = input.lastIndexOf("@");
+    const base = lastAt === -1 ? input : input.substring(0, lastAt);
+    setInput(base + `@${shortName(prof.name)} `);
     setShowMentions(false);
     inputRef.current?.focus();
   };
 
   const clearMention = () => {
     setSelectedMention(null);
-    setInput(input.replace(/@\w+\s?/, ''));
+    setInput(input.replace(/@\S+\s?/, ""));
   };
 
   const handleSend = () => {
-    if (!input.trim()) return;
-    const newMsg: Message = {
-      id: Date.now().toString(),
-      text: input.trim(),
-      sender: 'user',
-      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      status: 'sent',
-      mentionedProfessional: selectedMention?.id || null,
-    };
-    setMessages(prev => [...prev, newMsg]);
-    setInput('');
+    const body = input.trim();
+    if (!body || !channelId || sendMutation.isPending) return;
+    sendMutation.mutate({
+      channelId,
+      body,
+      mentionedProfileId: selectedMention?.profileId ?? null,
+    });
+    setInput("");
     setSelectedMention(null);
-
-    // Simulate response
-    setTimeout(() => {
-      const responder = selectedMention || professionals[Math.floor(Math.random() * professionals.length)];
-      const autoReply: Message = {
-        id: (Date.now() + 1).toString(),
-        text: getAutoReply(responder.role),
-        sender: responder.id,
-        timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        status: 'read',
-      };
-      setMessages(prev => [...prev, autoReply]);
-    }, 3000);
-  };
-
-  const getAutoReply = (role: string) => {
-    const replies: Record<string, string[]> = {
-      'médico': ['Entendido! Vou avaliar isso. Se persistir, me avise.', 'Ótimo progresso! Continue seguindo as orientações.'],
-      'nutricionista': ['Boa pergunta! Vou ajustar seu plano com essa informação.', 'Perfeito, mantém essa substituição que está adequada.'],
-      'personal': ['Anotado! Vamos adaptar o treino conforme necessário.', 'Bom relato! Ajusto a carga na sua próxima ficha.'],
-    };
-    const opts = replies[role] || replies['médico'];
-    return opts[Math.floor(Math.random() * opts.length)];
+    setShowMentions(false);
   };
 
   const handleQuickSuggestion = (text: string) => {
-    setInput(text + ' ');
+    setInput(text + " ");
     inputRef.current?.focus();
   };
 
-  const getProfessional = (id: string) => visibleProfessionals.find(p => p.id === id);
+  const isLoading =
+    channelQuery.isLoading || (!!channelId && messagesQuery.isLoading);
+  const isError = channelQuery.isError || messagesQuery.isError;
+  const noChannel = !channelQuery.isLoading && !channelQuery.data;
 
-  const getStatusIcon = (status: string) => {
-    if (status === 'sent') return <Check size={12} className="text-muted-foreground" />;
-    if (status === 'delivered') return <CheckCheck size={12} className="text-muted-foreground" />;
-    return <CheckCheck size={12} className="text-blue-400" />;
-  };
-
-  const getMentionLabel = (mentionId: string | null | undefined) => {
-    if (mentionId === undefined) return null;
-    if (mentionId === null) return null;
-    const prof = getProfessional(mentionId);
-    return prof ? prof.roleLabel : null;
+  const retry = () => {
+    channelQuery.refetch();
+    if (channelId) messagesQuery.refetch();
   };
 
   return (
@@ -180,9 +165,9 @@ export default function TeamChat() {
           <button onClick={() => setShowTeamInfo(true)} className="flex items-center gap-3 flex-1">
             <div className="relative">
               <div className="flex -space-x-2">
-                {visibleProfessionals.map(p => (
-                  <div key={p.id} className={`w-8 h-8 rounded-full flex items-center justify-center text-[9px] font-bold border ${p.color}`}>
-                    {p.avatar}
+                {professionals.map(p => (
+                  <div key={p.profileId} className={`w-8 h-8 rounded-full flex items-center justify-center text-[9px] font-bold border ${typeColor(p.type)}`}>
+                    {getInitials(p.name)}
                   </div>
                 ))}
               </div>
@@ -190,7 +175,7 @@ export default function TeamChat() {
             <div className="flex-1 text-left">
               <p className="text-sm font-semibold text-foreground">Equipe principal</p>
               <p className="text-[10px] text-muted-foreground">
-                {visibleProfessionals.filter(p => p.online).length} online · {visibleProfessionals.length} profissionais
+                {professionals.length} profissionais
               </p>
             </div>
           </button>
@@ -210,65 +195,76 @@ export default function TeamChat() {
           </div>
         </div>
 
-        {messages.map((msg, i) => {
-          const isUser = msg.sender === 'user';
-          const prof = !isUser ? getProfessional(msg.sender) : null;
-          const mentionLabel = isUser ? getMentionLabel(msg.mentionedProfessional) : null;
-          const showSenderHeader = !isUser && (i === 0 || messages[i - 1].sender !== msg.sender);
+        {isLoading && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 size={28} className="text-primary animate-spin" />
+            <p className="text-xs text-muted-foreground">Carregando conversa...</p>
+          </div>
+        )}
+
+        {isError && !isLoading && (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center px-6">
+            <AlertCircle size={28} className="text-destructive" />
+            <p className="text-sm text-foreground">Não foi possível carregar a conversa.</p>
+            <button onClick={retry} className="mt-1 px-4 py-2 rounded-xl bg-secondary text-foreground text-sm font-medium">
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        {noChannel && !isLoading && !isError && (
+          <div className="flex flex-col items-center justify-center py-16 gap-2 text-center px-6">
+            <p className="text-sm text-foreground">Canal de acompanhamento não encontrado.</p>
+            <p className="text-xs text-muted-foreground">Fale com sua clínica para ativar o chat.</p>
+          </div>
+        )}
+
+        {!isLoading && !isError && !noChannel && messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 gap-2 text-center px-6">
+            <p className="text-sm text-foreground">Ainda não há mensagens.</p>
+            <p className="text-xs text-muted-foreground">Envie a primeira mensagem para sua equipe.</p>
+          </div>
+        )}
+
+        {!isLoading && !isError && messages.map((msg, i) => {
+          const isUser = msg.isOwn;
+          const showSenderHeader =
+            !isUser && (i === 0 || messages[i - 1].senderProfileId !== msg.senderProfileId);
 
           return (
             <motion.div
               key={msg.id}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${isUser ? "justify-end" : "justify-start"}`}
             >
-              <div className={`max-w-[80%] ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
-                {/* Sender header for professionals */}
-                {showSenderHeader && prof && (
+              <div className={`max-w-[80%] ${isUser ? "items-end" : "items-start"} flex flex-col`}>
+                {showSenderHeader && (
                   <div className="flex items-center gap-1.5 mb-1 px-1">
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold border ${prof.color}`}>
-                      {prof.avatar}
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold border ${typeColor(msg.type)}`}>
+                      {getInitials(msg.displayName)}
                     </div>
-                    <span className="text-[10px] font-medium text-foreground">{prof.name}</span>
-                    <span className="text-[10px] text-muted-foreground">· {prof.roleLabel}</span>
+                    <span className="text-[10px] font-medium text-foreground">{msg.displayName}</span>
+                    {msg.specialty && (
+                      <span className="text-[10px] text-muted-foreground">· {msg.specialty}</span>
+                    )}
                   </div>
                 )}
 
                 <div className={`rounded-2xl px-3.5 py-2.5 ${
                   isUser
-                    ? mentionLabel
-                      ? 'bg-primary/90 text-primary-foreground rounded-br-md border border-primary/50'
-                      : 'bg-primary text-primary-foreground rounded-br-md'
-                    : 'bg-card border border-border rounded-bl-md'
+                    ? "bg-primary text-primary-foreground rounded-br-md"
+                    : "bg-card border border-border rounded-bl-md"
                 }`}>
-                  {/* Private mention indicator */}
-                  {mentionLabel && isUser && (
-                    <div className="flex items-center gap-1 mb-1 pb-1 border-b border-primary-foreground/20">
-                      <AtSign size={10} className="text-primary-foreground/70" />
-                      <span className="text-[9px] text-primary-foreground/70 font-medium">
-                        Privada para {mentionLabel}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Attachment preview */}
-                  {msg.attachmentType && (
-                    <div className="w-full h-32 rounded-lg bg-secondary/50 mb-2 flex items-center justify-center">
-                      {msg.attachmentType === 'image' && <ImageIcon size={24} className="text-muted-foreground" />}
-                      {msg.attachmentType === 'document' && <FileText size={24} className="text-muted-foreground" />}
-                    </div>
-                  )}
-
-                  <p className={`text-sm leading-relaxed ${isUser ? 'text-primary-foreground' : 'text-foreground'}`}>
-                    {msg.text}
+                  <p className={`text-sm leading-relaxed ${isUser ? "text-primary-foreground" : "text-foreground"}`}>
+                    {msg.body}
                   </p>
 
-                  <div className={`flex items-center justify-end gap-1 mt-1 ${isUser ? '' : ''}`}>
-                    <span className={`text-[9px] ${isUser ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                      {msg.timestamp}
+                  <div className="flex items-center justify-end gap-1 mt-1">
+                    <span className={`text-[9px] ${isUser ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                      {formatTime(msg.createdAt)}
                     </span>
-                    {isUser && getStatusIcon(msg.status)}
+                    {isUser && <Check size={12} className="text-primary-foreground/70" />}
                   </div>
                 </div>
               </div>
@@ -279,7 +275,7 @@ export default function TeamChat() {
       </div>
 
       {/* Quick suggestions */}
-      {messages.length <= 8 && (
+      {!isLoading && !isError && !noChannel && messages.length <= 8 && (
         <div className="px-4 pb-2">
           <div className="flex gap-2 overflow-x-auto pb-1">
             {quickSuggestions.map(s => (
@@ -297,7 +293,7 @@ export default function TeamChat() {
 
       {/* Mention selector */}
       <AnimatePresence>
-        {showMentions && (
+        {showMentions && professionals.length > 0 && (
           <motion.div
             initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
             className="mx-4 mb-1 rounded-xl bg-card border border-border overflow-hidden"
@@ -305,25 +301,20 @@ export default function TeamChat() {
             <div className="px-3 py-2 border-b border-border">
               <p className="text-[10px] text-muted-foreground font-medium">Direcionar para a equipe:</p>
             </div>
-            {visibleProfessionals.map(prof => (
+            {professionals.map(prof => (
               <button
-                key={prof.id}
+                key={prof.profileId}
                 onClick={() => handleMention(prof)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/50 transition-colors"
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border ${prof.color}`}>
-                  {prof.avatar}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border ${typeColor(prof.type)}`}>
+                  {getInitials(prof.name)}
                 </div>
                 <div className="flex-1 text-left">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-sm text-foreground font-medium">{prof.name}</p>
-                    {prof.isExternal && (
-                      <span className="text-[8px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded-full">Adicional</span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">{prof.roleLabel}</p>
+                  <p className="text-sm text-foreground font-medium">{prof.name}</p>
+                  {prof.specialty && <p className="text-[10px] text-muted-foreground">{prof.specialty}</p>}
                 </div>
-                <div className="text-muted-foreground">{getRoleIcon(prof.role)}</div>
+                <div className="text-muted-foreground">{getRoleIcon(prof.type)}</div>
               </button>
             ))}
           </motion.div>
@@ -335,7 +326,7 @@ export default function TeamChat() {
         <div className="px-4 pb-1">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/20">
             <AtSign size={10} className="text-primary" />
-            <span className="text-[10px] text-primary font-medium">Privada para {selectedMention.roleLabel}</span>
+            <span className="text-[10px] text-primary font-medium">Direcionado a {selectedMention.name}</span>
             <button onClick={clearMention}><X size={12} className="text-primary/60" /></button>
           </div>
         </div>
@@ -356,35 +347,38 @@ export default function TeamChat() {
               type="text"
               value={input}
               onChange={e => handleInputChange(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSend()}
+              onKeyDown={e => e.key === "Enter" && handleSend()}
               placeholder="Mensagem para a equipe..."
-              className="w-full bg-secondary rounded-full px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/30"
+              disabled={!channelId}
+              className="w-full bg-secondary rounded-full px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-50"
             />
           </div>
           <button
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || !channelId || sendMutation.isPending}
             className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-              input.trim() ? 'bg-primary' : 'bg-secondary'
+              input.trim() && channelId && !sendMutation.isPending ? "bg-primary" : "bg-secondary"
             }`}
           >
-            <Send size={16} className={input.trim() ? 'text-primary-foreground' : 'text-muted-foreground'} />
+            {sendMutation.isPending
+              ? <Loader2 size={16} className="text-muted-foreground animate-spin" />
+              : <Send size={16} className={input.trim() && channelId ? "text-primary-foreground" : "text-muted-foreground"} />}
           </button>
         </div>
       </div>
 
-      {/* Attach menu */}
+      {/* Attach menu (cosmetic, out of scope) */}
       <AnimatePresence>
         {showAttachMenu && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
             className="bg-card border-t border-border overflow-hidden"
           >
             <div className="flex justify-around py-4 px-6">
               {[
-                { icon: Camera, label: 'Câmera', color: 'bg-blue-500/15 text-blue-400' },
-                { icon: ImageIcon, label: 'Galeria', color: 'bg-emerald-500/15 text-emerald-400' },
-                { icon: FileText, label: 'Documento', color: 'bg-purple-500/15 text-purple-400' },
+                { icon: Camera, label: "Câmera", color: "bg-blue-500/15 text-blue-400" },
+                { icon: ImageIcon, label: "Galeria", color: "bg-emerald-500/15 text-emerald-400" },
+                { icon: FileText, label: "Documento", color: "bg-purple-500/15 text-purple-400" },
               ].map(item => (
                 <button key={item.label} onClick={() => setShowAttachMenu(false)} className="flex flex-col items-center gap-2">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${item.color}`}>
@@ -407,8 +401,8 @@ export default function TeamChat() {
             onClick={() => setShowTeamInfo(false)}
           >
             <motion.div
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25 }}
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25 }}
               onClick={e => e.stopPropagation()}
               className="absolute bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-card rounded-t-3xl border-t border-border"
             >
@@ -421,68 +415,23 @@ export default function TeamChat() {
                 <p className="text-xs text-muted-foreground mb-5">Profissionais vinculados ao seu acompanhamento</p>
 
                 <div className="space-y-3">
-                  {coreTeam.map(prof => (
-                    <div key={prof.id} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border">
-                      <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold border ${prof.color}`}>
-                        {prof.avatar}
+                  {professionals.map(prof => (
+                    <div key={prof.profileId} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border">
+                      <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold border ${typeColor(prof.type)}`}>
+                        {getInitials(prof.name)}
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-foreground">{prof.name}</p>
-                        <p className="text-xs text-muted-foreground">{prof.roleLabel}</p>
+                        {prof.specialty && <p className="text-xs text-muted-foreground">{prof.specialty}</p>}
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className={`w-2 h-2 rounded-full ${prof.online ? 'bg-emerald-400' : 'bg-muted-foreground'}`} />
-                        <span className="text-[10px] text-muted-foreground">{prof.online ? 'Online' : 'Offline'}</span>
-                      </div>
+                      <div className="text-muted-foreground">{getRoleIcon(prof.type)}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* External professionals section */}
-                {hasExternalModule ? (
-                  <div className="mt-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Plus size={14} className="text-purple-400" />
-                      <p className="text-sm font-semibold text-foreground">Profissional adicional</p>
-                      <span className="text-[8px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded-full">Módulo ativo</span>
-                    </div>
-                    <div className="space-y-3">
-                      {externalTeam.map(prof => (
-                        <div key={prof.id} className="flex items-center gap-3 p-3 rounded-xl bg-purple-500/5 border border-purple-500/15">
-                          <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold border ${prof.color}`}>
-                            {prof.avatar}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-sm font-semibold text-foreground">{prof.name}</p>
-                            </div>
-                            <p className="text-xs text-muted-foreground">{prof.roleLabel} · Vinculado ao seu plano</p>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <div className={`w-2 h-2 rounded-full ${prof.online ? 'bg-emerald-400' : 'bg-muted-foreground'}`} />
-                            <span className="text-[10px] text-muted-foreground">{prof.online ? 'Online' : 'Offline'}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-5 p-4 rounded-xl border border-dashed border-border/60 bg-muted/20">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
-                        <Plus size={16} className="text-muted-foreground/50" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-muted-foreground">Profissional adicional</p>
-                        <p className="text-[10px] text-muted-foreground/60">Disponível em planos com módulo expandido</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <div className="mt-5 p-3 rounded-xl bg-primary/5 border border-primary/10">
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    <span className="text-foreground font-medium">Dica:</span> Use <span className="text-primary font-medium">@</span> para direcionar sua mensagem a um profissional específico. Sem marcação, todos da equipe recebem.
+                    <span className="text-foreground font-medium">Dica:</span> Use <span className="text-primary font-medium">@</span> para direcionar sua mensagem a um profissional específico. Todos da equipe veem o canal.
                   </p>
                 </div>
 
