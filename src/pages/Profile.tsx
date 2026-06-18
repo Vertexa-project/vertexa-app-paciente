@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ChevronRight, User, Target, Stethoscope, Bell as BellIcon, Shield, LogOut, Settings, Camera, Zap, Route } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { patient } from "@/data/mockData";
+import { useMe } from "@/hooks/useMe";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getAdherenceState } from "@/lib/adherenceEngine";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
@@ -18,11 +20,12 @@ const phaseLabels: Record<string, string> = {
 export default function Profile() {
   const navigate = useNavigate();
   const state = getAdherenceState();
+  const { me, isLoading: meLoading } = useMe();
 
   useEffect(() => { tracker.track('profile_viewed'); }, []);
 
   const menuItems = [
-    { icon: Target, label: "Meu objetivo", value: patient.goal },
+    { icon: Target, label: "Meu objetivo", value: me.goal },
     { icon: Stethoscope, label: "Profissional responsável", value: patient.professional },
     { icon: Settings, label: "Configurações", value: "" },
     { icon: BellIcon, label: "Notificações", value: "" },
@@ -49,7 +52,7 @@ export default function Profile() {
               <Camera size={14} className="text-primary-foreground" />
             </button>
           </div>
-          <h2 className="text-lg font-display font-bold text-foreground">{patient.fullName}</h2>
+          <h2 className="text-lg font-display font-bold text-foreground">{meLoading ? <Skeleton className="h-6 w-44 rounded" /> : me.fullName}</h2>
           <p className="text-xs text-muted-foreground">Paciente desde {new Date(patient.startDate).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</p>
         </motion.div>
 
@@ -77,9 +80,9 @@ export default function Profile() {
         {/* Weight stats */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="grid grid-cols-3 gap-3 mb-6">
           {[
-            { label: "Peso atual", value: `${patient.currentWeight}kg` },
-            { label: "Eliminado", value: `-${(patient.startWeight - patient.currentWeight).toFixed(1)}kg` },
-            { label: "Meta", value: `${patient.targetWeight}kg` },
+            { label: "Peso atual", value: me.currentWeight != null ? `${me.currentWeight}kg` : "--" },
+            { label: "Eliminado", value: me.startWeight != null && me.currentWeight != null ? `-${(me.startWeight - me.currentWeight).toFixed(1)}kg` : "--" },
+            { label: "Meta", value: me.targetWeight != null ? `${me.targetWeight}kg` : "--" },
           ].map((s, i) => (
             <div key={i} className="bg-card rounded-xl p-3 text-center">
               <p className="text-lg font-display font-bold text-foreground">{s.value}</p>

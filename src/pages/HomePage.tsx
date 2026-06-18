@@ -2,7 +2,9 @@ import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Bell, Droplets, Moon, Footprints, UtensilsCrossed, Dumbbell, Scale, Camera, HelpCircle, ChevronRight, AlertTriangle, TrendingUp, Zap, Trophy, MessageCircle, CircleAlert, ImagePlus, ClipboardCheck, CalendarClock } from "lucide-react";
-import { patient, dailyGoals, weeklyProgress } from "@/data/mockData";
+import { dailyGoals, weeklyProgress } from "@/data/mockData";
+import { useMe } from "@/hooks/useMe";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getAdherenceState, getAutoActions } from "@/lib/adherenceEngine";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
@@ -80,6 +82,8 @@ export default function HomePage() {
 
   useEffect(() => { tracker.track('home_viewed'); }, []);
 
+  const { me, isLoading: meLoading } = useMe();
+
   // Pending actions logic
   const pendingItems = [
     {
@@ -126,7 +130,7 @@ export default function HomePage() {
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">{greeting}, {patient.name} 👋</h1>
+            <h1 className="text-2xl font-display font-bold text-foreground">{greeting}, {meLoading ? <Skeleton className="inline-block h-6 w-28 align-middle rounded" /> : me.name} 👋</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{state.contextualMessage}</p>
           </div>
           <button onClick={() => navigate("/notifications")} className="relative w-10 h-10 rounded-full bg-card flex items-center justify-center">
@@ -352,16 +356,16 @@ export default function HomePage() {
               </button>
             </div>
             <div className="flex items-end gap-2">
-              <span className="text-3xl font-display font-bold text-foreground">{patient.currentWeight}</span>
+              {meLoading ? <Skeleton className="h-9 w-20 rounded" /> : <span className="text-3xl font-display font-bold text-foreground">{me.currentWeight ?? "--"}</span>}
               <span className="text-sm text-muted-foreground mb-1">kg</span>
-              <span className="text-xs text-success font-medium mb-1 ml-auto">-{(patient.startWeight - patient.currentWeight).toFixed(1)}kg</span>
+              {me.startWeight != null && me.currentWeight != null && <span className="text-xs text-success font-medium mb-1 ml-auto">-{(me.startWeight - me.currentWeight).toFixed(1)}kg</span>}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Meta: {patient.targetWeight}kg • Início: {patient.startWeight}kg</p>
+            <p className="text-xs text-muted-foreground mt-1">Meta: {me.targetWeight ?? "--"}kg • Início: {me.startWeight ?? "--"}kg</p>
             <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
               <motion.div
                 className="h-full rounded-full gradient-orange"
                 initial={{ width: 0 }}
-                animate={{ width: `${((patient.startWeight - patient.currentWeight) / (patient.startWeight - patient.targetWeight)) * 100}%` }}
+                animate={{ width: `${me.startWeight != null && me.currentWeight != null && me.targetWeight != null && me.startWeight !== me.targetWeight ? Math.max(0, Math.min(100, ((me.startWeight - me.currentWeight) / (me.startWeight - me.targetWeight)) * 100)) : 0}%` }}
                 transition={{ duration: 1, delay: 0.6 }}
               />
             </div>
