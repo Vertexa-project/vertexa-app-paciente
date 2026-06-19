@@ -7,6 +7,7 @@ import { useMe } from "@/hooks/useMe";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAdherenceState, getAutoActions } from "@/lib/adherenceEngine";
 import { tracker } from "@/lib/eventTracker";
+import { pickWelcomeMessage } from "@/lib/welcomeMessages";
 import BottomNav from "@/components/BottomNav";
 
 const goalIcons: Record<string, React.ElementType> = {
@@ -76,8 +77,6 @@ export default function HomePage() {
   const navigate = useNavigate();
   const state = getAdherenceState();
   const autoActions = getAutoActions(state);
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
   const statusInfo = statusLabels[state.status];
 
   useEffect(() => { tracker.track('home_viewed'); }, []);
@@ -130,7 +129,7 @@ export default function HomePage() {
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-5">
           <div>
-            <h1 className="text-2xl font-display font-bold text-foreground">{greeting}, {meLoading ? <Skeleton className="inline-block h-6 w-28 align-middle rounded" /> : me.name} 👋</h1>
+            <h1 className="text-xl font-display font-bold text-foreground">{meLoading ? <Skeleton className="inline-block h-6 w-3/4 max-w-[260px] align-middle rounded" /> : pickWelcomeMessage({ name: me.name })} 👋</h1>
             <p className="text-sm text-muted-foreground mt-0.5">{state.contextualMessage}</p>
           </div>
           <button onClick={() => navigate("/notifications")} className="relative w-10 h-10 rounded-full bg-card flex items-center justify-center">
