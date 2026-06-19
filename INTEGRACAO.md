@@ -1,0 +1,1 @@
+Contrato cross-repo (fonte de verdade): ../vertexa-web-pro/docs/CONTRATO_INTEGRACAO.md — leia antes de mexer em dados compartilhados.

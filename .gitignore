@@ -27,3 +27,7 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Local artifacts (not source)
+.playwright-mcp/
+repomix-app.xml
