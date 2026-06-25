@@ -1,11 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { Bell, Droplets, Moon, Footprints, UtensilsCrossed, Dumbbell, Scale, Camera, HelpCircle, ChevronRight, AlertTriangle, TrendingUp, Zap, Trophy, MessageCircle, CircleAlert, ImagePlus, ClipboardCheck, CalendarClock } from "lucide-react";
+import { Bell, Droplets, Moon, Footprints, UtensilsCrossed, Dumbbell, Scale, Camera, HelpCircle, ChevronRight, AlertTriangle, TrendingUp, Zap, Trophy, MessageCircle, CircleAlert, ImagePlus } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { dailyGoals, weeklyProgress } from "@/data/mockData";
+import { workoutSchedule } from "@/data/workoutData";
 import { useMe } from "@/hooks/useMe";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAdherenceState, getAutoActions } from "@/lib/adherenceEngine";
+import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getMyWorkoutPlan, getRecentWeightLogs } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
 import BottomNav from "@/components/BottomNav";
@@ -75,42 +78,71 @@ function VRIRing({ score, level }: { score: number; level: string }) {
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const state = getAdherenceState();
+
+  // VRI exibido = ÚLTIMO snapshot persistido (mesma fonte que a web → consistência app↔web).
+  // Enquanto carrega / se ainda não há snapshot, cai no compute local (DEFAULT_CONFIG).
+  const adherenceQuery = useQuery({ queryKey: ["adherence"], queryFn: getLatestAdherenceState });
+  const state = adherenceQuery.data ?? getAdherenceState();
   const autoActions = getAutoActions(state);
-  const statusInfo = statusLabels[state.status];
+  const statusInfo = statusLabels[state.status] ?? statusLabels["em_acompanhamento"];
 
   useEffect(() => { tracker.track('home_viewed'); }, []);
 
   const { me, isLoading: meLoading } = useMe();
 
-  // Pending actions logic
+  // Água de hoje (soma do dia) para a meta de hidratação — dado real.
+  const hydrationToday = useQuery({ queryKey: ["hydrationToday"], queryFn: getHydrationTodayLiters });
+
+  // Peso "atual" exibido vem do último weight_log (auto-reporte do app) quando existir, senão
+  // do patients.current_weight (avaliação clínica). Reflete na Home o peso recém-registrado.
+  const recentWeights = useQuery({ queryKey: ["recentWeights"], queryFn: () => getRecentWeightLogs(6) });
+  const latestLoggedWeight = recentWeights.data?.[0]?.weight_kg != null ? Number(recentWeights.data[0].weight_kg) : null;
+  const currentWeight = latestLoggedWeight ?? me.currentWeight;
+
+  // Pendências derivadas de dados REAIS (objetivo #6): nada de pending:true hardcoded.
+  const pendingQuery = useQuery({ queryKey: ["pendingSummary"], queryFn: getPendingSummary });
+  const pending = pendingQuery.data;
+
+  // Nome do treino de hoje (plano real, com fallback ao mock) para a pendência de treino.
+  const { data: realPlan } = useQuery({ queryKey: ["workoutPlan"], queryFn: getMyWorkoutPlan });
+  const schedule = realPlan && realPlan.length > 0 ? realPlan : workoutSchedule;
+  const todayWorkout = schedule.find((w) => w.dayIndex === new Date().getDay()) ?? schedule[0];
+  const todayWorkoutLabel = todayWorkout ? `Treino ${todayWorkout.letter} — ${todayWorkout.name}` : "Treino do dia";
+
+  // Metas do dia: água e treino refletem dados reais; o resto permanece mock (fora de escopo S2).
+  const goals = dailyGoals.map((g) => {
+    if (g.id === "water") return { ...g, current: hydrationToday.data ?? g.current };
+    if (g.id === "workout") return { ...g, current: pending && !pending.workoutPending ? 1 : 0 };
+    return g;
+  });
+
   const pendingItems = [
     {
       id: "photo",
       icon: ImagePlus,
       title: "Foto mensal pendente",
-      subtitle: "Última foto: há 34 dias",
+      subtitle: pending?.photoDaysAgo != null ? `Última foto: há ${pending.photoDaysAgo} dias` : "Nenhuma foto enviada ainda",
       cta: "Enviar agora",
       path: "/records",
-      pending: true,
+      pending: pending?.photoPending ?? false,
     },
     {
       id: "workout",
       icon: Dumbbell,
       title: "Treino do dia não concluído",
-      subtitle: "Treino C — Full Body",
+      subtitle: todayWorkoutLabel,
       cta: "Iniciar treino",
       path: "/workout-guide",
-      pending: !dailyGoals.find(g => g.id === "workout")?.done && (dailyGoals.find(g => g.id === "workout")?.current ?? 0) < (dailyGoals.find(g => g.id === "workout")?.target ?? 1),
+      pending: pending?.workoutPending ?? false,
     },
     {
       id: "weight",
       icon: Scale,
       title: "Registro de peso atrasado",
-      subtitle: "Último registro: há 5 dias",
+      subtitle: pending?.weightDaysAgo != null ? `Último registro: há ${pending.weightDaysAgo} dias` : "Nenhum registro de peso ainda",
       cta: "Registrar",
       path: "/records",
-      pending: true,
+      pending: pending?.weightPending ?? false,
     },
   ].filter(item => item.pending);
 
@@ -286,10 +318,10 @@ export default function HomePage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-display font-semibold text-foreground">Metas do dia</h2>
-            <span className="text-xs text-primary font-medium">{dailyGoals.filter(g => g.current >= g.target).length}/{dailyGoals.length} concluídas</span>
+            <span className="text-xs text-primary font-medium">{goals.filter(g => g.current >= g.target).length}/{goals.length} concluídas</span>
           </div>
           <div className="grid grid-cols-1 gap-3 mb-5">
-            {dailyGoals.map((goal, i) => {
+            {goals.map((goal, i) => {
               const pct = Math.min((goal.current / goal.target) * 100, 100);
               const Icon = goalIcons[goal.id] || Droplets;
               const isDone = goal.current >= goal.target;
@@ -355,16 +387,16 @@ export default function HomePage() {
               </button>
             </div>
             <div className="flex items-end gap-2">
-              {meLoading ? <Skeleton className="h-9 w-20 rounded" /> : <span className="text-3xl font-display font-bold text-foreground">{me.currentWeight ?? "--"}</span>}
+              {meLoading ? <Skeleton className="h-9 w-20 rounded" /> : <span className="text-3xl font-display font-bold text-foreground">{currentWeight ?? "--"}</span>}
               <span className="text-sm text-muted-foreground mb-1">kg</span>
-              {me.startWeight != null && me.currentWeight != null && <span className="text-xs text-success font-medium mb-1 ml-auto">-{(me.startWeight - me.currentWeight).toFixed(1)}kg</span>}
+              {me.startWeight != null && currentWeight != null && <span className="text-xs text-success font-medium mb-1 ml-auto">-{(me.startWeight - currentWeight).toFixed(1)}kg</span>}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Meta: {me.targetWeight ?? "--"}kg • Início: {me.startWeight ?? "--"}kg</p>
             <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
               <motion.div
                 className="h-full rounded-full gradient-orange"
                 initial={{ width: 0 }}
-                animate={{ width: `${me.startWeight != null && me.currentWeight != null && me.targetWeight != null && me.startWeight !== me.targetWeight ? Math.max(0, Math.min(100, ((me.startWeight - me.currentWeight) / (me.startWeight - me.targetWeight)) * 100)) : 0}%` }}
+                animate={{ width: `${me.startWeight != null && currentWeight != null && me.targetWeight != null && me.startWeight !== me.targetWeight ? Math.max(0, Math.min(100, ((me.startWeight - currentWeight) / (me.startWeight - me.targetWeight)) * 100)) : 0}%` }}
                 transition={{ duration: 1, delay: 0.6 }}
               />
             </div>

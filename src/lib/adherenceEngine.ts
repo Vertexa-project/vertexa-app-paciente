@@ -1,5 +1,8 @@
 // VRI - VERTEXA Retention Index
-// Adherence score and risk engine (mock logic)
+// Adherence score and risk engine. A FÓRMULA (computeScore) é fixa (combinado C6); o que muda
+// na Sessão 2 é a ORIGEM dos inputs: deriveAdherenceConfig monta o config a partir de dados
+// REAIS de activity_events/weight_logs/progress_photos (ver src/lib/api/adherence.ts).
+import { daysAgoLocal } from "@/lib/pendingLogic";
 
 export type AdherenceLevel = 'alta' | 'moderada' | 'baixa' | 'risco';
 export type PatientStatus = 'novo' | 'em_acompanhamento' | 'atencao' | 'em_risco' | 'inativo';
@@ -19,7 +22,7 @@ export interface AdherenceState {
   lastScoreChange: number; // positive or negative delta
 }
 
-interface MockConfig {
+export interface MockConfig {
   daysWithoutInteraction: number;
   habitsLoggedToday: number;
   workoutsThisWeek: number;
@@ -71,7 +74,7 @@ function computeScore(config: MockConfig): number {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-function getLevel(score: number): AdherenceLevel {
+export function getLevel(score: number): AdherenceLevel {
   if (score >= 80) return 'alta';
   if (score >= 50) return 'moderada';
   if (score >= 20) return 'baixa';
@@ -86,7 +89,7 @@ function getStatus(score: number, days: number): PatientStatus {
   return 'em_acompanhamento';
 }
 
-function getJourneyPhase(streak: number, workoutsWeek: number): JourneyPhase {
+export function getJourneyPhase(streak: number, workoutsWeek: number): JourneyPhase {
   if (streak < 7) return 'inicio';
   if (streak < 14) return 'constancia_inicial';
   if (streak < 30) return 'acompanhamento_ativo';
@@ -94,7 +97,7 @@ function getJourneyPhase(streak: number, workoutsWeek: number): JourneyPhase {
   return 'manutencao';
 }
 
-function getContextualMessage(state: Omit<AdherenceState, 'contextualMessage'>): string {
+export function getContextualMessage(state: Omit<AdherenceState, 'contextualMessage'>): string {
   if (state.level === 'risco') return 'Sua constância caiu. Que tal retomar hoje?';
   if (state.level === 'baixa') return 'Você está há alguns dias sem registrar hábitos. Vamos voltar?';
   if (state.daysSinceLastInteraction >= 3) return 'Sentimos sua falta! Hoje é um bom dia para retomar.';
@@ -148,6 +151,115 @@ export function getAdherenceState(config: Partial<MockConfig> = {}): AdherenceSt
     ...partial,
     contextualMessage: getContextualMessage(partial),
   };
+}
+
+// ── Inputs REAIS (Sessão 2, objetivo #7) ────────────────────────────────────────────────
+// Tipos de evento que contam como "hábito do dia" (activity_events).
+const HABIT_EVENT_TYPES = new Set(["hydration_logged", "sleep_logged", "mood_logged"]);
+
+export interface AdherenceActivityInput {
+  // activity_events do paciente (qualquer tipo); só created_at/type são usados.
+  events: { type: string; created_at: string }[];
+  lastWeightAt: string | null; // weight_logs.measured_at mais recente
+  lastPhotoAt: string | null; // progress_photos.taken_at mais recente
+  now: Date;
+}
+
+function localDayKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/**
+ * Monta o MockConfig a partir de dados REAIS (mantém a fórmula intacta — só troca a origem):
+ * - daysWithoutInteraction: dias desde o evento mais recente.
+ * - habitsLoggedToday: nº de eventos de hábito (água/sono/humor) de hoje.
+ * - workoutsThisWeek: nº de DIAS distintos com workout_checked nos últimos 7 dias.
+ * - weight/photoLoggedRecently: último peso ≤7d / última foto ≤30d.
+ * - planViewedRecently: proxy por interação recente (plan_viewed não é persistido).
+ * - streak: dias consecutivos (terminando hoje ou ontem) com ≥1 evento.
+ */
+export function deriveAdherenceConfig(input: AdherenceActivityInput): MockConfig {
+  const { events, lastWeightAt, lastPhotoAt, now } = input;
+
+  const mostRecent = events.reduce<string | null>((acc, e) => {
+    if (!acc) return e.created_at;
+    return new Date(e.created_at).getTime() > new Date(acc).getTime() ? e.created_at : acc;
+  }, null);
+  const daysWithoutInteraction = mostRecent ? daysAgoLocal(mostRecent, now) : 30;
+
+  const todayKey = localDayKey(now.toISOString());
+  const habitsLoggedToday = events.filter(
+    (e) => HABIT_EVENT_TYPES.has(e.type) && localDayKey(e.created_at) === todayKey
+  ).length;
+
+  const workoutDaysThisWeek = new Set<string>();
+  for (const e of events) {
+    if (e.type !== "workout_checked") continue;
+    if (daysAgoLocal(e.created_at, now) <= 6) workoutDaysThisWeek.add(localDayKey(e.created_at));
+  }
+
+  const weightLoggedRecently = !!lastWeightAt && daysAgoLocal(lastWeightAt, now) <= 7;
+  const photoLoggedRecently = !!lastPhotoAt && daysAgoLocal(lastPhotoAt, now) <= 30;
+  const planViewedRecently = daysWithoutInteraction <= 3;
+
+  // streak: começa em hoje se houver evento hoje, senão ontem; conta dias consecutivos para trás.
+  const dayKeys = new Set(events.map((e) => localDayKey(e.created_at)));
+  let streak = 0;
+  const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (!dayKeys.has(`${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`)) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  while (dayKeys.has(`${cursor.getFullYear()}-${cursor.getMonth()}-${cursor.getDate()}`)) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return {
+    daysWithoutInteraction,
+    habitsLoggedToday,
+    workoutsThisWeek: workoutDaysThisWeek.size,
+    weightLoggedRecently,
+    photoLoggedRecently,
+    planViewedRecently,
+    streak,
+  };
+}
+
+// Forma mínima de um snapshot persistido (adherence_snapshots) que a Home LÊ para exibir o
+// MESMO VRI que a web (fonte única → consistência app↔web garantida por construção).
+export interface PersistedAdherenceSnapshot {
+  score: number;
+  level: AdherenceLevel;
+  status: PatientStatus;
+  streak: number;
+  weeklyCompletionRate: number;
+  riskFactors: string[];
+  positiveFactors: string[];
+}
+
+/**
+ * Converte um snapshot persistido em AdherenceState para a UI da Home. Campos não persistidos
+ * (contextualMessage, journeyPhase, lastScoreChange) são derivados de forma determinística.
+ * `prevScore` (snapshot anterior) alimenta o badge de variação (+N/-N) real.
+ */
+export function adherenceStateFromSnapshot(
+  latest: PersistedAdherenceSnapshot,
+  prevScore?: number
+): AdherenceState {
+  const partial: Omit<AdherenceState, 'contextualMessage'> = {
+    score: latest.score,
+    level: latest.level,
+    status: latest.status,
+    journeyPhase: getJourneyPhase(latest.streak, 0),
+    daysSinceLastInteraction: 0,
+    streak: latest.streak,
+    weeklyCompletionRate: latest.weeklyCompletionRate,
+    riskFactors: latest.riskFactors ?? [],
+    positiveFactors: latest.positiveFactors ?? [],
+    lastScoreChange: prevScore === undefined ? 0 : latest.score - prevScore,
+  };
+  return { ...partial, contextualMessage: getContextualMessage(partial) };
 }
 
 // Journey checkpoints

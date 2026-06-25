@@ -15,6 +15,17 @@ export { upsertMuscleRecovery } from "./recovery";
 export type { UpsertMuscleRecoveryInput } from "./recovery";
 export { getMyNutritionPlan } from "./plan";
 export type { MealView, NutritionPlanView } from "./plan";
-export { insertAdherenceSnapshot } from "./adherence";
+export {
+  insertAdherenceSnapshot,
+  computeAdherenceFromActivity,
+  getLatestAdherenceState,
+} from "./adherence";
 export type { InsertAdherenceSnapshotInput } from "./adherence";
 export { getMyWorkoutPlan } from "./workouts";
+export { logWeight, getRecentWeightLogs } from "./weight";
+export type { LogWeightInput, WeightLogRow } from "./weight";
+export { logHydration, getHydrationTodayLiters } from "./hydration";
+export type { LogHydrationInput } from "./hydration";
+export { uploadProgressPhoto, getLatestProgressPhoto } from "./photos";
+export type { UploadProgressPhotoResult, ProgressPhotoRow } from "./photos";
+export { getPendingSummary } from "./pending";

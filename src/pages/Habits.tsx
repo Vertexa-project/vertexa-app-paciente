@@ -1,14 +1,17 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Droplets, Moon, Footprints, Smile, Plus, Minus, Check } from "lucide-react";
+import { ArrowLeft, Droplets, Moon, Footprints, Smile, Plus, Check, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { habitTracking } from "@/data/mockData";
 import { tracker } from "@/lib/eventTracker";
+import { logHydration, getHydrationTodayLiters } from "@/lib/api";
+import { WATER_GOAL_LITERS, WATER_INCREMENT_LITERS } from "@/lib/hydrationMath";
 import BottomNav from "@/components/BottomNav";
 
 export default function Habits() {
   const navigate = useNavigate();
-  const [water, setWater] = useState(habitTracking.water.current);
+  const qc = useQueryClient();
   const [mood, setMood] = useState(habitTracking.mood);
   const [saved, setSaved] = useState<string | null>(null);
 
@@ -17,19 +20,34 @@ export default function Habits() {
     setTimeout(() => setSaved(null), 1500);
   }, []);
 
-  const addWater = () => {
-    const newVal = Math.min(5, water + 0.25);
-    setWater(newVal);
-    tracker.track('hydration_logged', { amount: newVal });
-    showSaved('Água registrada!');
-  };
+  // "Água de hoje" = soma dos eventos hydration_logged do dia (payload.liters) — fonte: banco.
+  const hydrationToday = useQuery({ queryKey: ["hydrationToday"], queryFn: getHydrationTodayLiters });
+  const water = hydrationToday.data ?? 0;
+  const goalReached = water >= WATER_GOAL_LITERS;
 
-  const removeWater = () => setWater(Math.max(0, water - 0.25));
+  const addWater = useMutation({
+    mutationFn: () => logHydration({ liters: WATER_INCREMENT_LITERS }),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["hydrationToday"] });
+      const prev = qc.getQueryData<number>(["hydrationToday"]) ?? 0;
+      qc.setQueryData(["hydrationToday"], Math.round((prev + WATER_INCREMENT_LITERS) * 100) / 100);
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx) qc.setQueryData(["hydrationToday"], ctx.prev);
+      showSaved("Falha ao registrar água");
+    },
+    onSuccess: () => showSaved("Água registrada!"),
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["hydrationToday"] });
+    },
+  });
 
   const logMood = (m: string) => {
     setMood(m as typeof mood);
-    tracker.track('mood_logged', { mood: m });
-    showSaved('Humor registrado!');
+    // mood_logged é hábito: o eventSync recomputa o VRI; a Home relê o snapshot ao montar.
+    tracker.track("mood_logged", { mood: m });
+    showSaved("Humor registrado!");
   };
 
   const moods = [
@@ -38,6 +56,8 @@ export default function Habits() {
     { key: "neutro", label: "Neutro", emoji: "😐" },
     { key: "mal", label: "Mal", emoji: "😔" },
   ];
+
+  const waterPct = Math.min((water / WATER_GOAL_LITERS) * 100, 100);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -56,24 +76,23 @@ export default function Habits() {
               <Droplets size={20} className="text-primary" />
               <h3 className="text-sm font-semibold text-foreground">Hidratação</h3>
             </div>
-            <span className="text-xs text-muted-foreground">{water.toFixed(1)}L / 2.5L</span>
+            <span className="text-xs text-muted-foreground">{water.toFixed(2)}L / {WATER_GOAL_LITERS}L</span>
           </div>
           <div className="h-2 rounded-full bg-muted overflow-hidden mb-4">
-            <motion.div className={`h-full rounded-full ${water >= 2.5 ? 'bg-success' : 'gradient-orange'}`} animate={{ width: `${Math.min((water / 2.5) * 100, 100)}%` }} />
+            <motion.div className={`h-full rounded-full ${goalReached ? "bg-success" : "gradient-orange"}`} animate={{ width: `${waterPct}%` }} />
           </div>
           <div className="flex items-center justify-center gap-6">
-            <button onClick={removeWater} className="w-12 h-12 rounded-full bg-muted flex items-center justify-center active:scale-95 transition-transform">
-              <Minus size={20} className="text-foreground" />
-            </button>
             <div className="text-center">
-              <span className="text-3xl font-display font-bold text-foreground">{water.toFixed(1)}</span>
-              <span className="text-sm text-muted-foreground ml-1">L</span>
+              <span className="text-3xl font-display font-bold text-foreground">{water.toFixed(2)}</span>
+              <span className="text-sm text-muted-foreground ml-1">L hoje</span>
             </div>
-            <button onClick={addWater} className="w-12 h-12 rounded-full gradient-orange flex items-center justify-center shadow-orange active:scale-95 transition-transform">
+            <button onClick={() => addWater.mutate()} disabled={addWater.isPending}
+              className="h-12 px-5 rounded-full gradient-orange flex items-center gap-2 shadow-orange active:scale-95 transition-transform disabled:opacity-60">
               <Plus size={20} className="text-primary-foreground" />
+              <span className="text-sm font-semibold text-primary-foreground">+{WATER_INCREMENT_LITERS}L</span>
             </button>
           </div>
-          {water >= 2.5 && (
+          {goalReached && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-xs text-success font-medium mt-3">
               ✓ Meta de hidratação atingida!
             </motion.p>
@@ -140,12 +159,28 @@ export default function Habits() {
               initial={{ opacity: 0, scale: 0.8, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8 }}
               className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-success text-success-foreground px-5 py-3 rounded-full flex items-center gap-2 shadow-lg z-50"
             >
-              <Check size={16} />
+              {saved.startsWith("Falha") ? <X size={16} /> : <Check size={16} />}
               <span className="text-sm font-medium">{saved}</span>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* Quick-add water FAB (flutuante), empilhado acima do botão de chat (bottom-[88px]) */}
+      <motion.button
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        whileTap={{ scale: 0.9 }}
+        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        onClick={() => addWater.mutate()}
+        disabled={addWater.isPending}
+        aria-label={`Registrar +${WATER_INCREMENT_LITERS}L de água`}
+        className="fixed z-40 right-5 bottom-[148px] w-14 h-14 rounded-full bg-card border border-primary/30 shadow-lg flex flex-col items-center justify-center active:scale-95 transition-transform disabled:opacity-60"
+      >
+        <Droplets size={18} className="text-primary" />
+        <span className="text-[9px] font-bold text-primary leading-none mt-0.5">+{WATER_INCREMENT_LITERS}L</span>
+      </motion.button>
+
       <BottomNav />
     </div>
   );

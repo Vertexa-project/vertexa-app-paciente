@@ -4,16 +4,22 @@
 
 const DEMO_PATIENT_PROFILE_ID = import.meta.env.VITE_DEMO_PATIENT_PROFILE_ID;
 
-if (!DEMO_PATIENT_PROFILE_ID) {
-  throw new Error(
-    "Missing VITE_DEMO_PATIENT_PROFILE_ID in .env (demo patient profile id)"
+/** true quando o id do paciente de demo está configurado no .env. */
+export const isDemoPatientConfigured = Boolean(DEMO_PATIENT_PROFILE_ID);
+
+if (!isDemoPatientConfigured && import.meta.env.DEV) {
+  // Não estoura no carregamento do módulo (evita tela branca no boot, ver main.tsx);
+  // apenas sinaliza. As funções de api/ tratam o id ausente retornando vazio/null.
+  console.error(
+    "[VERTEXA] VITE_DEMO_PATIENT_PROFILE_ID ausente no .env (id do perfil do paciente de demo)."
   );
 }
 
 /**
  * Returns the profiles.id of the current patient.
- * Demo mode returns the seeded patient; swap for real auth later.
+ * Demo mode returns the seeded patient; swap for real auth later. Retorna "" quando ausente
+ * (sem throw) — chamadas Supabase com profile_id vazio simplesmente não encontram linha.
  */
 export function getCurrentPatientProfileId(): string {
-  return DEMO_PATIENT_PROFILE_ID;
+  return DEMO_PATIENT_PROFILE_ID || "";
 }
