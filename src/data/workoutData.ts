@@ -1,5 +1,6 @@
 // Enhanced workout data for guided execution flow
-// GIFs from MuscleWiki/exercise illustration APIs (using placeholder animated URLs)
+// GIFs OFICIAIS da cliente (bundle): src/assets/exercises/* via import.meta.glob (Sessão 3).
+// Exercícios sem asset oficial mantêm a URL de terceiros como fallback (pendência pontual).
 
 export interface ExerciseSet {
   reps: number;
@@ -30,6 +31,33 @@ export interface Workout {
   completed: boolean;
 }
 
+// ── GIFs oficiais da cliente (bundle) ──
+// Resolvidos por nome de arquivo NORMALIZADO (tolera espaços/acentos/maiúsculas/hífens/trailing
+// space). Onde não há asset oficial, o gifUrl mantém a URL de terceiros como fallback.
+const OFFICIAL_EXERCISE_GIFS = import.meta.glob("../assets/exercises/*.gif", {
+  eager: true,
+  query: "?url",
+  import: "default",
+}) as Record<string, string>;
+
+const normGifKey = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+const officialGifByKey: Record<string, string> = {};
+for (const [path, url] of Object.entries(OFFICIAL_EXERCISE_GIFS)) {
+  const base = (path.split("/").pop() ?? "").replace(/\.gif$/i, "");
+  officialGifByKey[normGifKey(base)] = url;
+}
+
+/** URL do GIF oficial da cliente p/ o nome de arquivo informado; avisa em DEV se faltar. */
+function ex(file: string): string {
+  const url = officialGifByKey[normGifKey(file)];
+  if (!url && import.meta.env.DEV) {
+    console.warn(`[VERTEXA workoutData] GIF oficial não encontrado: "${file}"`);
+  }
+  return url ?? "";
+}
+
 export const workoutSchedule: Workout[] = [
   {
     id: "workout-a",
@@ -50,7 +78,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 10, weight: 45, completed: false },
         ],
         restSeconds: 60,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Lat-Pulldown.gif",
+        gifUrl: ex("PUXADA ALTA - TREINO A"),
         notes: "Manter escápulas retraídas",
       },
       {
@@ -64,7 +92,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 10, weight: 35, completed: false },
         ],
         restSeconds: 60,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bent-Over-Row.gif",
+        gifUrl: ex("REMADA CURVADA - TREINO A"),
         notes: "Costas retas, puxar para o abdômen",
       },
       {
@@ -77,7 +105,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 18, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/One-Arm-Dumbbell-Row.gif",
+        gifUrl: ex("REMADA UNILATERAL - TREINO A"),
       },
       {
         id: "ex-4",
@@ -89,7 +117,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 10, weight: 18, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Curl.gif",
+        gifUrl: ex("Rosca Direta Barra - TREINO A"),
         notes: "Controlar a descida",
       },
       {
@@ -102,7 +130,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 10, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Hammer-Curl.gif",
+        gifUrl: ex("Rosca Martelo - TREINO A"),
       },
     ],
     estimatedMinutes: 50,
@@ -128,7 +156,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 8, weight: 55, completed: false },
         ],
         restSeconds: 90,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Bench-Press.gif",
+        gifUrl: ex("Supino Reto Barra - treino b"),
         notes: "Descer até o peito, subir explosivo",
       },
       {
@@ -141,7 +169,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 10, weight: 18, completed: false },
         ],
         restSeconds: 60,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Dumbbell-Press.gif",
+        gifUrl: ex("Supino Inclinado Halteres"),
       },
       {
         id: "ex-8",
@@ -153,7 +181,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 35, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Pec-Deck-Fly.gif",
+        gifUrl: ex("Crucifixo Polia treino b"),
       },
       {
         id: "ex-9",
@@ -165,7 +193,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 25, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Pushdown.gif",
+        gifUrl: ex("Tríceps Pulley - treino b"),
       },
       {
         id: "ex-10",
@@ -177,7 +205,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 14, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Lying-Triceps-Extension.gif",
+        gifUrl: ex("Tríceps Testa"),
       },
     ],
     estimatedMinutes: 45,
@@ -203,7 +231,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 8, weight: 30, completed: false },
         ],
         restSeconds: 60,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Overhead-Press.gif",
+        gifUrl: ex("desenvolvimento com halter"),
       },
       {
         id: "ex-12",
@@ -216,7 +244,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 10, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lateral-Raise.gif",
+        gifUrl: ex("elevação lateral"),
         notes: "Levantar até a linha dos ombros",
       },
       {
@@ -229,7 +257,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 8, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Front-Raise.gif",
+        gifUrl: ex("ELEVAÇÃO FRONTAL"),
       },
       {
         id: "ex-14",
@@ -241,7 +269,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 50, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Shrug.gif",
+        gifUrl: ex("Encolhimento Barra"),
       },
       {
         id: "ex-15",
@@ -253,7 +281,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 15, weight: 15, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Face-Pull.gif",
+        gifUrl: ex("Face Pull Polia"),
         notes: "Puxar até o nível do rosto",
       },
     ],
@@ -280,7 +308,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 8, weight: 60, completed: false },
         ],
         restSeconds: 90,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/BARBELL-SQUAT.gif",
+        gifUrl: ex("agachamento livre"),
         notes: "Descer até 90° ou mais",
       },
       {
@@ -294,7 +322,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 10, weight: 140, completed: false },
         ],
         restSeconds: 90,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Leg-Press.gif",
+        gifUrl: ex("LEG PRESS 45"),
       },
       {
         id: "ex-18",
@@ -306,7 +334,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 35, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/LEG-EXTENSION.gif",
+        gifUrl: ex("EXTENSORA"),
       },
       {
         id: "ex-19",
@@ -318,7 +346,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 12, completed: false },
         ],
         restSeconds: 60,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Lunges.gif",
+        gifUrl: ex("Avanço Halteres"),
       },
       {
         id: "ex-20",
@@ -331,7 +359,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 20, weight: 40, completed: false },
         ],
         restSeconds: 30,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Standing-Calf-Raise.gif",
+        gifUrl: ex("Panturrilha em Pé"),
       },
     ],
     estimatedMinutes: 55,
@@ -357,7 +385,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 10, weight: 35, completed: false },
         ],
         restSeconds: 60,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Barbell-Stiff-Leg-Deadlift.gif",
+        gifUrl: ex("Stiff Barra"),
         notes: "Manter joelhos levemente flexionados",
       },
       {
@@ -370,7 +398,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 30, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Leg-Curl.gif",
+        gifUrl: ex("Cadeira Flexora"),
       },
       {
         id: "ex-23",
@@ -386,15 +414,15 @@ export const workoutSchedule: Workout[] = [
       },
       {
         id: "ex-24",
-        name: "Abdução de quadril",
-        muscleGroups: ["Glúteo médio"],
+        name: "Cadeira adutora",
+        muscleGroups: ["Adutores"],
         sets: [
           { reps: 15, weight: 30, completed: false },
           { reps: 15, weight: 30, completed: false },
           { reps: 15, weight: 30, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Hip-Abduction-Machine.gif",
+        gifUrl: ex("Cadeira adutora"),
       },
       {
         id: "ex-25",
@@ -406,7 +434,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 20, weight: 20, completed: false },
         ],
         restSeconds: 30,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Seated-Calf-Raise.gif",
+        gifUrl: ex("panturrilha sentado"),
       },
     ],
     estimatedMinutes: 50,
@@ -432,7 +460,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 8, weight: 40, completed: false },
         ],
         restSeconds: 90,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Incline-Barbell-Bench-Press.gif",
+        gifUrl: ex("Supino Inclinado Barra"),
       },
       {
         id: "ex-27",
@@ -444,7 +472,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 12, weight: 20, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Cable-Crossover.gif",
+        gifUrl: ex("Crossover Polia"),
       },
       {
         id: "ex-28",
@@ -456,7 +484,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 10, weight: 14, completed: false },
         ],
         restSeconds: 60,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Arnold-Dumbbell-Press.gif",
+        gifUrl: ex("DESENVOLVIMENTO ARNOLD"),
       },
       {
         id: "ex-29",
@@ -468,7 +496,7 @@ export const workoutSchedule: Workout[] = [
           { reps: 15, weight: 6, completed: false },
         ],
         restSeconds: 45,
-        gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Dumbbell-Rear-Lateral-Raise.gif",
+        gifUrl: ex("Elevação Lateral Cabo"),
       },
       {
         id: "ex-30",
