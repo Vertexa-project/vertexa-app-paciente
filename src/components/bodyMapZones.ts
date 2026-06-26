@@ -38,8 +38,8 @@ export interface BodyZone {
 const FRONT_ZONES: BodyZone[] = [
   {
     id: "front-shoulders", muscle: "shoulders", labelPt: "Ombros", side: "front", mirror: true,
-    center: { x: 33.5, y: 47 },
-    path: "M 40,41 C 34,40.5 29.5,44 29,49 C 28.8,52.5 31.5,54.5 35,53 C 39,51 41.5,46 40.5,42.5 Z",
+    center: { x: 33.5, y: 49 },
+    path: "M 40,44 C 35,42 30,43.5 28.5,48 C 27.8,51 29.5,54.5 33,56 C 35,56.8 37,54 38.5,50.5 C 39.5,48 40,46 40,44 Z",
   },
   {
     id: "front-chest", muscle: "chest", labelPt: "Peitoral", side: "front", mirror: true,
@@ -48,13 +48,13 @@ const FRONT_ZONES: BodyZone[] = [
   },
   {
     id: "front-biceps", muscle: "biceps", labelPt: "Bíceps", side: "front", mirror: true,
-    center: { x: 29, y: 58.5 },
-    path: "M 31.5,53.5 C 27.5,54.5 26,58 26.2,62 C 26.4,64.5 29,65 31,62.5 C 32.2,60 32.5,56 31.5,53.5 Z",
+    center: { x: 29.2, y: 60.4 },
+    path: "M 31.0,57.2 C 28.0,57.4 26.3,58.8 26.3,60.8 C 26.3,63.1 28.5,65.6 30.8,65.1 C 32,64.6 32.4,62.2 32.3,59.7 C 32.2,58.1 31.6,57.4 31.0,57.2 Z",
   },
   {
     id: "front-forearms", muscle: "forearms", labelPt: "Antebraços", side: "front", mirror: true,
-    center: { x: 25, y: 73 },
-    path: "M 28,65.5 C 24.5,67.5 22.5,72 22,77 C 21.8,80.5 24,81.5 26,79 C 28,75 28.8,69 28,65.5 Z",
+    center: { x: 24.8, y: 73.5 },
+    path: "M 28,66 C 25,66 23,68 22,72 C 21,76 21.8,80 24,81.5 C 26,82.5 27,79 27.5,74 C 28,70 28.5,67.5 28,66 Z",
   },
   {
     id: "front-abs", muscle: "abs", labelPt: "Abdômen", side: "front", mirror: false,
