@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import { tracker } from "@/lib/eventTracker";
+import logoWordmark from "@/assets/logo/logo_2.png";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -24,11 +25,8 @@ export default function Login() {
   return (
     <div className="fixed inset-0 bg-background flex flex-col px-8 pt-16 pb-8">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex-1 flex flex-col">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl gradient-orange flex items-center justify-center">
-            <span className="text-lg font-display font-extrabold text-primary-foreground">V</span>
-          </div>
-          <span className="text-xl font-display font-bold text-foreground">VERTEXA</span>
+        <div className="flex items-center mb-2">
+          <img src={logoWordmark} alt="VERTEXA" className="h-8 w-auto select-none" draggable={false} />
         </div>
         <p className="text-muted-foreground text-sm mb-10">Entre para acessar seu acompanhamento</p>
 

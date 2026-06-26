@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import logoWordmark from "@/assets/logo/logo_2.png";
 
 export default function Splash() {
   const navigate = useNavigate();
@@ -18,21 +19,12 @@ export default function Splash() {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="flex flex-col items-center gap-4"
       >
-        <motion.div
-          className="w-20 h-20 rounded-2xl gradient-orange flex items-center justify-center shadow-orange"
-          animate={{ boxShadow: ["0 0 0 0 hsla(24,95%,53%,0.4)", "0 0 0 20px hsla(24,95%,53%,0)", "0 0 0 0 hsla(24,95%,53%,0)"] }}
-          transition={{ duration: 2, repeat: Infinity }}
-        >
-          <span className="text-3xl font-display font-extrabold text-primary-foreground tracking-tighter">V</span>
-        </motion.div>
-        <motion.h1
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.6 }}
-          className="text-3xl font-display font-extrabold tracking-tight text-foreground"
-        >
-          VERTEXA
-        </motion.h1>
+        <img
+          src={logoWordmark}
+          alt="VERTEXA"
+          className="w-60 max-w-[72vw] h-auto select-none"
+          draggable={false}
+        />
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
