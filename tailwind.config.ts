@@ -43,6 +43,13 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        recovery: {
+          fatigued: "hsl(var(--recovery-fatigued))",
+          recovering: "hsl(var(--recovery-recovering))",
+          recovered: "hsl(var(--recovery-recovered))",
+          weakened: "hsl(var(--recovery-weakened))",
+          neutral: "hsl(var(--recovery-neutral))",
+        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",

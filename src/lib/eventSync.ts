@@ -13,6 +13,7 @@ import {
   getLatestAdherenceState,
 } from "@/lib/api";
 import { musclesForWorkout } from "@/lib/muscleMap";
+import { queryClient } from "@/lib/queryClient";
 
 // EXPLICIT allow-list of patient-action events to persist. Everything else
 // (home_viewed, plan_viewed, *_viewed, login_completed, ...) is ignored.
@@ -87,6 +88,8 @@ async function updateMuscleRecovery(workoutId: string): Promise<void> {
     const muscles = musclesForWorkout(workoutId);
     if (muscles.length === 0) return;
     await upsertMuscleRecovery({ patientId, muscles });
+    // O body map dinâmico lê ['recovery', patientId]; invalida p/ repintar ao concluir o treino.
+    void queryClient.invalidateQueries({ queryKey: ["recovery"] });
   } catch (err) {
     if (import.meta.env.DEV) {
       console.error("[VERTEXA eventSync] failed to update muscle recovery", workoutId, err);

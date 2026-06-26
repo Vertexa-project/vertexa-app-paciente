@@ -6,43 +6,11 @@ import { weightHistory, achievements, patient } from "@/data/mockData";
 import { getAdherenceState } from "@/lib/adherenceEngine";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
+import DynamicBodyMap from "@/components/DynamicBodyMap";
 
 type Period = "7d" | "14d" | "28d";
 
 const periodLabels: Record<Period, string> = { "7d": "7 dias", "14d": "14 dias", "28d": "28 dias" };
-
-type MuscleStatus = "fatigued" | "recovering" | "neutral" | "activated";
-
-interface MuscleRegion {
-  id: string;
-  name: string;
-  status: MuscleStatus;
-  intensity: number; // 0-100
-  side: "front" | "back" | "both";
-  lastTrained?: string;
-}
-
-const muscleRegions: MuscleRegion[] = [
-  { id: "chest", name: "Peitoral", status: "recovering", intensity: 72, side: "front", lastTrained: "Ontem" },
-  { id: "shoulders", name: "Ombros", status: "recovering", intensity: 65, side: "front", lastTrained: "Ontem" },
-  { id: "biceps", name: "Bíceps", status: "fatigued", intensity: 88, side: "front", lastTrained: "Hoje" },
-  { id: "triceps", name: "Tríceps", status: "fatigued", intensity: 82, side: "front", lastTrained: "Hoje" },
-  { id: "abs", name: "Abdômen", status: "neutral", intensity: 25, side: "front" },
-  { id: "quads", name: "Quadríceps", status: "activated", intensity: 90, side: "front", lastTrained: "Hoje" },
-  { id: "upperback", name: "Costas alta", status: "neutral", intensity: 30, side: "back" },
-  { id: "lats", name: "Dorsais", status: "recovering", intensity: 68, side: "back", lastTrained: "2 dias" },
-  { id: "lowerback", name: "Lombar", status: "neutral", intensity: 20, side: "back" },
-  { id: "glutes", name: "Glúteos", status: "activated", intensity: 85, side: "back", lastTrained: "Hoje" },
-  { id: "hamstrings", name: "Posteriores", status: "recovering", intensity: 60, side: "back", lastTrained: "2 dias" },
-  { id: "calves", name: "Panturrilha", status: "neutral", intensity: 15, side: "back" },
-];
-
-const statusConfig: Record<MuscleStatus, { color: string; glow: string; label: string; dot: string }> = {
-  fatigued: { color: "hsl(0, 85%, 60%)", glow: "hsl(0, 85%, 60%)", label: "Fadiga alta", dot: "bg-red-500" },
-  recovering: { color: "hsl(35, 95%, 55%)", glow: "hsl(25, 95%, 53%)", label: "Em recuperação", dot: "bg-amber-500" },
-  neutral: { color: "hsl(220, 10%, 40%)", glow: "hsl(220, 10%, 40%)", label: "Baixo estímulo", dot: "bg-muted-foreground/40" },
-  activated: { color: "hsl(25, 95%, 53%)", glow: "hsl(25, 95%, 53%)", label: "Muito ativado", dot: "bg-primary" },
-};
 
 // Mock muscle data for the detail list
 const muscleGroups = [
@@ -89,135 +57,6 @@ const recentActivities = [
   { id: "2", modality: "Jiu-Jitsu", icon: "🥋", duration: 60, calories: 720, date: "Ontem", source: "manual" as const },
   { id: "3", modality: "Caminhada", icon: "🚶", duration: 45, calories: 225, date: "Ter", source: "device" as const },
 ];
-
-function PremiumBodyMap({ side, regions }: { side: "front" | "back"; regions: MuscleRegion[] }) {
-  const sideRegions = regions.filter(r => r.side === side || r.side === "both");
-  
-  const getRegionStyle = (regionId: string) => {
-    const region = sideRegions.find(r => r.id === regionId);
-    if (!region) return { fill: "hsl(220, 10%, 18%)", opacity: 0.15 };
-    const cfg = statusConfig[region.status];
-    const opacityBase = region.status === "neutral" ? 0.12 : 0.25 + (region.intensity / 100) * 0.55;
-    return { fill: cfg.color, opacity: opacityBase };
-  };
-
-  const frontMuscles = [
-    // Shoulders
-    { id: "shoulders", d: "M28,38 Q22,36 20,42 L20,48 Q24,46 30,44 Z", mirror: true },
-    // Chest
-    { id: "chest", d: "M30,44 Q38,42 50,42 Q62,42 70,44 L70,56 Q62,58 50,58 Q38,58 30,56 Z" },
-    // Biceps
-    { id: "biceps", d: "M18,50 Q14,52 14,62 L14,72 Q18,70 20,66 L20,50 Z", mirror: true },
-    // Triceps (front view, inner arm)
-    { id: "triceps", d: "M20,50 L22,50 L22,66 Q20,70 18,72 L18,68 L20,66 Z", mirror: true },
-    // Abs
-    { id: "abs", d: "M36,58 L64,58 L62,82 Q50,84 38,82 Z" },
-    // Quads
-    { id: "quads", d: "M30,84 L46,84 L44,118 Q38,120 32,118 Z", mirror: true },
-  ];
-
-  const backMuscles = [
-    // Upper back / traps
-    { id: "upperback", d: "M30,38 Q40,36 50,36 Q60,36 70,38 L68,48 Q50,46 32,48 Z" },
-    // Lats
-    { id: "lats", d: "M28,48 L32,48 Q38,56 36,68 L28,68 Z", mirror: true },
-    // Lower back
-    { id: "lowerback", d: "M36,68 L64,68 L62,82 Q50,84 38,82 Z" },
-    // Glutes
-    { id: "glutes", d: "M32,82 L68,82 L66,96 Q50,100 34,96 Z" },
-    // Hamstrings
-    { id: "hamstrings", d: "M32,98 L46,98 L44,130 Q38,132 34,130 Z", mirror: true },
-    // Calves
-    { id: "calves", d: "M34,132 L44,132 L42,152 Q38,154 36,152 Z", mirror: true },
-  ];
-
-  const muscles = side === "front" ? frontMuscles : backMuscles;
-
-  return (
-    <div className="flex flex-col items-center">
-      <svg viewBox="0 0 100 170" className="w-full max-w-[140px]" style={{ filter: "drop-shadow(0 0 12px hsla(25, 95%, 53%, 0.08))" }}>
-        {/* Base body silhouette */}
-        <defs>
-          <linearGradient id={`bodyGrad-${side}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(220, 15%, 22%)" />
-            <stop offset="100%" stopColor="hsl(220, 12%, 16%)" />
-          </linearGradient>
-          <filter id={`glow-${side}`}>
-            <feGaussianBlur stdDeviation="2" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        
-        {/* Head */}
-        <ellipse cx="50" cy="14" rx="10" ry="12" fill={`url(#bodyGrad-${side})`} stroke="hsl(220, 15%, 28%)" strokeWidth="0.5" />
-        {/* Neck */}
-        <rect x="45" y="26" width="10" height="8" rx="3" fill={`url(#bodyGrad-${side})`} />
-        {/* Torso */}
-        <path d="M28,34 Q28,32 32,32 L68,32 Q72,32 72,34 L74,82 Q74,86 68,86 L32,86 Q26,86 26,82 Z" fill={`url(#bodyGrad-${side})`} stroke="hsl(220, 15%, 28%)" strokeWidth="0.4" />
-        {/* Arms */}
-        <path d="M26,36 Q18,34 14,42 L12,72 Q12,76 16,76 L20,76 Q22,76 22,72 L24,48 Z" fill={`url(#bodyGrad-${side})`} stroke="hsl(220, 15%, 28%)" strokeWidth="0.4" />
-        <path d="M74,36 Q82,34 86,42 L88,72 Q88,76 84,76 L80,76 Q78,76 78,72 L76,48 Z" fill={`url(#bodyGrad-${side})`} stroke="hsl(220, 15%, 28%)" strokeWidth="0.4" />
-        {/* Pelvis */}
-        <path d="M30,82 L70,82 L68,96 Q50,100 32,96 Z" fill={`url(#bodyGrad-${side})`} stroke="hsl(220, 15%, 28%)" strokeWidth="0.4" />
-        {/* Legs */}
-        <path d="M30,96 L48,96 L46,148 Q46,154 42,156 L34,156 Q30,154 30,148 Z" fill={`url(#bodyGrad-${side})`} stroke="hsl(220, 15%, 28%)" strokeWidth="0.4" />
-        <path d="M52,96 L70,96 L70,148 Q70,154 66,156 L58,156 Q54,154 54,148 Z" fill={`url(#bodyGrad-${side})`} stroke="hsl(220, 15%, 28%)" strokeWidth="0.4" />
-
-        {/* Muscle regions with status-based coloring */}
-        {muscles.map((m) => {
-          const style = getRegionStyle(m.id);
-          const paths = [m.d];
-          // Mirror for bilateral muscles
-          if (m.mirror) {
-            // Render original + mirrored
-            return (
-              <g key={m.id} filter={style.opacity > 0.3 ? `url(#glow-${side})` : undefined}>
-                <path d={m.d} fill={style.fill} opacity={style.opacity} rx="2" />
-                <path d={m.d} fill={style.fill} opacity={style.opacity} transform="translate(100, 0) scale(-1, 1)" />
-              </g>
-            );
-          }
-          return (
-            <path key={m.id} d={m.d} fill={style.fill} opacity={style.opacity} filter={style.opacity > 0.3 ? `url(#glow-${side})` : undefined} />
-          );
-        })}
-
-        {/* Subtle body outline glow */}
-        <ellipse cx="50" cy="14" rx="10" ry="12" fill="none" stroke="hsl(220, 15%, 30%)" strokeWidth="0.3" />
-      </svg>
-      <span className="text-[11px] font-medium text-muted-foreground mt-2">
-        {side === "front" ? "Frontal" : "Posterior"}
-      </span>
-    </div>
-  );
-}
-
-function RecoverySummary({ regions }: { regions: MuscleRegion[] }) {
-  const fatigued = regions.filter(r => r.status === "fatigued").map(r => r.name.toLowerCase());
-  const recovering = regions.filter(r => r.status === "recovering").map(r => r.name.toLowerCase());
-  const activated = regions.filter(r => r.status === "activated").map(r => r.name.toLowerCase());
-  const neutral = regions.filter(r => r.status === "neutral").map(r => r.name.toLowerCase());
-
-  const insights: string[] = [];
-  if (activated.length) insights.push(`Maior estímulo em ${activated.join(" e ")} nesta semana`);
-  if (fatigued.length) insights.push(`${fatigued.join(" e ")} com fadiga elevada — evite sobrecarregar`);
-  if (recovering.length) insights.push(`${recovering.join(", ")} ainda em recuperação`);
-  if (neutral.length > 2) insights.push(`Baixo estímulo em membros como ${neutral.slice(0, 2).join(" e ")}`);
-
-  return (
-    <div className="space-y-2">
-      {insights.slice(0, 3).map((insight, i) => (
-        <div key={i} className="flex items-start gap-2">
-          <div className="w-1 h-1 rounded-full bg-primary mt-1.5 shrink-0" />
-          <p className="text-[11px] text-muted-foreground leading-relaxed">{insight}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 const evolutionPhotos = [
   { id: 'jan', month: 'Jan', year: '2026', label: 'Janeiro 2026', hasPhoto: true },
@@ -278,27 +117,8 @@ export default function Progress() {
           </div>
           <p className="text-[11px] text-muted-foreground mb-5 ml-9">Leitura do seu corpo nos últimos dias</p>
 
-          {/* Body map */}
-          <div className="grid grid-cols-2 gap-6 mb-5 px-2">
-            <PremiumBodyMap side="front" regions={muscleRegions} />
-            <PremiumBodyMap side="back" regions={muscleRegions} />
-          </div>
-
-          {/* Legend */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-2 mb-5 px-1">
-            {(Object.entries(statusConfig) as [MuscleStatus, typeof statusConfig[MuscleStatus]][]).map(([key, cfg]) => (
-              <div key={key} className="flex items-center gap-2.5">
-                <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} style={{ boxShadow: `0 0 6px ${cfg.color}40` }} />
-                <span className="text-[11px] text-muted-foreground">{cfg.label}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Divider */}
-          <div className="h-px bg-border/50 mb-4" />
-
-          {/* Smart summary */}
-          <RecoverySummary regions={muscleRegions} />
+          {/* Body map dinâmico (lê muscle_recovery_states; status derivado de last_trained_at) */}
+          <DynamicBodyMap />
         </motion.div>
 
         {/* ═══ LAYER 2: Period Stats ═══ */}

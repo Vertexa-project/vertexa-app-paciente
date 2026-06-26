@@ -36,6 +36,14 @@
     --warning: 45 93% 47%;
     --warning-foreground: 0 0% 10%;
 
+    /* Recuperação muscular (CONTRATO #1) — cores do body map dinâmico.
+       fatigued=vermelho · recovering=amarelo · recovered=AZUL · weakened=verde · neutral=cinza. */
+    --recovery-fatigued: 0 72% 51%;     /* família --destructive */
+    --recovery-recovering: 45 93% 47%;  /* família --warning */
+    --recovery-recovered: 211 92% 56%;  /* azul (sem token de marca anterior) */
+    --recovery-weakened: 142 71% 45%;   /* família --success */
+    --recovery-neutral: 0 0% 45%;       /* cinza (família --muted) — sem estímulo */
+
     --border: 0 0% 18%;
     --input: 0 0% 18%;
     --ring: 24 95% 53%;
