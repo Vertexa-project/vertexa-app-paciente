@@ -402,7 +402,7 @@ export default function WorkoutGuide() {
                   {warmupCompleted ? "Preparação concluída ✓" : "Preparação corporal"}
                 </span>
                 {!warmupCompleted && (
-                  <p className="text-[10px] text-primary font-medium">Mobilidade para {getWarmupFocusLabel(selectedWorkout)}</p>
+                  <p className="text-[10px] text-primary font-medium">Foco em {getWarmupFocusLabel(selectedWorkout)}</p>
                 )}
               </div>
             </div>
@@ -410,7 +410,7 @@ export default function WorkoutGuide() {
             <p className="text-[11px] text-muted-foreground mb-4 leading-relaxed">
               {warmupCompleted
                 ? "Seu corpo está preparado. Siga para o treino principal com confiança."
-                : "Antes de treinar, prepare articulações e ative a musculatura. Alguns minutos de mobilidade melhoram sua execução e reduzem riscos."}
+                : "Comece pelos exercícios de membros superiores, com foco na técnica e na amplitude do movimento."}
             </p>
 
             <div className="flex items-center gap-4 mb-4">
@@ -498,18 +498,23 @@ export default function WorkoutGuide() {
           </div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] text-muted-foreground">
-              {warmupIndex + 1} de {warmupExercises.length} · Mobilidade e ativação
+              {warmupIndex + 1} de {warmupExercises.length} · Treino de membros superiores
             </p>
             <p className="text-[10px] text-primary font-semibold">
-              Antes do treino
+              Exercícios
             </p>
           </div>
         </div>
 
         <div className="flex-1 max-w-[430px] w-full mx-auto px-5 overflow-y-auto pb-4">
           {/* GIF */}
-          <div className="w-full aspect-square max-h-[260px] rounded-2xl bg-white overflow-hidden mb-5">
-            <img src={currentWarmup.gifUrl} alt={currentWarmup.name} className="w-full h-full object-cover" />
+          <div className="w-full aspect-square max-h-[260px] rounded-2xl bg-muted overflow-hidden mb-5">
+            <img
+              src={currentWarmup.gifUrl}
+              alt={currentWarmup.name}
+              className="w-full h-full object-contain"
+              onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+            />
           </div>
 
           <h2 className="text-lg font-bold text-foreground mb-1">{currentWarmup.name}</h2>
@@ -542,8 +547,14 @@ export default function WorkoutGuide() {
             <div className="mt-2">
               <p className="text-xs text-muted-foreground font-medium mb-2">Próximo</p>
               <div className="bg-card rounded-xl p-3 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-lg bg-white overflow-hidden flex-shrink-0">
-                  <img src={nextWarmup.gifUrl} alt={nextWarmup.name} className="w-full h-full object-cover" loading="lazy" />
+                <div className="w-12 h-12 rounded-lg bg-muted overflow-hidden flex-shrink-0">
+                  <img
+                    src={nextWarmup.gifUrl}
+                    alt={nextWarmup.name}
+                    className="w-full h-full object-contain"
+                    loading="lazy"
+                    onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+                  />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">{nextWarmup.name}</p>
@@ -561,7 +572,7 @@ export default function WorkoutGuide() {
             onClick={advanceWarmup}
             className="w-full h-14 rounded-2xl gradient-orange text-primary-foreground font-bold text-base shadow-orange flex items-center justify-center gap-2"
           >
-            <CheckCircle2 size={18} /> {warmupIndex >= warmupExercises.length - 1 ? "Concluir preparação" : "Próximo"}
+            <CheckCircle2 size={18} /> {warmupIndex >= warmupExercises.length - 1 ? "Concluir treino" : "Próximo"}
           </motion.button>
         </div>
       </div>
@@ -587,9 +598,9 @@ export default function WorkoutGuide() {
             <CheckCircle2 size={36} className="text-emerald-400" />
           </motion.div>
 
-          <h1 className="text-xl font-display font-bold text-foreground mb-2">Corpo preparado!</h1>
+          <h1 className="text-xl font-display font-bold text-foreground mb-2">Preparação concluída!</h1>
           <p className="text-sm text-muted-foreground mb-3">
-            Seu corpo está ativado e pronto para o treino principal.
+            Membros superiores concluídos. Você está pronto para o treino principal.
           </p>
 
           {/* Summary stats */}
@@ -611,7 +622,7 @@ export default function WorkoutGuide() {
           </div>
 
           <p className="text-[11px] text-muted-foreground mb-6 px-4 leading-relaxed">
-            Bom aquecimento! A preparação melhora a qualidade da execução e reduz o risco de lesões.
+            Boa! A preparação melhora a qualidade da execução e reduz o risco de lesões.
           </p>
 
           <motion.button

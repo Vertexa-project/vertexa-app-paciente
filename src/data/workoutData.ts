@@ -529,171 +529,70 @@ export interface WarmupExercise {
   gifUrl: string;
 }
 
-// Warmup routines mapped by muscle group keyword
-const warmupsByFocus: Record<string, WarmupExercise[]> = {
-  default: [
-    {
-      id: "wu-1",
-      name: "Círculos de ombro",
-      focusArea: "Ombros e mobilidade escapular",
-      durationSeconds: 30,
-      instruction: "Faça círculos amplos com os braços, alternando sentido a cada 15s.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/06/Arm-Circles.gif",
-    },
-    {
-      id: "wu-2",
-      name: "Rotação torácica",
-      focusArea: "Coluna torácica",
-      durationSeconds: 30,
-      reps: 10,
-      instruction: "Em quatro apoios, leve o braço aberto para o lado e acompanhe com o olhar.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2022/02/Thoracic-Rotation.gif",
-    },
-    {
-      id: "wu-3",
-      name: "Agachamento profundo",
-      focusArea: "Quadril e tornozelos",
-      durationSeconds: 30,
-      reps: 8,
-      instruction: "Desça devagar até o máximo de amplitude, segure 2s embaixo.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Bodyweight-Squat.gif",
-    },
-    {
-      id: "wu-4",
-      name: "Alongamento de quadril (90/90)",
-      focusArea: "Quadril e glúteos",
-      durationSeconds: 40,
-      instruction: "Sente com as pernas em 90° à frente e atrás. Alterne lados.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2022/02/90-90-Hip-Stretch.gif",
-    },
-    {
-      id: "wu-5",
-      name: "Cat-Cow (Gato-Vaca)",
-      focusArea: "Coluna e core",
-      durationSeconds: 30,
-      reps: 10,
-      instruction: "Em quatro apoios, alterne entre arredondar e arquear a coluna com controle.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2022/02/Cat-Cow-Stretch.gif",
-    },
-  ],
-  upper: [
-    {
-      id: "wu-u1",
-      name: "Círculos de ombro",
-      focusArea: "Ombros e mobilidade escapular",
-      durationSeconds: 30,
-      instruction: "Faça círculos amplos com os braços, alternando sentido a cada 15s.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/06/Arm-Circles.gif",
-    },
-    {
-      id: "wu-u2",
-      name: "Rotação torácica",
-      focusArea: "Coluna torácica e ombros",
-      durationSeconds: 30,
-      reps: 10,
-      instruction: "Em quatro apoios, leve o braço aberto para o lado e acompanhe com o olhar.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2022/02/Thoracic-Rotation.gif",
-    },
-    {
-      id: "wu-u3",
-      name: "Passa e repassa",
-      focusArea: "Mobilidade de ombro",
-      durationSeconds: 30,
-      reps: 10,
-      instruction: "Com um bastão ou toalha, passe por cima da cabeça de frente para trás mantendo os braços estendidos.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/06/Arm-Circles.gif",
-    },
-    {
-      id: "wu-u4",
-      name: "Extensão torácica",
-      focusArea: "Coluna e peitorais",
-      durationSeconds: 30,
-      instruction: "Apoie as costas sobre um rolo ou banco e estenda os braços para trás, abrindo o peito.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2022/02/Cat-Cow-Stretch.gif",
-    },
-    {
-      id: "wu-u5",
-      name: "Ativação escapular",
-      focusArea: "Escápulas e dorsal",
-      durationSeconds: 30,
-      reps: 12,
-      instruction: "Pendure-se na barra e faça retração e protração da escápula sem flexionar os cotovelos.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/06/Arm-Circles.gif",
-    },
-  ],
-  lower: [
-    {
-      id: "wu-l1",
-      name: "Agachamento profundo",
-      focusArea: "Quadril e tornozelos",
-      durationSeconds: 30,
-      reps: 8,
-      instruction: "Desça devagar até o máximo de amplitude, segure 2s embaixo.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Bodyweight-Squat.gif",
-    },
-    {
-      id: "wu-l2",
-      name: "Alongamento de quadril (90/90)",
-      focusArea: "Quadril e glúteos",
-      durationSeconds: 40,
-      instruction: "Sente com as pernas em 90° à frente e atrás. Alterne lados.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2022/02/90-90-Hip-Stretch.gif",
-    },
-    {
-      id: "wu-l3",
-      name: "Mobilidade de tornozelo",
-      focusArea: "Tornozelos e panturrilha",
-      durationSeconds: 30,
-      reps: 10,
-      instruction: "Com o pé apoiado num degrau, leve o joelho à frente devagar sem tirar o calcanhar.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Bodyweight-Squat.gif",
-    },
-    {
-      id: "wu-l4",
-      name: "Avanço com rotação",
-      focusArea: "Quadril e core",
-      durationSeconds: 30,
-      reps: 8,
-      instruction: "Dê um passo largo à frente e gire o tronco para o lado da perna da frente.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Bodyweight-Squat.gif",
-    },
-    {
-      id: "wu-l5",
-      name: "Ponte de glúteos",
-      focusArea: "Glúteos e posterior",
-      durationSeconds: 30,
-      reps: 12,
-      instruction: "Deitado, eleve o quadril contraindo os glúteos no topo. Segure 2s.",
-      gifUrl: "https://fitnessprogramer.com/wp-content/uploads/2021/02/Bodyweight-Squat.gif",
-    },
-  ],
-};
+// Fluxo de "Preparação" = Treino de membros superiores (Sessão 12).
+// Substitui o antigo bloco de mobilidade/ativação, cujos GIFs eram URLs externas
+// (fitnessprogramer.com) SEM asset no projeto → cards brancos/quebrados.
+// Agora são 5 exercícios com GIF OFICIAL empacotado, resolvido por ex() (import.meta.glob acima).
+const preparationExercises: WarmupExercise[] = [
+  {
+    id: "prep-1",
+    name: "Face Pull na Polia",
+    focusArea: "Ombros, trapézio e costas",
+    durationSeconds: 30,
+    reps: 12,
+    instruction:
+      "Ajuste a corda na altura do rosto. Puxe em direção à face, abrindo os cotovelos e aproximando as escápulas no final do movimento.",
+    gifUrl: ex("Face Pull Polia"),
+  },
+  {
+    id: "prep-2",
+    name: "Elevação Lateral",
+    focusArea: "Ombros",
+    durationSeconds: 30,
+    reps: 12,
+    instruction:
+      "Com os halteres ao lado do corpo, eleve os braços lateralmente até a altura dos ombros. Desça de forma controlada.",
+    gifUrl: ex("elevação lateral"),
+  },
+  {
+    id: "prep-3",
+    name: "Desenvolvimento com Halteres",
+    focusArea: "Ombros e tríceps",
+    durationSeconds: 35,
+    reps: 10,
+    instruction:
+      "Comece com os halteres na altura dos ombros. Empurre para cima até estender os braços e retorne controlando o movimento.",
+    gifUrl: ex("desenvolvimento com halter"),
+  },
+  {
+    id: "prep-4",
+    name: "Flexão de Braço",
+    focusArea: "Peito, ombros e tríceps",
+    durationSeconds: 25,
+    reps: 10,
+    instruction:
+      "Apoie as mãos no chão na linha dos ombros, mantenha o corpo alinhado e desça controlando até aproximar o peito do solo.",
+    gifUrl: ex("FLEXÃO"),
+  },
+  {
+    id: "prep-5",
+    name: "Encolhimento com Barra",
+    focusArea: "Trapézio",
+    durationSeconds: 25,
+    reps: 12,
+    instruction:
+      "Segure a barra à frente do corpo e eleve os ombros em direção às orelhas. Pause no topo e desça lentamente.",
+    gifUrl: ex("Encolhimento Barra"),
+  },
+];
 
+// O fluxo de preparação é fixo: Treino de membros superiores (5 exercícios, assets oficiais).
 export function getWarmupForWorkout(_workout: Workout): WarmupExercise[] {
-  const name = _workout.name.toLowerCase();
-  const group = _workout.muscleGroup.toLowerCase();
-  
-  // Match to upper or lower body based on workout content
-  const upperKeywords = ["costas", "peito", "ombro", "bíceps", "tríceps", "braço", "push", "pull", "upper"];
-  const lowerKeywords = ["perna", "quadríceps", "posterior", "glúteo", "leg", "lower"];
-  
-  const isUpper = upperKeywords.some(k => name.includes(k) || group.includes(k));
-  const isLower = lowerKeywords.some(k => name.includes(k) || group.includes(k));
-  
-  if (isLower) return warmupsByFocus.lower;
-  if (isUpper) return warmupsByFocus.upper;
-  return warmupsByFocus.default;
+  return preparationExercises;
 }
 
-export function getWarmupFocusLabel(workout: Workout): string {
-  const name = workout.name.toLowerCase();
-  const group = workout.muscleGroup.toLowerCase();
-  const upperKeywords = ["costas", "peito", "ombro", "bíceps", "tríceps", "braço", "push", "pull", "upper"];
-  const lowerKeywords = ["perna", "quadríceps", "posterior", "glúteo", "leg", "lower"];
-  
-  if (lowerKeywords.some(k => name.includes(k) || group.includes(k))) return "membros inferiores";
-  if (upperKeywords.some(k => name.includes(k) || group.includes(k))) return "membros superiores";
-  return "corpo inteiro";
+export function getWarmupFocusLabel(_workout: Workout): string {
+  return "membros superiores";
 }
 
 // Helper to get today's workout
