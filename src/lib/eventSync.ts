@@ -22,6 +22,7 @@ const RELEVANT_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
   "weight_logged",
   "progress_photo_uploaded",
   "meal_logged",
+  "activity_logged",
   "hydration_logged",
   "sleep_logged",
   "mood_logged",

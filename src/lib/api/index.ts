@@ -17,6 +17,8 @@ export { getMyNutritionPlan } from "./plan";
 export type { MealView, NutritionPlanView } from "./plan";
 export { toggleMealDone, getMealsDoneToday, getMealAdherenceToday } from "./meals";
 export type { ToggleMealDoneInput, MealAdherence } from "./meals";
+export { logActivitySession, getRecentActivitySessions, getActivitySessionsSince } from "./activities";
+export type { LogActivitySessionInput, ActivitySessionRow } from "./activities";
 export {
   insertAdherenceSnapshot,
   computeAdherenceFromActivity,

@@ -9,6 +9,7 @@ export type EventType =
   | 'progress_photo_uploaded'
   | 'workout_checked'
   | 'meal_logged'
+  | 'activity_logged'
   | 'hydration_logged'
   | 'sleep_logged'
   | 'meal_plan_viewed'

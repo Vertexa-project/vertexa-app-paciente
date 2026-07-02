@@ -33,6 +33,9 @@ export interface MockConfig {
   // Fração 0..1 das refeições do plano marcadas HOJE (adesão alimentar). Opcional/aditivo:
   // ausente ou 0 => nenhum efeito (compatível com o config antigo e com o DEFAULT_CONFIG).
   mealAdherenceRatio?: number;
+  // Nº de DIAS distintos com atividade complementar (activity_logged) nos últimos 7 dias.
+  // Opcional/aditivo: ausente ou 0 => nenhum efeito (constância complementar; ver ACTIVITY_BONUS_*).
+  complementaryActivityDaysThisWeek?: number;
 }
 
 // Bônus máximo (pontos) da ADESÃO ALIMENTAR do dia. É ESTRITAMENTE NÃO-NEGATIVO e entra ANTES
@@ -41,6 +44,15 @@ export interface MockConfig {
 // -> +0 (score idêntico ao de hoje); refeições>0 -> score igual ou MAIOR. Calibrado baixo (6) para
 // ser um reforço, não um driver — o nível dela não depende deste fator.
 const MEAL_ADHERENCE_BONUS_MAX = 6;
+
+// Bônus (pontos) por DIA distinto com atividade complementar na semana. Igual ao fator alimentar:
+// ESTRITAMENTE NÃO-NEGATIVO e ANTES do clamp [0,100] => nunca REDUZ o score nem rebaixa o nível vs.
+// o mesmo cálculo sem ele (preserva a Mariana 88/alta — pendência #3). Calibrado como REFORÇO, não
+// driver: satura em ACTIVITY_BONUS_DAYS_CAP dias (3) -> máx +6, e cresce de forma gradual/crível
+// (1 dia=+2, 2=+4, 3+=+6) — não fixa o VRI no teto num único registro. A tabela de pontuação NÃO é
+// hardcode definitivo: será unificada numa fonte única (S7/Desafios).
+const ACTIVITY_BONUS_PER_DAY = 2;
+const ACTIVITY_BONUS_DAYS_CAP = 3;
 
 const DEFAULT_CONFIG: MockConfig = {
   daysWithoutInteraction: 1,
@@ -84,6 +96,11 @@ function computeScore(config: MockConfig): number {
   // Adesão alimentar do dia (ADITIVO, não-negativo). Entra antes do clamp: só sobe/estabiliza.
   if (config.mealAdherenceRatio && config.mealAdherenceRatio > 0) {
     score += Math.round(Math.min(1, config.mealAdherenceRatio) * MEAL_ADHERENCE_BONUS_MAX);
+  }
+
+  // Atividade complementar da semana (ADITIVO, não-negativo). Mesmo racional do fator alimentar.
+  if (config.complementaryActivityDaysThisWeek && config.complementaryActivityDaysThisWeek > 0) {
+    score += Math.min(config.complementaryActivityDaysThisWeek, ACTIVITY_BONUS_DAYS_CAP) * ACTIVITY_BONUS_PER_DAY;
   }
 
   return Math.max(0, Math.min(100, Math.round(score)));
@@ -140,6 +157,7 @@ function getPositiveFactors(config: MockConfig): string[] {
   if (config.weightLoggedRecently) factors.push('Peso atualizado');
   if (config.planViewedRecently) factors.push('Plano acompanhado');
   if ((config.mealAdherenceRatio ?? 0) >= 0.6) factors.push('Refeições do dia em dia');
+  if ((config.complementaryActivityDaysThisWeek ?? 0) >= 2) factors.push('Atividades complementares na semana');
   return factors;
 }
 
@@ -212,9 +230,11 @@ export function deriveAdherenceConfig(input: AdherenceActivityInput): MockConfig
   ).length;
 
   const workoutDaysThisWeek = new Set<string>();
+  const activityDaysThisWeek = new Set<string>();
   for (const e of events) {
-    if (e.type !== "workout_checked") continue;
-    if (daysAgoLocal(e.created_at, now) <= 6) workoutDaysThisWeek.add(localDayKey(e.created_at));
+    if (daysAgoLocal(e.created_at, now) > 6) continue;
+    if (e.type === "workout_checked") workoutDaysThisWeek.add(localDayKey(e.created_at));
+    else if (e.type === "activity_logged") activityDaysThisWeek.add(localDayKey(e.created_at));
   }
 
   const weightLoggedRecently = !!lastWeightAt && daysAgoLocal(lastWeightAt, now) <= 7;
@@ -248,6 +268,7 @@ export function deriveAdherenceConfig(input: AdherenceActivityInput): MockConfig
     planViewedRecently,
     streak,
     mealAdherenceRatio,
+    complementaryActivityDaysThisWeek: activityDaysThisWeek.size,
   };
 }
 
