@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { derivePending, daysAgoLocal } from "./pendingLogic";
+import { derivePending, daysAgoLocal, localDateKey } from "./pendingLogic";
 
 const now = new Date(2026, 5, 25, 12, 0, 0); // 25 Jun 2026 (mês 5 = junho)
 const iso = (y: number, m: number, d: number, h = 8) => new Date(y, m, d, h, 0, 0).toISOString();
@@ -8,6 +8,14 @@ describe("daysAgoLocal", () => {
   it("conta dias inteiros locais", () => {
     expect(daysAgoLocal(iso(2026, 5, 22), now)).toBe(3);
     expect(daysAgoLocal(iso(2026, 5, 25, 1), now)).toBe(0);
+  });
+});
+
+describe("localDateKey", () => {
+  it("formata a data LOCAL como YYYY-MM-DD (mês/dia zero-padded)", () => {
+    expect(localDateKey(new Date(2026, 6, 1, 23, 30))).toBe("2026-07-01"); // mês 6 = julho
+    expect(localDateKey(new Date(2026, 0, 5, 0, 0))).toBe("2026-01-05");
+    expect(localDateKey(new Date(2026, 11, 31, 12))).toBe("2026-12-31");
   });
 });
 
