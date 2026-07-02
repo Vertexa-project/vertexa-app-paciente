@@ -1,59 +1,25 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Calendar, Image, TrendingDown, TrendingUp, Flame, Dumbbell, Timer, BarChart3, Layers, ChevronRight, Zap, Activity, Camera, X, ArrowRight, Plus, Watch } from "lucide-react";
+import { ArrowLeft, Calendar, Image, TrendingDown, TrendingUp, Zap, Activity, X, ArrowRight, Plus, Watch, Trophy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { weightHistory, achievements, patient } from "@/data/mockData";
-import { getAdherenceState } from "@/lib/adherenceEngine";
-import { tracker } from "@/lib/eventTracker";
-import { getActivitySessionsSince } from "@/lib/api";
+import {
+  getActivitySessionsSince,
+  getActivityEventsSince,
+  getRecentWeightLogs,
+  getLatestAdherenceState,
+  getMyProgressPhotos,
+} from "@/lib/api";
 import { modalityBySlug } from "@/lib/activityModalities";
 import { daysAgoLocal, localDateKey } from "@/lib/pendingLogic";
+import { deriveConstancy, countWorkoutDaysInWindow } from "@/lib/constancy";
+import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 import DynamicBodyMap from "@/components/DynamicBodyMap";
 
 type Period = "7d" | "14d" | "28d";
-
 const periodLabels: Record<Period, string> = { "7d": "7 dias", "14d": "14 dias", "28d": "28 dias" };
-
-// Mock muscle data for the detail list
-const muscleGroups = [
-  { name: "Quadríceps", front: true, pct: 90, status: "activated" as const },
-  { name: "Bíceps", front: true, pct: 88, status: "fatigued" as const },
-  { name: "Glúteos", front: false, pct: 85, status: "activated" as const },
-  { name: "Triceps", front: true, pct: 82, status: "fatigued" as const },
-  { name: "Peitoral", front: true, pct: 72, status: "recovering" as const },
-  { name: "Dorsais", front: false, pct: 68, status: "recovering" as const },
-  { name: "Ombros", front: true, pct: 65, status: "recovering" as const },
-  { name: "Posteriores", front: false, pct: 60, status: "recovering" as const },
-];
-
-const statusColors = {
-  recovered: { bg: "bg-emerald-500/20", text: "text-emerald-400", label: "Recuperado" },
-  recovering: { bg: "bg-amber-500/20", text: "text-amber-400", label: "Em recuperação" },
-  fatigued: { bg: "bg-red-500/20", text: "text-red-400", label: "Fadiga alta" },
-  activated: { bg: "bg-primary/20", text: "text-primary", label: "Muito ativado" },
-  weak: { bg: "bg-blue-500/20", text: "text-blue-400", label: "Enfraquecido" },
-};
-
-const exerciseTypes = [
-  { name: "Compostos", pct: 55, color: "bg-primary" },
-  { name: "Isolados", pct: 30, color: "bg-emerald-500" },
-  { name: "Cardio", pct: 15, color: "bg-amber-500" },
-];
-
-const weeklyVolume = [
-  { week: "S1", vol: 4200 },
-  { week: "S2", vol: 5100 },
-  { week: "S3", vol: 4800 },
-  { week: "S4", vol: 5600 },
-];
-
-const periodStats: Record<Period, { workouts: number; time: string; calories: number; exercises: number; sets: number; reps: number; load: string }> = {
-  "7d": { workouts: 4, time: "03:45", calories: 1840, exercises: 32, sets: 96, reps: 1120, load: "12.4t" },
-  "14d": { workouts: 9, time: "08:12", calories: 4120, exercises: 71, sets: 213, reps: 2480, load: "27.8t" },
-  "28d": { workouts: 17, time: "15:30", calories: 7650, exercises: 136, sets: 408, reps: 4760, load: "52.1t" },
-};
+const periodDays: Record<Period, number> = { "7d": 7, "14d": 14, "28d": 28 };
 
 // Rótulo de data relativa p/ a lista de atividades complementares reais (fuso local; reusa daysAgoLocal).
 function activityDateLabel(iso: string, now: Date): string {
@@ -73,49 +39,88 @@ function formatExtraTime(min: number): string {
   return h > 0 ? `${h}h ${m}min` : `${m}min`;
 }
 
-const evolutionPhotos = [
-  { id: 'jan', month: 'Jan', year: '2026', label: 'Janeiro 2026', hasPhoto: true },
-  { id: 'fev', month: 'Fev', year: '2026', label: 'Fevereiro 2026', hasPhoto: true },
-  { id: 'mar', month: 'Mar', year: '2026', label: 'Março 2026', hasPhoto: true },
-  { id: 'abr', month: 'Abr', year: '2026', label: 'Abril 2026', hasPhoto: true },
-  { id: 'mai', month: 'Mai', year: '2026', label: 'Maio 2026', hasPhoto: true },
-  { id: 'jun', month: 'Jun', year: '2026', label: 'Junho 2026', hasPhoto: false },
-];
+// Rótulo curto "Mês/AA" de uma foto (pt-BR), capitalizado.
+function photoLabel(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const mon = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  return `${mon.charAt(0).toUpperCase()}${mon.slice(1)}/${String(d.getFullYear()).slice(2)}`;
+}
+
+// Rótulo "dd/mm" p/ o eixo do gráfico de peso.
+function dayMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
 
 export default function Progress() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>("7d");
   const [showCompare, setShowCompare] = useState(false);
-  const [compareA, setCompareA] = useState<string | null>(null);
-  const [compareB, setCompareB] = useState<string | null>(null);
-  const [compareView, setCompareView] = useState(false);
-  const state = getAdherenceState();
-  const stats = periodStats[period];
+  const now = new Date();
+  const windowDays = periodDays[period];
 
-  // Atividades complementares REAIS (activity_sessions) da SEMANA (últimos 7 dias locais). Uma ÚNICA
-  // fonte week-scoped (sem cap por LIMIT) -> lista e somatório sempre CONSISTENTES entre si e com o
-  // rótulo "na semana". Vazio -> estado vazio real; erro -> estado de erro (contrato: loading/empty/error).
-  const activitiesNow = new Date();
-  const weekStart = new Date(activitiesNow.getFullYear(), activitiesNow.getMonth(), activitiesNow.getDate() - 6);
+  useEffect(() => { tracker.track('home_viewed'); }, []);
+
+  // ── Atividades complementares REAIS (activity_sessions) da SEMANA (S2 — bloco C, inalterado) ──
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
   const {
     data: weekActivitySessions = [],
     isLoading: activitiesLoading,
     isError: activitiesError,
     refetch: refetchActivities,
   } = useQuery({
-    queryKey: ["activity-sessions", "week", localDateKey(activitiesNow)],
+    queryKey: ["activity-sessions", "week", localDateKey(now)],
     queryFn: () => getActivitySessionsSince(weekStart),
   });
   const recentActivities = weekActivitySessions.slice(0, 5);
   const weekActivityMinutes = weekActivitySessions.reduce((sum, a) => sum + (a.duration_min ?? 0), 0);
   const weekActivityCalories = weekActivitySessions.reduce((sum, a) => sum + (a.calories ?? 0), 0);
   const hasActivities = weekActivitySessions.length > 0;
-  const maxW = Math.max(...weightHistory.map(w => w.weight));
-  const minW = Math.min(...weightHistory.map(w => w.weight));
-  const range = maxW - minW || 1;
-  const maxVol = Math.max(...weeklyVolume.map(v => v.vol));
 
-  useEffect(() => { tracker.track('home_viewed'); }, []);
+  // ── activity_events dos últimos 28 dias -> constância (determinística) + nº de treinos (escopo do seletor) ──
+  const events28Start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 27);
+  const {
+    data: events28 = [],
+    isLoading: eventsLoading,
+    isError: eventsError,
+    refetch: refetchEvents,
+  } = useQuery({
+    queryKey: ["progress-events", localDateKey(now)],
+    queryFn: () => getActivityEventsSince(events28Start),
+  });
+  const constancy = deriveConstancy(events28, now, windowDays);
+  const workoutsInPeriod = countWorkoutDaysInWindow(events28, now, windowDays);
+
+  // ── Peso REAL (weight_logs). Série cronológica; delta = último - primeiro. NÃO escopado pelo seletor
+  //    de propósito: a pesagem é ~semanal (7d daria 1 ponto). Mostra a série completa recente. ──
+  const {
+    data: weightRows = [],
+    isLoading: weightLoading,
+    isError: weightError,
+    refetch: refetchWeight,
+  } = useQuery({ queryKey: ["weight-series"], queryFn: () => getRecentWeightLogs(60) });
+  const weightSeries = [...weightRows].reverse(); // getRecentWeightLogs vem desc -> asc (antigo->recente)
+  const hasWeight = weightSeries.length >= 2;
+  const startWeight = weightSeries[0]?.weight_kg ?? null;
+  const currentWeight = weightSeries[weightSeries.length - 1]?.weight_kg ?? null;
+  const weightDelta = startWeight != null && currentWeight != null ? currentWeight - startWeight : null;
+  const maxW = hasWeight ? Math.max(...weightSeries.map((w) => w.weight_kg)) : 0;
+  const minW = hasWeight ? Math.min(...weightSeries.map((w) => w.weight_kg)) : 0;
+  const rangeW = maxW - minW || 1;
+
+  // ── VRI: LÊ o último snapshot real (mesma fonte/queryKey da Home). NÃO recalcula nem grava. ──
+  const adherenceQuery = useQuery({ queryKey: ["adherence"], queryFn: getLatestAdherenceState });
+  const vri = adherenceQuery.data ?? null; // getLatestAdherenceState: só LÊ o snapshot (não recomputa/grava)
+
+  // ── Fotos de evolução REAIS (progress_photos). ──
+  const {
+    data: photos = [],
+    isLoading: photosLoading,
+    isError: photosError,
+  } = useQuery({ queryKey: ["progress-photos"], queryFn: getMyProgressPhotos });
+  const canCompare = photos.length >= 2;
+  const firstPhoto = photos[0] ?? null;
+  const lastPhoto = photos[photos.length - 1] ?? null;
 
   const anim = (delay: number) => ({ initial: { opacity: 0, y: 20 } as const, animate: { opacity: 1, y: 0 } as const, transition: { delay } });
 
@@ -131,12 +136,9 @@ export default function Progress() {
             </button>
             <h1 className="text-2xl font-display font-bold text-foreground">Atividades</h1>
           </div>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card text-xs font-semibold text-primary">
-            <Calendar size={14} /> Histórico
-          </button>
         </div>
 
-        {/* ═══ LAYER 1: Body Map / Recovery ═══ */}
+        {/* ═══ LAYER 1: Body Map / Recovery (REAL, inalterado) ═══ */}
         <motion.div {...anim(0.05)} className="bg-card rounded-2xl p-5 shadow-card mb-5 overflow-hidden">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
@@ -145,19 +147,17 @@ export default function Progress() {
               </div>
               <h2 className="text-base font-display font-semibold text-foreground">Recuperação corporal</h2>
             </div>
-            <button className="text-[11px] text-primary font-medium flex items-center gap-0.5">
-              Ver mais <ChevronRight size={14} />
-            </button>
           </div>
           <p className="text-[11px] text-muted-foreground mb-5 ml-9">Leitura do seu corpo nos últimos dias</p>
-
-          {/* Body map dinâmico (lê muscle_recovery_states; status derivado de last_trained_at) */}
           <DynamicBodyMap />
         </motion.div>
 
-        {/* ═══ LAYER 2: Period Stats ═══ */}
+        {/* ═══ LAYER 2: Period selector + nº de treinos REAL (escopo do seletor) ═══ */}
+        {/* NOTA (S4): cards de desempenho de treino (tempo, calorias, exercícios, séries, reps, carga),
+            "Regiões mais trabalhadas", "Tipos de exercícios" e "Volume semanal" foram REMOVIDOS: exigem
+            dados de EXECUÇÃO (séries/reps/carga/duração feitas, com link workout_checked->workout) que o
+            app NÃO captura hoje. Reaparecem quando existir essa captura -> dívida S-EXEC (ver contrato). */}
         <motion.div {...anim(0.15)}>
-          {/* Period selector */}
           <div className="flex items-center gap-2 mb-4">
             {(["7d", "14d", "28d"] as Period[]).map((p) => (
               <button
@@ -171,110 +171,17 @@ export default function Progress() {
               </button>
             ))}
           </div>
-
-          {/* Summary phrase */}
-          <p className="text-sm text-foreground mb-4">
-            Você realizou <span className="text-primary font-semibold">{stats.workouts} treinos</span> nos últimos {periodLabels[period]}
+          <p className="text-sm text-foreground mb-5">
+            Você realizou{" "}
+            <span className="text-primary font-semibold">
+              {eventsError ? "—" : eventsLoading ? "…" : `${workoutsInPeriod} treino${workoutsInPeriod === 1 ? "" : "s"}`}
+            </span>{" "}
+            nos últimos {periodLabels[period]}
           </p>
-
-          {/* Main stat cards */}
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div className="bg-card rounded-xl p-4 shadow-card">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
-                  <Timer size={16} className="text-primary" />
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">Tempo de treino</p>
-              <p className="text-xl font-display font-bold text-foreground">{stats.time}</p>
-            </div>
-            <div className="bg-card rounded-xl p-4 shadow-card">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
-                  <Flame size={16} className="text-amber-400" />
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">Calorias</p>
-              <p className="text-xl font-display font-bold text-foreground">{stats.calories.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">kcal</span></p>
-            </div>
-          </div>
-          <div className="bg-card rounded-xl p-4 shadow-card mb-5">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-                <Dumbbell size={16} className="text-emerald-400" />
-              </div>
-              <p className="text-[11px] text-muted-foreground">Exercícios</p>
-              <p className="text-lg font-display font-bold text-foreground ml-auto">{stats.exercises}</p>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Séries", value: stats.sets },
-                { label: "Repetições", value: stats.reps.toLocaleString() },
-                { label: "Carga", value: stats.load },
-              ].map((m) => (
-                <div key={m.label} className="bg-muted/50 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-muted-foreground mb-0.5">{m.label}</p>
-                  <p className="text-sm font-bold text-foreground">{m.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </motion.div>
 
-        {/* ═══ LAYER 3: Muscle Groups Detail ═══ */}
-        <motion.div {...anim(0.25)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Regiões mais trabalhadas</h3>
-          <p className="text-[11px] text-muted-foreground mb-4">Últimos {periodLabels[period]}</p>
-          <div className="space-y-3">
-            {muscleGroups.sort((a, b) => b.pct - a.pct).slice(0, 5).map((mg) => {
-              const sc = statusColors[mg.status];
-              return (
-                <div key={mg.name} className="flex items-center gap-3">
-                  <span className="text-xs text-foreground w-20 shrink-0">{mg.name}</span>
-                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full gradient-orange"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${mg.pct}%` }}
-                      transition={{ duration: 0.8 }}
-                    />
-                  </div>
-                  <span className="text-xs font-semibold text-foreground w-10 text-right">{mg.pct}%</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${sc.bg} ${sc.text} font-medium w-[72px] text-center shrink-0`}>{sc.label}</span>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        {/* ═══ LAYER 4: Exercise Types ═══ */}
-        <motion.div {...anim(0.35)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
-          <h3 className="text-sm font-semibold text-foreground mb-1">Tipos de exercícios</h3>
-          <p className="text-[11px] text-muted-foreground mb-4">Últimos {periodLabels[period]}</p>
-          <div className="flex h-3 rounded-full overflow-hidden mb-4">
-            {exerciseTypes.map((t) => (
-              <motion.div
-                key={t.name}
-                className={`h-full ${t.color}`}
-                initial={{ width: 0 }}
-                animate={{ width: `${t.pct}%` }}
-                transition={{ duration: 0.8 }}
-              />
-            ))}
-          </div>
-          <div className="flex items-center gap-4">
-            {exerciseTypes.map((t) => (
-              <div key={t.name} className="flex items-center gap-1.5">
-                <div className={`w-2.5 h-2.5 rounded-full ${t.color}`} />
-                <span className="text-[11px] text-muted-foreground">{t.name}</span>
-                <span className="text-[11px] font-semibold text-foreground">{t.pct}%</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* ═══ LAYER 4.5: Complementary Activities (activity_sessions REAIS) ═══ */}
-        <motion.div {...anim(0.37)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
+        {/* ═══ LAYER 4.5: Complementary Activities (activity_sessions REAIS, S2 — inalterado) ═══ */}
+        <motion.div {...anim(0.2)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-primary/15 flex items-center justify-center">
@@ -322,13 +229,11 @@ export default function Progress() {
                           {a.duration_min} min{a.calories != null ? ` · ${a.calories} kcal` : ""}
                         </p>
                       </div>
-                      <span className="text-[10px] text-muted-foreground">{activityDateLabel(a.performed_at, activitiesNow)}</span>
+                      <span className="text-[10px] text-muted-foreground">{activityDateLabel(a.performed_at, now)}</span>
                     </div>
                   );
                 })}
               </div>
-
-              {/* Weekly summary — soma REAL dos últimos 7 dias */}
               <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div>
@@ -357,151 +262,198 @@ export default function Progress() {
           )}
         </motion.div>
 
-        <motion.div {...anim(0.4)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Volume semanal</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Carga total por semana</p>
-            </div>
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/10">
-              <TrendingUp size={12} className="text-emerald-400" />
-              <span className="text-[10px] font-semibold text-emerald-400">+12%</span>
-            </div>
-          </div>
-          <div className="flex items-end gap-3 h-28">
-            {weeklyVolume.map((w, i) => {
-              const h = (w.vol / maxVol) * 100;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                  <span className="text-[10px] text-muted-foreground font-medium">{(w.vol / 1000).toFixed(1)}t</span>
-                  <motion.div
-                    className="w-full rounded-t-lg gradient-orange"
-                    initial={{ height: 0 }}
-                    animate={{ height: `${h}%` }}
-                    transition={{ duration: 0.6, delay: i * 0.1 }}
-                  />
-                  <span className="text-[10px] text-muted-foreground">{w.week}</span>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        {/* ═══ LAYER 6: Weight Evolution ═══ */}
-        <motion.div {...anim(0.45)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
+        {/* ═══ Weight Evolution (REAL — weight_logs) ═══ */}
+        <motion.div {...anim(0.3)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-sm font-semibold text-foreground">Evolução do peso</h3>
-              <p className="text-[11px] text-muted-foreground mt-0.5">{patient.startWeight}kg → {patient.currentWeight}kg</p>
+              {hasWeight && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">{startWeight}kg → {currentWeight}kg</p>
+              )}
             </div>
-            <div className="flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-full">
-              <TrendingDown size={14} className="text-emerald-400" />
-              <span className="text-xs font-semibold text-emerald-400">-{(patient.startWeight - patient.currentWeight).toFixed(1)}kg</span>
+            {hasWeight && weightDelta != null && (
+              <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full ${weightDelta <= 0 ? "bg-emerald-500/10" : "bg-amber-500/10"}`}>
+                {weightDelta <= 0 ? <TrendingDown size={14} className="text-emerald-400" /> : <TrendingUp size={14} className="text-amber-400" />}
+                <span className={`text-xs font-semibold ${weightDelta <= 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                  {weightDelta > 0 ? "+" : ""}{weightDelta.toFixed(1)}kg
+                </span>
+              </div>
+            )}
+          </div>
+          {weightLoading ? (
+            <div className="h-28 rounded-xl bg-muted/40 animate-pulse" />
+          ) : weightError ? (
+            <div className="p-4 rounded-xl border border-dashed border-red-500/30 flex flex-col items-center gap-2 text-center">
+              <p className="text-xs text-red-400">Não foi possível carregar seu peso.</p>
+              <button onClick={() => refetchWeight()} className="text-[11px] font-semibold text-primary">Tentar novamente</button>
             </div>
-          </div>
-          <div className="flex items-end gap-2 h-28">
-            {weightHistory.map((w, i) => {
-              const h = ((maxW - w.weight) / range) * 80 + 20;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[10px] text-muted-foreground">{w.weight}</span>
-                  <motion.div
-                    className="w-full rounded-t-lg gradient-orange"
-                    initial={{ height: 0 }}
-                    animate={{ height: `${100 - h + 20}%` }}
-                    transition={{ duration: 0.6, delay: i * 0.1 }}
-                  />
-                  <span className="text-[10px] text-muted-foreground">{w.date}</span>
-                </div>
-              );
-            })}
-          </div>
+          ) : hasWeight ? (
+            <div className="flex items-end gap-2 h-28 overflow-x-auto">
+              {weightSeries.map((w, i) => {
+                const norm = (w.weight_kg - minW) / rangeW; // 0..1
+                const hpct = 30 + norm * 70; // barra maior = peso maior
+                return (
+                  <div key={w.id ?? i} className="flex-1 min-w-[26px] flex flex-col items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">{w.weight_kg}</span>
+                    <motion.div
+                      className="w-full rounded-t-lg gradient-orange"
+                      initial={{ height: 0 }}
+                      animate={{ height: `${hpct}%` }}
+                      transition={{ duration: 0.6, delay: i * 0.06 }}
+                    />
+                    <span className="text-[9px] text-muted-foreground">{dayMonth(w.measured_at)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl border border-dashed border-border flex flex-col items-center gap-1 text-center">
+              <p className="text-xs text-muted-foreground">Sem registros de peso suficientes ainda</p>
+              <p className="text-[10px] text-muted-foreground">Registre seu peso para ver a evolução</p>
+            </div>
+          )}
         </motion.div>
 
-        {/* ═══ LAYER 7: Consistency + Insights ═══ */}
-        <motion.div {...anim(0.5)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
+        {/* ═══ Constância (REAL, DETERMINÍSTICA — activity_events; escopada pelo seletor) ═══ */}
+        <motion.div {...anim(0.4)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
           <div className="flex items-center gap-2 mb-3">
             <Zap size={16} className="text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Constância mensal</h3>
+            <h3 className="text-sm font-semibold text-foreground">Constância</h3>
+            <span className="text-[11px] text-muted-foreground ml-auto">Últimos {periodLabels[period]}</span>
           </div>
-          <div className="grid grid-cols-7 gap-1.5">
-            {Array.from({ length: 28 }, (_, i) => {
-              const active = i < 18;
-              const intensity = active ? Math.random() > 0.3 ? "gradient-orange" : "bg-primary/40" : "bg-muted";
-              return <div key={i} className={`aspect-square rounded-md ${intensity}`} />;
-            })}
-          </div>
-          <div className="flex items-center justify-between mt-3">
-            <span className="text-xs text-muted-foreground">18 de 28 dias ativos</span>
-            <span className="text-xs font-semibold text-primary">64%</span>
-          </div>
+          {eventsLoading ? (
+            <div className="grid grid-cols-7 gap-1.5">
+              {Array.from({ length: windowDays }, (_, i) => (
+                <div key={i} className="aspect-square rounded-md bg-muted animate-pulse" />
+              ))}
+            </div>
+          ) : eventsError ? (
+            <div className="p-4 rounded-xl border border-dashed border-red-500/30 flex flex-col items-center gap-2 text-center">
+              <p className="text-xs text-red-400">Não foi possível carregar sua constância.</p>
+              <button onClick={() => refetchEvents()} className="text-[11px] font-semibold text-primary">Tentar novamente</button>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-7 gap-1.5">
+                {constancy.days.map((d) => (
+                  <div
+                    key={d.dateKey}
+                    title={d.dateKey}
+                    className={`aspect-square rounded-md ${d.active ? "gradient-orange" : "bg-muted"}`}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center justify-between mt-3">
+                <span className="text-xs text-muted-foreground">{constancy.activeCount} de {constancy.windowDays} dias ativos</span>
+                <span className="text-xs font-semibold text-primary">{constancy.rate}%</span>
+              </div>
+            </>
+          )}
         </motion.div>
 
-        {/* ═══ LAYER 8: VRI + Achievements ═══ */}
-        <motion.div {...anim(0.55)} className="bg-card rounded-2xl p-4 shadow-card mb-5 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl gradient-orange flex items-center justify-center shadow-orange shrink-0">
-            <span className="text-xl font-display font-bold text-primary-foreground">{state.score}%</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground">Índice VRI</p>
-            <p className="text-xs text-muted-foreground">Sequência de {state.streak} dias • {state.weeklyCompletionRate}% semanal</p>
-          </div>
-          <Activity size={18} className="text-primary shrink-0" />
+        {/* ═══ VRI (REAL — último snapshot de adherence_snapshots) ═══ */}
+        <motion.div {...anim(0.5)} className="bg-card rounded-2xl p-4 shadow-card mb-5 flex items-center gap-4">
+          {adherenceQuery.isLoading ? (
+            <div className="flex items-center gap-4 w-full">
+              <div className="w-14 h-14 rounded-2xl bg-muted animate-pulse shrink-0" />
+              <div className="flex-1 h-8 rounded bg-muted animate-pulse" />
+            </div>
+          ) : adherenceQuery.isError ? (
+            <div className="flex items-center gap-4 w-full">
+              <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center shrink-0">
+                <Activity size={18} className="text-red-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">Índice VRI</p>
+                <p className="text-xs text-red-400">
+                  Não foi possível carregar.{" "}
+                  <button onClick={() => adherenceQuery.refetch()} className="font-semibold text-primary underline">
+                    Tentar novamente
+                  </button>
+                </p>
+              </div>
+            </div>
+          ) : vri ? (
+            <>
+              <div className="w-14 h-14 rounded-2xl gradient-orange flex items-center justify-center shadow-orange shrink-0">
+                <span className="text-xl font-display font-bold text-primary-foreground">{vri.score}%</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">Índice VRI</p>
+                <p className="text-xs text-muted-foreground">Sequência de {vri.streak} dias • {vri.weeklyCompletionRate}% semanal</p>
+              </div>
+              <Activity size={18} className="text-primary shrink-0" />
+            </>
+          ) : (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center shrink-0">
+                <Activity size={18} className="text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">Índice VRI</p>
+                <p className="text-xs text-muted-foreground">Ainda não disponível — registre seus hábitos para calcular.</p>
+              </div>
+            </>
+          )}
         </motion.div>
 
-        {/* Photo Album */}
+        {/* ═══ Fotos evolutivas (REAIS — progress_photos) ═══ */}
         <motion.div {...anim(0.6)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground">Fotos evolutivas</h3>
             <button
-              onClick={() => { setShowCompare(true); setCompareA(null); setCompareB(null); setCompareView(false); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-xs font-semibold text-primary"
+              onClick={() => canCompare && setShowCompare(true)}
+              disabled={!canCompare}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-xs font-semibold text-primary disabled:opacity-40 disabled:pointer-events-none"
             >
-              <Layers size={12} /> Comparar
+              <ArrowRight size={12} /> Comparar
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            {evolutionPhotos.map((p) => (
-              <div key={p.id} className="aspect-[3/4] rounded-xl bg-muted flex flex-col items-center justify-center gap-1 relative overflow-hidden">
-                {p.hasPhoto ? (
-                  <div className="absolute inset-0 bg-gradient-to-b from-secondary/80 to-muted flex flex-col items-center justify-center gap-1">
-                    <Camera size={18} className="text-muted-foreground/50" />
-                    <span className="text-[10px] text-muted-foreground">{p.month}</span>
+          {photosLoading ? (
+            <div className="grid grid-cols-3 gap-2">
+              {[0, 1, 2].map((i) => <div key={i} className="aspect-[3/4] rounded-xl bg-muted animate-pulse" />)}
+            </div>
+          ) : photosError ? (
+            <p className="text-xs text-red-400 text-center py-4">Não foi possível carregar suas fotos.</p>
+          ) : photos.length > 0 ? (
+            <>
+              <div className="grid grid-cols-3 gap-2">
+                {photos.map((p) => (
+                  <div key={p.id} className="aspect-[3/4] rounded-xl bg-muted overflow-hidden relative">
+                    <img src={p.photo_url} alt={`Foto ${photoLabel(p.taken_at)}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-background/70 backdrop-blur-sm text-[9px] text-foreground">{photoLabel(p.taken_at)}</span>
                   </div>
-                ) : (
-                  <>
-                    <Image size={20} className="text-muted-foreground/30" />
-                    <span className="text-[10px] text-muted-foreground/40">{p.month}</span>
-                  </>
-                )}
+                ))}
               </div>
-            ))}
-          </div>
-          <p className="text-[10px] text-muted-foreground mt-3 text-center">Toque em "Comparar" para ver seu antes e depois</p>
+              <p className="text-[10px] text-muted-foreground mt-3 text-center">
+                {canCompare ? 'Toque em "Comparar" para ver antes e depois' : "Envie mais fotos para comparar sua evolução"}
+              </p>
+            </>
+          ) : (
+            <div className="p-5 rounded-xl border border-dashed border-border flex flex-col items-center gap-2 text-center">
+              <Image size={20} className="text-muted-foreground/50" />
+              <p className="text-xs text-muted-foreground">Nenhuma foto de evolução ainda</p>
+              <p className="text-[10px] text-muted-foreground">Registre fotos em "Registros" para acompanhar</p>
+            </div>
+          )}
         </motion.div>
 
-        {/* Achievements */}
+        {/* ═══ Conquistas — estado vazio (motor de conquistas = S5; sem mock ativo) ═══ */}
         <motion.div {...anim(0.65)}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground">Conquistas recentes</h3>
-            <button onClick={() => navigate("/achievements")} className="text-xs text-primary font-medium">Ver todas</button>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 mb-5">
-            {achievements.filter(a => a.unlocked).slice(-4).map((a) => (
-              <div key={a.id} className="min-w-[120px] bg-card rounded-xl p-3 flex flex-col items-center gap-2 shadow-card">
-                <span className="text-2xl">{a.icon}</span>
-                <span className="text-[11px] font-medium text-foreground text-center leading-tight">{a.title}</span>
-                <span className="text-[9px] text-muted-foreground">{a.date}</span>
-              </div>
-            ))}
+          <div className="p-5 rounded-xl border border-dashed border-border flex flex-col items-center gap-2 text-center mb-5">
+            <Trophy size={20} className="text-muted-foreground/50" />
+            <p className="text-xs text-muted-foreground">Suas conquistas aparecerão aqui</p>
           </div>
         </motion.div>
       </div>
       <BottomNav />
 
-      {/* ── Compare Evolution Modal ── */}
+      {/* ── Compare Evolution Modal (REAL: fotos reais + Δpeso real de weight_logs) ── */}
       <AnimatePresence>
-        {showCompare && (
+        {showCompare && firstPhoto && lastPhoto && (
           <>
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -516,9 +468,7 @@ export default function Progress() {
               <div className="sticky top-0 bg-card px-5 pt-4 pb-3 z-10">
                 <div className="w-10 h-1 rounded-full bg-muted-foreground/20 mx-auto mb-4" />
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-foreground">
-                    {compareView ? 'Sua evolução' : 'Comparar evolução'}
-                  </h3>
+                  <h3 className="text-base font-bold text-foreground">Sua evolução</h3>
                   <button onClick={() => setShowCompare(false)} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
                     <X size={16} className="text-foreground" />
                   </button>
@@ -526,195 +476,49 @@ export default function Progress() {
               </div>
 
               <div className="px-5 pb-8">
-                <AnimatePresence mode="wait">
-                  {!compareView ? (
-                    <motion.div key="selector" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                      {/* Suggested comparisons */}
-                      <div className="mb-5">
-                        <p className="text-xs text-muted-foreground mb-3">Comparações sugeridas</p>
-                        <div className="flex flex-col gap-2">
-                          {[
-                            { a: 'jan', b: 'mai', label: 'Início vs Atual', desc: 'Jan 2026 → Mai 2026 · 4 meses' },
-                            { a: 'abr', b: 'mai', label: 'Último mês', desc: 'Abr 2026 → Mai 2026 · 1 mês' },
-                            { a: 'jan', b: 'mar', label: 'Primeiro trimestre', desc: 'Jan 2026 → Mar 2026 · 3 meses' },
-                          ].map((s, i) => (
-                            <button
-                              key={i}
-                              onClick={() => { setCompareA(s.a); setCompareB(s.b); setCompareView(true); }}
-                              className="flex items-center gap-3 p-3.5 rounded-xl bg-muted/50 border border-border hover:border-primary/30 transition-colors text-left"
-                            >
-                              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                                <Layers size={18} className="text-primary" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-foreground">{s.label}</p>
-                                <p className="text-[11px] text-muted-foreground">{s.desc}</p>
-                              </div>
-                              <ChevronRight size={16} className="text-muted-foreground shrink-0" />
-                            </button>
-                          ))}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 to-transparent border border-primary/10 mb-5">
+                  <p className="text-sm font-semibold text-foreground mb-1">Veja o quanto você evoluiu</p>
+                  <p className="text-[11px] text-muted-foreground">Comparação da sua primeira e mais recente foto de evolução.</p>
+                </div>
+
+                <div className="flex items-stretch gap-3 mb-4">
+                  {[{ p: firstPhoto, tag: "ANTES", accent: false }, { p: lastPhoto, tag: "ATUAL", accent: true }].map(({ p, tag, accent }, idx) => (
+                    <div key={idx} className="flex-1">
+                      <div className={`aspect-[3/4] rounded-2xl overflow-hidden relative border ${accent ? "border-primary/15" : "border-border"}`}>
+                        <img src={p.photo_url} alt={`Foto ${tag}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                        <div className={`absolute top-2 left-2 px-2 py-1 rounded-full backdrop-blur-sm ${accent ? "bg-primary/20" : "bg-background/70"}`}>
+                          <span className={`text-[9px] font-bold ${accent ? "text-primary" : "text-muted-foreground"}`}>{tag}</span>
                         </div>
                       </div>
+                      <p className="text-xs font-semibold text-foreground text-center mt-2">{photoLabel(p.taken_at)}</p>
+                    </div>
+                  ))}
+                  <div className="flex items-center"><ArrowRight size={16} className="text-primary/50" /></div>
+                </div>
 
-                      {/* Manual selection */}
-                      <div className="mb-5">
-                        <p className="text-xs text-muted-foreground mb-3">Ou escolha manualmente</p>
+                <div className="flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-muted/50 border border-border mb-5">
+                  <Calendar size={14} className="text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">{photoLabel(firstPhoto.taken_at)}</span>
+                  <ArrowRight size={12} className="text-primary/50" />
+                  <span className="text-xs text-muted-foreground">{photoLabel(lastPhoto.taken_at)}</span>
+                </div>
 
-                        <div className="mb-3">
-                          <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2">Foto A — Antes</p>
-                          <div className="flex gap-2 overflow-x-auto pb-1">
-                            {evolutionPhotos.filter(p => p.hasPhoto).map((p) => (
-                              <button
-                                key={p.id}
-                                onClick={() => setCompareA(p.id)}
-                                className={`min-w-[64px] aspect-[3/4] rounded-xl flex flex-col items-center justify-center gap-1 border-2 transition-all shrink-0 ${
-                                  compareA === p.id
-                                    ? 'border-primary bg-primary/10'
-                                    : 'border-border bg-muted/50'
-                                }`}
-                              >
-                                <Camera size={14} className={compareA === p.id ? 'text-primary' : 'text-muted-foreground/50'} />
-                                <span className={`text-[10px] font-medium ${compareA === p.id ? 'text-primary' : 'text-muted-foreground'}`}>{p.month}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+                {/* Único número: Δpeso REAL de weight_logs (sem métricas fabricadas) */}
+                {hasWeight && weightDelta != null && (
+                  <div className="p-3 rounded-xl bg-card border border-border text-center mb-5">
+                    <p className={`text-lg font-bold ${weightDelta <= 0 ? "text-emerald-400" : "text-amber-400"}`}>
+                      {weightDelta > 0 ? "+" : ""}{weightDelta.toFixed(1)} kg
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">variação de peso no período registrado</p>
+                  </div>
+                )}
 
-                        <div className="mb-4">
-                          <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2">Foto B — Depois</p>
-                          <div className="flex gap-2 overflow-x-auto pb-1">
-                            {evolutionPhotos.filter(p => p.hasPhoto && p.id !== compareA).map((p) => (
-                              <button
-                                key={p.id}
-                                onClick={() => setCompareB(p.id)}
-                                className={`min-w-[64px] aspect-[3/4] rounded-xl flex flex-col items-center justify-center gap-1 border-2 transition-all shrink-0 ${
-                                  compareB === p.id
-                                    ? 'border-primary bg-primary/10'
-                                    : 'border-border bg-muted/50'
-                                }`}
-                              >
-                                <Camera size={14} className={compareB === p.id ? 'text-primary' : 'text-muted-foreground/50'} />
-                                <span className={`text-[10px] font-medium ${compareB === p.id ? 'text-primary' : 'text-muted-foreground'}`}>{p.month}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => { if (compareA && compareB) setCompareView(true); }}
-                          disabled={!compareA || !compareB}
-                          className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none"
-                        >
-                          <Layers size={16} /> Comparar fotos
-                        </button>
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div key="result" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}>
-                      {/* Comparison result */}
-                      {(() => {
-                        const photoA = evolutionPhotos.find(p => p.id === compareA);
-                        const photoB = evolutionPhotos.find(p => p.id === compareB);
-                        if (!photoA || !photoB) return null;
-
-                        return (
-                          <>
-                            {/* Hero message */}
-                            <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 to-transparent border border-primary/10 mb-5">
-                              <p className="text-sm font-semibold text-foreground mb-1">Veja o quanto você evoluiu</p>
-                              <p className="text-[11px] text-muted-foreground">Sua constância aparece aqui. Compare sua transformação ao longo do tempo.</p>
-                            </div>
-
-                            {/* Side by side */}
-                            <div className="flex items-stretch gap-3 mb-4">
-                              <div className="flex-1">
-                                <div className="aspect-[3/4] rounded-2xl bg-gradient-to-b from-secondary to-muted border border-border flex flex-col items-center justify-center gap-2 relative overflow-hidden">
-                                  <Camera size={28} className="text-muted-foreground/30" />
-                                  <p className="text-xs text-muted-foreground/50">Foto</p>
-                                  <div className="absolute top-2 left-2 px-2 py-1 rounded-full bg-background/70 backdrop-blur-sm">
-                                    <span className="text-[9px] font-bold text-muted-foreground">ANTES</span>
-                                  </div>
-                                </div>
-                                <p className="text-xs font-semibold text-foreground text-center mt-2">{photoA.label}</p>
-                              </div>
-
-                              <div className="flex items-center">
-                                <ArrowRight size={16} className="text-primary/50" />
-                              </div>
-
-                              <div className="flex-1">
-                                <div className="aspect-[3/4] rounded-2xl bg-gradient-to-b from-primary/10 to-secondary border border-primary/15 flex flex-col items-center justify-center gap-2 relative overflow-hidden">
-                                  <Camera size={28} className="text-primary/30" />
-                                  <p className="text-xs text-primary/40">Foto</p>
-                                  <div className="absolute top-2 left-2 px-2 py-1 rounded-full bg-primary/20 backdrop-blur-sm">
-                                    <span className="text-[9px] font-bold text-primary">ATUAL</span>
-                                  </div>
-                                </div>
-                                <p className="text-xs font-semibold text-foreground text-center mt-2">{photoB.label}</p>
-                              </div>
-                            </div>
-
-                            {/* Time delta */}
-                            <div className="flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-muted/50 border border-border mb-5">
-                              <Calendar size={14} className="text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">{photoA.month} {photoA.year}</span>
-                              <ArrowRight size={12} className="text-primary/50" />
-                              <span className="text-xs text-muted-foreground">{photoB.month} {photoB.year}</span>
-                              <span className="text-[10px] font-semibold text-primary ml-auto">
-                                {Math.abs(evolutionPhotos.findIndex(p => p.id === compareB) - evolutionPhotos.findIndex(p => p.id === compareA))} meses
-                              </span>
-                            </div>
-
-                            {/* Stats summary */}
-                            <div className="grid grid-cols-3 gap-2 mb-5">
-                              <div className="p-3 rounded-xl bg-card border border-border text-center">
-                                <p className="text-sm font-bold text-primary">-2.4</p>
-                                <p className="text-[9px] text-muted-foreground">kg perdidos</p>
-                              </div>
-                              <div className="p-3 rounded-xl bg-card border border-border text-center">
-                                <p className="text-sm font-bold text-foreground">92%</p>
-                                <p className="text-[9px] text-muted-foreground">adesão média</p>
-                              </div>
-                              <div className="p-3 rounded-xl bg-card border border-border text-center">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Flame size={12} className="text-primary" />
-                                  <p className="text-sm font-bold text-foreground">64</p>
-                                </div>
-                                <p className="text-[9px] text-muted-foreground">treinos feitos</p>
-                              </div>
-                            </div>
-
-                            {/* Motivational */}
-                            <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/10 mb-5">
-                              <div className="flex items-start gap-2.5">
-                                <Zap size={14} className="text-primary mt-0.5 shrink-0" />
-                                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                  <span className="text-foreground font-medium">Sua evolução fica mais clara quando você olha o processo.</span> Continue registrando para acompanhar cada passo.
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex flex-col gap-2.5">
-                              <button
-                                onClick={() => navigate('/share?type=evolution')}
-                                className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2"
-                              >
-                                Compartilhar evolução
-                              </button>
-                              <button
-                                onClick={() => setCompareView(false)}
-                                className="w-full py-3 rounded-xl bg-muted text-foreground font-medium text-sm"
-                              >
-                                Comparar outros períodos
-                              </button>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <button
+                  onClick={() => navigate('/share?type=evolution')}
+                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2"
+                >
+                  Compartilhar evolução
+                </button>
               </div>
             </motion.div>
           </>

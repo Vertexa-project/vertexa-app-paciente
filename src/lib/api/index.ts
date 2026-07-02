@@ -9,7 +9,7 @@ export {
   subscribeToChannelMessages,
 } from "./chat";
 export type { SendPatientMessageInput, ChannelSubscriptionHandlers } from "./chat";
-export { logActivityEvent } from "./events";
+export { logActivityEvent, getActivityEventsSince } from "./events";
 export type { LogActivityEventInput } from "./events";
 export { upsertMuscleRecovery, getMuscleRecovery } from "./recovery";
 export type { UpsertMuscleRecoveryInput } from "./recovery";
@@ -37,6 +37,6 @@ export { logWeight, getRecentWeightLogs } from "./weight";
 export type { LogWeightInput, WeightLogRow } from "./weight";
 export { logHydration, getHydrationTodayLiters } from "./hydration";
 export type { LogHydrationInput } from "./hydration";
-export { uploadProgressPhoto, getLatestProgressPhoto } from "./photos";
+export { uploadProgressPhoto, getLatestProgressPhoto, getMyProgressPhotos } from "./photos";
 export type { UploadProgressPhotoResult, ProgressPhotoRow } from "./photos";
 export { getPendingSummary } from "./pending";
