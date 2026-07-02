@@ -53,6 +53,23 @@ export async function uploadProgressPhoto(file: File): Promise<UploadProgressPho
   return { url: photoUrl, row: data as ProgressPhotoRow };
 }
 
+/**
+ * Todas as fotos de evolução do paciente, em ordem cronológica (taken_at asc). Usada no bloco
+ * "Fotos evolutivas" do Progresso (grade + comparar). Vazio quando não há paciente/fotos.
+ */
+export async function getMyProgressPhotos(): Promise<ProgressPhotoRow[]> {
+  const patientId = await getMyPatientId();
+  if (!patientId) return [];
+
+  const { data, error } = await supabase
+    .from("progress_photos")
+    .select("*")
+    .eq("patient_id", patientId)
+    .order("taken_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ProgressPhotoRow[];
+}
+
 /** Foto de progresso mais recente do paciente (para preview/pendência). null se não houver. */
 export async function getLatestProgressPhoto(): Promise<ProgressPhotoRow | null> {
   const patientId = await getMyPatientId();
