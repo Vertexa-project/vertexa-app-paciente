@@ -102,10 +102,11 @@ describe("adherenceStateFromSnapshot (consistência app↔web a partir do snapsh
   });
 });
 
-describe("getAdherenceState (fórmula C6 intacta)", () => {
-  it("paciente DEFAULT engajado satura no topo (alta)", () => {
+describe("getAdherenceState (banda C7): engajado fica alto, sem cravar o teto", () => {
+  it("paciente DEFAULT engajado fica alto (>=80/alta) mas NÃO crava 100", () => {
     const s = getAdherenceState();
     expect(s.score).toBeGreaterThanOrEqual(80);
+    expect(s.score).toBeLessThan(100);
     expect(s.level).toBe("alta");
   });
 });
@@ -215,5 +216,64 @@ describe("fator de ATIVIDADE COMPLEMENTAR (aditivo; preserva a Mariana — pend�
       expect(s.score).toBeGreaterThanOrEqual(88);
       expect(s.level).toBe("alta");
     }
+  });
+});
+
+describe("calibração do VRI (C7): perfil REAL da Mariana lande ~88, NÃO crava 100", () => {
+  // Eventos REAIS da Mariana (confirmados via MCP): workout+hidratação @29/06, peso @28/06, foto @25/06.
+  // now fixo = 02/07 (a mesma janela em que o VRI vivo saturava em 100 nas S1/S2).
+  const nowJul2 = new Date(2026, 6, 2, 12, 0, 0);
+  const marianaRealEvents = [
+    { type: "workout_checked", created_at: iso(2026, 5, 29) },
+    { type: "hydration_logged", created_at: iso(2026, 5, 29) },
+    { type: "weight_logged", created_at: iso(2026, 5, 28) },
+    { type: "progress_photo_uploaded", created_at: iso(2026, 5, 25) },
+  ];
+  const marianaRealConfig = (extra: { type: string; created_at: string }[] = []) =>
+    deriveAdherenceConfig({
+      events: [...marianaRealEvents, ...extra],
+      lastWeightAt: iso(2026, 5, 28),
+      lastPhotoAt: iso(2026, 5, 25),
+      now: nowJul2,
+    });
+
+  it("perfil real da Mariana HOJE lande na banda [85,92]/alta e >= 88 (NÃO 100)", () => {
+    const s = getAdherenceState(marianaRealConfig());
+    expect(s.level).toBe("alta");
+    expect(s.score).toBeGreaterThanOrEqual(85);
+    expect(s.score).toBeLessThanOrEqual(92);
+    expect(s.score).toBeGreaterThanOrEqual(88); // piso da demo (#3)
+    expect(s.score).not.toBe(100);
+  });
+
+  it("uma ação isolada HOJE é um NUDGE pequeno e crível, não crava 100", () => {
+    const passive = getAdherenceState(marianaRealConfig());
+    const withAction = getAdherenceState(
+      marianaRealConfig([{ type: "hydration_logged", created_at: iso(2026, 6, 2, 9) }])
+    );
+    expect(withAction.score).toBeGreaterThanOrEqual(passive.score); // monotônico
+    expect(withAction.score - passive.score).toBeLessThanOrEqual(5); // nudge pequeno, não salto
+    expect(withAction.score).toBeLessThan(100);
+    expect(withAction.level).toBe("alta");
+  });
+
+  it("o topo (100) fica RESERVADO ao quase-perfeito; DEFAULT engajado fica alto mas NÃO crava 100", () => {
+    const almostPerfect = getAdherenceState({
+      daysWithoutInteraction: 0,
+      habitsLoggedToday: 4,
+      workoutsThisWeek: 4,
+      weightLoggedRecently: true,
+      photoLoggedRecently: true,
+      planViewedRecently: true,
+      streak: 30,
+      mealAdherenceRatio: 1,
+      complementaryActivityDaysThisWeek: 3,
+    });
+    expect(almostPerfect.score).toBe(100);
+
+    const def = getAdherenceState();
+    expect(def.level).toBe("alta");
+    expect(def.score).toBeGreaterThanOrEqual(80);
+    expect(def.score).toBeLessThan(100);
   });
 });
