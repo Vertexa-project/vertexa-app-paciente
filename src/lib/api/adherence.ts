@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { getMyPatientId } from "./patient";
 import { getMealAdherenceToday } from "./meals";
+import { getSupplementAdherenceToday } from "./supplements";
 import {
   getAdherenceState,
   deriveAdherenceConfig,
@@ -44,7 +45,7 @@ export async function computeAdherenceFromActivity(): Promise<AdherenceState> {
   const patientId = await getMyPatientId();
   if (!patientId) return getAdherenceState();
 
-  const [eventsRes, weightRes, photoRes, mealAdherence] = await Promise.all([
+  const [eventsRes, weightRes, photoRes, mealAdherence, supplementAdherence] = await Promise.all([
     supabase
       .from("activity_events")
       .select("type, created_at")
@@ -67,6 +68,8 @@ export async function computeAdherenceFromActivity(): Promise<AdherenceState> {
       .maybeSingle(),
     // Adesão alimentar do dia (meal_logs vs plano ativo) — fator ADITIVO/não-negativo do VRI.
     getMealAdherenceToday(),
+    // Suplementos do dia (supplement_intakes vs lista) — fator ADITIVO/não-negativo do VRI (S3).
+    getSupplementAdherenceToday(),
   ]);
   if (eventsRes.error) throw eventsRes.error;
   if (weightRes.error) throw weightRes.error;
@@ -78,6 +81,7 @@ export async function computeAdherenceFromActivity(): Promise<AdherenceState> {
     lastPhotoAt: (photoRes.data?.taken_at as string) ?? null,
     now: new Date(),
     mealAdherenceToday: mealAdherence,
+    supplementAdherenceToday: supplementAdherence,
   });
   return getAdherenceState(config);
 }

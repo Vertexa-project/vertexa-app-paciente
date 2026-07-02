@@ -20,6 +20,13 @@ export type { ToggleMealDoneInput, MealAdherence } from "./meals";
 export { logActivitySession, getRecentActivitySessions, getActivitySessionsSince } from "./activities";
 export type { LogActivitySessionInput, ActivitySessionRow } from "./activities";
 export {
+  getMySupplements,
+  toggleSupplementTaken,
+  getSupplementsTakenToday,
+  getSupplementAdherenceToday,
+} from "./supplements";
+export type { SupplementRow, ToggleSupplementTakenInput, SupplementAdherence } from "./supplements";
+export {
   insertAdherenceSnapshot,
   computeAdherenceFromActivity,
   getLatestAdherenceState,

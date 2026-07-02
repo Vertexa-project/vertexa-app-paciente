@@ -144,13 +144,8 @@ export const workoutPlan = [
   },
 ];
 
-export const supplements = [
-  { name: "Whey Protein", time: "Pós-treino", dose: "30g", icon: "💪" },
-  { name: "Creatina", time: "Manhã", dose: "5g", icon: "⚡" },
-  { name: "Ômega 3", time: "Almoço", dose: "1 cápsula", icon: "🐟" },
-  { name: "Vitamina D", time: "Manhã", dose: "2000 UI", icon: "☀️" },
-  { name: "Magnésio", time: "Noite", dose: "400mg", icon: "🌙" },
-];
+// (S3) O mock de suplementos foi REMOVIDO: a aba Suplem. lê a tabela `supplements` (autoria web,
+// seed da Mariana na migration 20260702140000). Sem fallback mock de propósito — vazio real.
 
 export const achievements = [
   { id: 1, title: "Primeira semana completa", icon: "🔥", date: "22 Jan", unlocked: true, description: "Completou 7 dias seguidos" },

@@ -2,10 +2,18 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Check, Clock, Pill, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { mealPlan, supplements } from "@/data/mockData";
+import { mealPlan } from "@/data/mockData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getMyNutritionPlan, getMealsDoneToday, toggleMealDone } from "@/lib/api";
+import {
+  getMyNutritionPlan,
+  getMealsDoneToday,
+  toggleMealDone,
+  getMySupplements,
+  getSupplementsTakenToday,
+  toggleSupplementTaken,
+} from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
+import { localDateKey } from "@/lib/pendingLogic";
 import BottomNav from "@/components/BottomNav";
 
 type Tab = "alimentar" | "treino" | "suplementos" | "orientacoes";
@@ -18,6 +26,18 @@ interface MealRow {
   items: string[];
   calories: number | null;
   done: boolean;
+}
+
+// Ícone por nome do suplemento (cosmético; o schema não guarda ícone — autoria web futura pode
+// evoluir isso). Fallback 💊 para nomes fora do mapa.
+function supplementIcon(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("whey") || n.includes("prote")) return "💪";
+  if (n.includes("creatina")) return "⚡";
+  if (n.includes("ômega") || n.includes("omega")) return "🐟";
+  if (n.includes("vitamina d")) return "☀️";
+  if (n.includes("magnésio") || n.includes("magnesio")) return "🌙";
+  return "💊";
 }
 
 export default function Plan() {
@@ -41,9 +61,13 @@ export default function Plan() {
   const planTitle = usingRealMeals ? nutritionPlan!.title : "";
 
   // "Feita" de hoje vem de meal_logs (só faz sentido com plano real). Optimistic no toggle.
+  // Queries "de hoje" são KEYADAS pela data LOCAL (precedente: Progress.tsx) — virou o dia, a key
+  // muda e o cache de ontem não vaza como se fosse de hoje (sessão aberta cruzando a meia-noite).
   const qc = useQueryClient();
+  const todayKey = localDateKey(new Date());
+  const mealsDoneKey = ["mealsDoneToday", todayKey];
   const { data: doneToday } = useQuery({
-    queryKey: ["mealsDoneToday"],
+    queryKey: mealsDoneKey,
     queryFn: getMealsDoneToday,
     enabled: usingRealMeals,
   });
@@ -51,16 +75,19 @@ export default function Plan() {
   const toggleMeal = useMutation({
     mutationFn: ({ mealId, on }: { mealId: string; on: boolean }) => toggleMealDone({ mealId, on }),
     onMutate: async ({ mealId, on }) => {
-      await qc.cancelQueries({ queryKey: ["mealsDoneToday"] });
-      const prev = qc.getQueryData<Set<string>>(["mealsDoneToday"]);
+      await qc.cancelQueries({ queryKey: mealsDoneKey });
+      const prev = qc.getQueryData<Set<string>>(mealsDoneKey);
       const next = new Set(prev ?? []);
       if (on) next.add(mealId);
       else next.delete(mealId);
-      qc.setQueryData(["mealsDoneToday"], next);
+      qc.setQueryData(mealsDoneKey, next);
       return { prev };
     },
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["mealsDoneToday"], ctx.prev);
+      // prev=undefined = otimista semeado ANTES do 1º fetch resolver; setQueryData(undefined) é no-op
+      // no react-query v5 -> remove a query para não deixar um check "fantasma" no cache.
+      if (ctx?.prev) qc.setQueryData(mealsDoneKey, ctx.prev);
+      else qc.removeQueries({ queryKey: mealsDoneKey });
     },
     onSuccess: (_data, { mealId, on }) => {
       // Marcador de timeline + recálculo do VRI só ao MARCAR (objetivo: "só no marcar, não no desmarcar").
@@ -81,6 +108,54 @@ export default function Plan() {
   const handleToggleMeal = (mealId: string | null, currentlyDone: boolean) => {
     if (!mealId) return; // sem plano real não há o que gravar
     toggleMeal.mutate({ mealId, on: !currentlyDone });
+  };
+
+  // ── Suplementos (S3): lista REAL (autoria web) + "tomado hoje" persistido (supplement_intakes) ──
+  const {
+    data: supplementList = [],
+    isLoading: supplementsLoading,
+    isError: supplementsError,
+    refetch: refetchSupplements,
+  } = useQuery({ queryKey: ["supplements"], queryFn: getMySupplements });
+
+  // Keyada pela data LOCAL (mesmo racional do mealsDoneKey acima).
+  const supplementsTakenKey = ["supplementsTakenToday", todayKey];
+  const { data: supplementsTaken } = useQuery({
+    queryKey: supplementsTakenKey,
+    queryFn: getSupplementsTakenToday,
+    enabled: supplementList.length > 0,
+  });
+
+  // Mesmo padrão otimista do toggleMeal (S13). Marcador + VRI só ao MARCAR; desmarcar não recomputa
+  // (fator aditivo/não-negativo; o snapshot se auto-corrige no próximo evento). ['adherence'] é
+  // invalidada pelo eventSync pós-snapshot, nunca aqui.
+  const toggleSupplement = useMutation({
+    mutationFn: ({ supplementId, on }: { supplementId: string; on: boolean }) =>
+      toggleSupplementTaken({ supplementId, on }),
+    onMutate: async ({ supplementId, on }) => {
+      await qc.cancelQueries({ queryKey: supplementsTakenKey });
+      const prev = qc.getQueryData<Set<string>>(supplementsTakenKey);
+      const next = new Set(prev ?? []);
+      if (on) next.add(supplementId);
+      else next.delete(supplementId);
+      qc.setQueryData(supplementsTakenKey, next);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      // Mesmo racional do toggleMeal: prev=undefined -> removeQueries (setQueryData(undefined) é no-op).
+      if (ctx?.prev) qc.setQueryData(supplementsTakenKey, ctx.prev);
+      else qc.removeQueries({ queryKey: supplementsTakenKey });
+    },
+    onSuccess: (_data, { supplementId, on }) => {
+      if (on) tracker.track("supplement_checked", { supplement_id: supplementId });
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ["supplementsTakenToday"] });
+    },
+  });
+
+  const handleToggleSupplement = (supplementId: string, currentlyTaken: boolean) => {
+    toggleSupplement.mutate({ supplementId, on: !currentlyTaken });
   };
 
   const handleTabChange = (t: Tab) => {
@@ -183,16 +258,52 @@ export default function Plan() {
 
           {tab === "suplementos" && (
             <motion.div key="suplementos" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
-              {supplements.map((s, i) => (
-                <div key={i} className="bg-card rounded-xl p-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-lg">{s.icon}</div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">{s.name}</p>
-                    <p className="text-xs text-muted-foreground">{s.dose} • {s.time}</p>
-                  </div>
-                  <Pill size={16} className="text-muted-foreground" />
+              {supplementsLoading ? (
+                [0, 1, 2].map((i) => (
+                  <div key={i} className="h-[72px] bg-card rounded-xl animate-pulse" />
+                ))
+              ) : supplementsError && supplementList.length === 0 ? (
+                // Card de erro SÓ quando não há cache válido: refetch de fundo falho (isError=true com
+                // data preservado no v5) não pode esconder a lista/checks já carregados.
+                <div className="bg-card rounded-xl p-5 flex flex-col items-center gap-2 text-center border border-dashed border-red-500/30">
+                  <p className="text-xs text-red-400">Não foi possível carregar seus suplementos.</p>
+                  <button onClick={() => refetchSupplements()} className="text-[11px] font-semibold text-primary">
+                    Tentar novamente
+                  </button>
                 </div>
-              ))}
+              ) : supplementList.length === 0 ? (
+                <div className="bg-card rounded-xl p-5 flex flex-col items-center gap-2 text-center border border-dashed border-border">
+                  <Pill size={18} className="text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">Nenhum suplemento cadastrado ainda.</p>
+                  <p className="text-[10px] text-muted-foreground">Seu profissional publica a lista aqui.</p>
+                </div>
+              ) : (
+                supplementList.map((s) => {
+                  const isTaken = supplementsTaken?.has(s.id) ?? false;
+                  return (
+                    <div key={s.id} className={`bg-card rounded-xl p-4 flex items-center gap-3 ${isTaken ? "border border-success/20" : ""}`}>
+                      <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-lg">{supplementIcon(s.name)}</div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{s.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {[s.dose, s.time_label].filter(Boolean).join(" • ")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleToggleSupplement(s.id, isTaken)}
+                        disabled={toggleSupplement.isPending}
+                        aria-pressed={isTaken}
+                        aria-label={isTaken ? `Desmarcar ${s.name}` : `Marcar ${s.name} como tomado`}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all disabled:opacity-60 ${
+                          isTaken ? "bg-success border-success" : "border-muted-foreground/40 hover:border-success/60"
+                        }`}
+                      >
+                        {isTaken && <Check size={12} className="text-success-foreground" />}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
             </motion.div>
           )}
 
