@@ -63,13 +63,18 @@ export default function Plan() {
       if (ctx?.prev) qc.setQueryData(["mealsDoneToday"], ctx.prev);
     },
     onSuccess: (_data, { mealId, on }) => {
-      // Marcador de timeline + recálculo do VRI só ao MARCAR (a linha já foi gravada -> o recompute a enxerga).
+      // Marcador de timeline + recálculo do VRI só ao MARCAR (objetivo: "só no marcar, não no desmarcar").
+      // A linha já foi gravada em meal_logs -> o recompute do eventSync a enxerga. DESMARCAR de propósito
+      // NÃO recomputa o VRI: o fator alimentar é aditivo/não-negativo (nunca rebaixa a Mariana 88/alta) e o
+      // snapshot se auto-corrige no próximo evento relevante. O eventSync invalida ['adherence'] após gravar.
       if (on) tracker.track("meal_logged", { meal_id: mealId });
     },
     onSettled: () => {
+      // meal_logs já está atualizado (mutationFn aguardada) -> estas leituras refletem o toggle na hora.
       void qc.invalidateQueries({ queryKey: ["mealsDoneToday"] });
       void qc.invalidateQueries({ queryKey: ["mealAdherenceToday"] });
-      void qc.invalidateQueries({ queryKey: ["adherence"] });
+      // NÃO invalidar ['adherence'] aqui: o snapshot do VRI é escrito por cadeia async do eventSync;
+      // invalidar agora releria o snapshot ANTIGO. Quem invalida ['adherence'] é o eventSync, pós-insert.
     },
   });
 
