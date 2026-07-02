@@ -64,44 +64,60 @@ const DEFAULT_CONFIG: MockConfig = {
   streak: 18,
 };
 
+// ── Composição do VRI (calibração C7) ────────────────────────────────────────────────────
+// ANTES: o score começava em 100 (teto) e só SUBTRAÍA por inatividade, somando um STACK aditivo
+// (habits+workouts+weight+photo+plan+streak+meal+activity ≤ +63) MUITO maior que o decay (≤ −45).
+// Resultado: qualquer perfil minimamente ativo estourava 100 e o clamp mascarava tudo — o número não
+// se movia (ação isolada = no-op) e a Mariana "vivia" cravando 100 em vez do 88/alta do seed. Duas
+// causas: (a) base no teto + stack aditivo > decay; (b) a recência RESETAVA a 0 em qualquer evento
+// novo, apagando a única penalidade ("reset-and-re-saturate").
+// AGORA (combinado C7): a recência vira um termo POSITIVO LIMITADO (sem reset), e o TOTAL de sinais
+// (recência + engajamento; os tiers por-sinal seguem INALTERADOS) entra numa banda [VRI_BASE,
+// VRI_BASE+VRI_HEADROOM] via RETORNOS DECRESCENTES. Assim: engajado-mas-imperfeito lande ~88, o topo
+// (100) fica RESERVADO ao near-perfect e uma ação isolada é um nudge pequeno e crível. NÃO baixa o
+// clamp e NÃO subtrai cegamente; preserva monotonicidade (todo sinal bom só sobe) e o shape do
+// snapshot. Calibrado p/ a Mariana real (hoje) ≈ 88-90/alta (pendência #3, não regredir).
+const VRI_BASE = 70; // piso da banda "engajado" (o clamp inferior [0] segue como rede de segurança)
+const VRI_HEADROOM = 30; // VRI_BASE + VRI_HEADROOM = 100 (teto reservado ao near-perfect)
+const VRI_CURVE = 0.42; // < 1 => retornos decrescentes (comprime o topo; ação isolada = nudge pequeno)
+const VRI_SIGNAL_MAX = 75; // máx possível: recência (12) + engajamento (63)
+
+// Recência como termo POSITIVO limitado — não-crescente nos dias sem interação, SEM o cliff/reset que
+// zerava a penalidade a cada evento novo (uma das causas do "100 no primeiro toque").
+function recencyPoints(daysWithoutInteraction: number): number {
+  if (daysWithoutInteraction <= 1) return 12;
+  if (daysWithoutInteraction <= 3) return 8;
+  if (daysWithoutInteraction <= 6) return 4;
+  if (daysWithoutInteraction <= 14) return 1;
+  return 0;
+}
+
 function computeScore(config: MockConfig): number {
-  let score = 100;
-
-  // Interaction decay
-  if (config.daysWithoutInteraction >= 15) score -= 45;
-  else if (config.daysWithoutInteraction >= 7) score -= 30;
-  else if (config.daysWithoutInteraction >= 3) score -= 15;
-  else if (config.daysWithoutInteraction >= 1) score -= 5;
-
-  // Habits bonus
-  score += Math.min(config.habitsLoggedToday * 3, 12);
-
-  // Workouts
-  score += Math.min(config.workoutsThisWeek * 4, 16);
-
-  // Weight logging
-  if (config.weightLoggedRecently) score += 5;
-
-  // Photo
-  if (config.photoLoggedRecently) score += 5;
-
-  // Plan viewed
-  if (config.planViewedRecently) score += 3;
-
-  // Streak bonus
-  if (config.streak >= 30) score += 10;
-  else if (config.streak >= 14) score += 7;
-  else if (config.streak >= 7) score += 4;
-
-  // Adesão alimentar do dia (ADITIVO, não-negativo). Entra antes do clamp: só sobe/estabiliza.
+  // Engajamento: MESMOS tiers por-sinal de antes (cada parcela ≥ 0 e monotônica), agora somados num
+  // ORÇAMENTO limitado (≤ 63) em vez de empilhados sobre o teto de 100.
+  let engagement = 0;
+  engagement += Math.min(config.habitsLoggedToday * 3, 12);
+  engagement += Math.min(config.workoutsThisWeek * 4, 16);
+  if (config.weightLoggedRecently) engagement += 5;
+  if (config.photoLoggedRecently) engagement += 5;
+  if (config.planViewedRecently) engagement += 3;
+  if (config.streak >= 30) engagement += 10;
+  else if (config.streak >= 14) engagement += 7;
+  else if (config.streak >= 7) engagement += 4;
+  // Adesão alimentar do dia (ADITIVO, não-negativo).
   if (config.mealAdherenceRatio && config.mealAdherenceRatio > 0) {
-    score += Math.round(Math.min(1, config.mealAdherenceRatio) * MEAL_ADHERENCE_BONUS_MAX);
+    engagement += Math.round(Math.min(1, config.mealAdherenceRatio) * MEAL_ADHERENCE_BONUS_MAX);
+  }
+  // Atividade complementar da semana (ADITIVO, não-negativo).
+  if (config.complementaryActivityDaysThisWeek && config.complementaryActivityDaysThisWeek > 0) {
+    engagement += Math.min(config.complementaryActivityDaysThisWeek, ACTIVITY_BONUS_DAYS_CAP) * ACTIVITY_BONUS_PER_DAY;
   }
 
-  // Atividade complementar da semana (ADITIVO, não-negativo). Mesmo racional do fator alimentar.
-  if (config.complementaryActivityDaysThisWeek && config.complementaryActivityDaysThisWeek > 0) {
-    score += Math.min(config.complementaryActivityDaysThisWeek, ACTIVITY_BONUS_DAYS_CAP) * ACTIVITY_BONUS_PER_DAY;
-  }
+  // Sinal total (recência + engajamento) normalizado e comprimido por retornos decrescentes dentro
+  // da banda [VRI_BASE, VRI_BASE+VRI_HEADROOM]. O clamp final é só rede de segurança.
+  const signal = recencyPoints(config.daysWithoutInteraction) + engagement; // ∈ [0, VRI_SIGNAL_MAX]
+  const normalized = Math.min(1, Math.max(0, signal / VRI_SIGNAL_MAX));
+  const score = VRI_BASE + VRI_HEADROOM * Math.pow(normalized, VRI_CURVE);
 
   return Math.max(0, Math.min(100, Math.round(score)));
 }
