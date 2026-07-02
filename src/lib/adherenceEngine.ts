@@ -30,7 +30,17 @@ export interface MockConfig {
   photoLoggedRecently: boolean;
   planViewedRecently: boolean;
   streak: number;
+  // Fração 0..1 das refeições do plano marcadas HOJE (adesão alimentar). Opcional/aditivo:
+  // ausente ou 0 => nenhum efeito (compatível com o config antigo e com o DEFAULT_CONFIG).
+  mealAdherenceRatio?: number;
 }
+
+// Bônus máximo (pontos) da ADESÃO ALIMENTAR do dia. É ESTRITAMENTE NÃO-NEGATIVO e entra ANTES
+// do clamp [0,100] em computeScore => nunca REDUZ o score nem rebaixa o nível vs. o mesmo cálculo
+// sem ele. Por isso preserva a demo da Mariana (pendência #3, seed atual = 88/alta): refeições=0
+// -> +0 (score idêntico ao de hoje); refeições>0 -> score igual ou MAIOR. Calibrado baixo (6) para
+// ser um reforço, não um driver — o nível dela não depende deste fator.
+const MEAL_ADHERENCE_BONUS_MAX = 6;
 
 const DEFAULT_CONFIG: MockConfig = {
   daysWithoutInteraction: 1,
@@ -70,6 +80,11 @@ function computeScore(config: MockConfig): number {
   if (config.streak >= 30) score += 10;
   else if (config.streak >= 14) score += 7;
   else if (config.streak >= 7) score += 4;
+
+  // Adesão alimentar do dia (ADITIVO, não-negativo). Entra antes do clamp: só sobe/estabiliza.
+  if (config.mealAdherenceRatio && config.mealAdherenceRatio > 0) {
+    score += Math.round(Math.min(1, config.mealAdherenceRatio) * MEAL_ADHERENCE_BONUS_MAX);
+  }
 
   return Math.max(0, Math.min(100, Math.round(score)));
 }
@@ -124,6 +139,7 @@ function getPositiveFactors(config: MockConfig): string[] {
   if (config.workoutsThisWeek >= 3) factors.push('Treinos consistentes');
   if (config.weightLoggedRecently) factors.push('Peso atualizado');
   if (config.planViewedRecently) factors.push('Plano acompanhado');
+  if ((config.mealAdherenceRatio ?? 0) >= 0.6) factors.push('Refeições do dia em dia');
   return factors;
 }
 
@@ -163,6 +179,8 @@ export interface AdherenceActivityInput {
   lastWeightAt: string | null; // weight_logs.measured_at mais recente
   lastPhotoAt: string | null; // progress_photos.taken_at mais recente
   now: Date;
+  // Adesão alimentar de HOJE (meal_logs vs plano ativo). Opcional/aditivo — ver MEAL_ADHERENCE_BONUS_MAX.
+  mealAdherenceToday?: { done: number; total: number } | null;
 }
 
 function localDayKey(iso: string): string {
@@ -180,7 +198,7 @@ function localDayKey(iso: string): string {
  * - streak: dias consecutivos (terminando hoje ou ontem) com ≥1 evento.
  */
 export function deriveAdherenceConfig(input: AdherenceActivityInput): MockConfig {
-  const { events, lastWeightAt, lastPhotoAt, now } = input;
+  const { events, lastWeightAt, lastPhotoAt, now, mealAdherenceToday } = input;
 
   const mostRecent = events.reduce<string | null>((acc, e) => {
     if (!acc) return e.created_at;
@@ -203,6 +221,12 @@ export function deriveAdherenceConfig(input: AdherenceActivityInput): MockConfig
   const photoLoggedRecently = !!lastPhotoAt && daysAgoLocal(lastPhotoAt, now) <= 30;
   const planViewedRecently = daysWithoutInteraction <= 3;
 
+  // Fração de refeições do plano feitas hoje (0..1). Sem plano ativo (total=0) -> 0 (sem efeito).
+  const mealAdherenceRatio =
+    mealAdherenceToday && mealAdherenceToday.total > 0
+      ? mealAdherenceToday.done / mealAdherenceToday.total
+      : 0;
+
   // streak: começa em hoje se houver evento hoje, senão ontem; conta dias consecutivos para trás.
   const dayKeys = new Set(events.map((e) => localDayKey(e.created_at)));
   let streak = 0;
@@ -223,6 +247,7 @@ export function deriveAdherenceConfig(input: AdherenceActivityInput): MockConfig
     photoLoggedRecently,
     planViewedRecently,
     streak,
+    mealAdherenceRatio,
   };
 }
 
