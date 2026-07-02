@@ -8,7 +8,7 @@ import { workoutSchedule } from "@/data/workoutData";
 import { useMe } from "@/hooks/useMe";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAdherenceState, getAutoActions } from "@/lib/adherenceEngine";
-import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getMyWorkoutPlan, getRecentWeightLogs } from "@/lib/api";
+import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
 import BottomNav from "@/components/BottomNav";
@@ -103,16 +103,23 @@ export default function HomePage() {
   const pendingQuery = useQuery({ queryKey: ["pendingSummary"], queryFn: getPendingSummary });
   const pending = pendingQuery.data;
 
+  // Adesão alimentar do dia (meal_logs vs plano ativo) — meta "Refeições" real + pendência.
+  const mealAdherenceQuery = useQuery({ queryKey: ["mealAdherenceToday"], queryFn: getMealAdherenceToday });
+  const mealAdherence = mealAdherenceQuery.data;
+  const hasRealMealPlan = !!(mealAdherence && mealAdherence.total > 0);
+
   // Nome do treino de hoje (plano real, com fallback ao mock) para a pendência de treino.
   const { data: realPlan } = useQuery({ queryKey: ["workoutPlan"], queryFn: getMyWorkoutPlan });
   const schedule = realPlan && realPlan.length > 0 ? realPlan : workoutSchedule;
   const todayWorkout = schedule.find((w) => w.dayIndex === new Date().getDay()) ?? schedule[0];
   const todayWorkoutLabel = todayWorkout ? `Treino ${todayWorkout.letter} — ${todayWorkout.name}` : "Treino do dia";
 
-  // Metas do dia: água e treino refletem dados reais; o resto permanece mock (fora de escopo S2).
+  // Metas do dia: água, treino e refeições refletem dados reais; o resto permanece mock.
   const goals = dailyGoals.map((g) => {
     if (g.id === "water") return { ...g, current: hydrationToday.data ?? g.current };
     if (g.id === "workout") return { ...g, current: pending && !pending.workoutPending ? 1 : 0 };
+    // Refeições: current=done, target=total do plano ativo. Sem plano real -> mantém o mock.
+    if (g.id === "meals") return hasRealMealPlan ? { ...g, current: mealAdherence!.done, target: mealAdherence!.total } : g;
     return g;
   });
 
@@ -143,6 +150,16 @@ export default function HomePage() {
       cta: "Registrar",
       path: "/records",
       pending: pending?.weightPending ?? false,
+    },
+    {
+      id: "meals",
+      icon: UtensilsCrossed,
+      title: "Refeições de hoje não registradas",
+      subtitle: hasRealMealPlan ? `${mealAdherence!.done}/${mealAdherence!.total} refeições marcadas` : "Marque suas refeições do dia",
+      cta: "Marcar",
+      path: "/plan",
+      // Some quando done>0 (ou sem plano real): só é pendência se há plano e nada foi marcado hoje.
+      pending: hasRealMealPlan && mealAdherence!.done === 0,
     },
   ].filter(item => item.pending);
 
