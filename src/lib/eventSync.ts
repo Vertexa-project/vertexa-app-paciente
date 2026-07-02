@@ -21,6 +21,7 @@ const RELEVANT_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
   "workout_checked",
   "weight_logged",
   "progress_photo_uploaded",
+  "meal_logged",
   "hydration_logged",
   "sleep_logged",
   "mood_logged",
@@ -110,6 +111,10 @@ async function updateAdherence(): Promise<void> {
     const last = await getLatestAdherenceState();
     if (last && last.score === state.score && last.level === state.level) return;
     await insertAdherenceSnapshot({ patientId, state });
+    // A Home lê ['adherence'] (getLatestAdherenceState). Invalida AQUI, DEPOIS do snapshot novo existir —
+    // a escrita do VRI é assíncrona/desacoplada da mutação, então quem dispara a ação (ex.: Plan.tsx) não
+    // consegue invalidar sem correr contra este insert. Mesmo padrão do ['recovery'] em updateMuscleRecovery.
+    void queryClient.invalidateQueries({ queryKey: ["adherence"] });
   } catch (err) {
     if (import.meta.env.DEV) {
       console.error("[VERTEXA eventSync] failed to write adherence snapshot", err);

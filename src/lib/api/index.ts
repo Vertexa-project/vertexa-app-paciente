@@ -15,6 +15,8 @@ export { upsertMuscleRecovery, getMuscleRecovery } from "./recovery";
 export type { UpsertMuscleRecoveryInput } from "./recovery";
 export { getMyNutritionPlan } from "./plan";
 export type { MealView, NutritionPlanView } from "./plan";
+export { toggleMealDone, getMealsDoneToday, getMealAdherenceToday } from "./meals";
+export type { ToggleMealDoneInput, MealAdherence } from "./meals";
 export {
   insertAdherenceSnapshot,
   computeAdherenceFromActivity,

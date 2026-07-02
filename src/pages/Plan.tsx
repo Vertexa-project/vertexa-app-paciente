@@ -3,12 +3,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Check, Clock, Pill, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { mealPlan, supplements } from "@/data/mockData";
-import { useQuery } from "@tanstack/react-query";
-import { getMyNutritionPlan } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getMyNutritionPlan, getMealsDoneToday, toggleMealDone } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 
 type Tab = "alimentar" | "treino" | "suplementos" | "orientacoes";
+
+// Refeição normalizada para a UI: plano real traz `id` (meals.id); mock não (id=null -> check off).
+interface MealRow {
+  id: string | null;
+  time: string;
+  name: string;
+  items: string[];
+  calories: number | null;
+  done: boolean;
+}
 
 export default function Plan() {
   const navigate = useNavigate();
@@ -25,8 +35,53 @@ export default function Plan() {
     }
   }, [planError]);
   const usingRealMeals = !!(nutritionPlan && nutritionPlan.meals.length > 0);
-  const meals = usingRealMeals ? nutritionPlan!.meals : mealPlan;
+  const meals: MealRow[] = usingRealMeals
+    ? nutritionPlan!.meals.map((m) => ({ id: m.id, time: m.time, name: m.name, items: m.items, calories: m.calories, done: m.done }))
+    : mealPlan.map((m) => ({ id: null, time: m.time, name: m.name, items: m.items, calories: m.calories, done: m.done }));
   const planTitle = usingRealMeals ? nutritionPlan!.title : "";
+
+  // "Feita" de hoje vem de meal_logs (só faz sentido com plano real). Optimistic no toggle.
+  const qc = useQueryClient();
+  const { data: doneToday } = useQuery({
+    queryKey: ["mealsDoneToday"],
+    queryFn: getMealsDoneToday,
+    enabled: usingRealMeals,
+  });
+
+  const toggleMeal = useMutation({
+    mutationFn: ({ mealId, on }: { mealId: string; on: boolean }) => toggleMealDone({ mealId, on }),
+    onMutate: async ({ mealId, on }) => {
+      await qc.cancelQueries({ queryKey: ["mealsDoneToday"] });
+      const prev = qc.getQueryData<Set<string>>(["mealsDoneToday"]);
+      const next = new Set(prev ?? []);
+      if (on) next.add(mealId);
+      else next.delete(mealId);
+      qc.setQueryData(["mealsDoneToday"], next);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["mealsDoneToday"], ctx.prev);
+    },
+    onSuccess: (_data, { mealId, on }) => {
+      // Marcador de timeline + recálculo do VRI só ao MARCAR (objetivo: "só no marcar, não no desmarcar").
+      // A linha já foi gravada em meal_logs -> o recompute do eventSync a enxerga. DESMARCAR de propósito
+      // NÃO recomputa o VRI: o fator alimentar é aditivo/não-negativo (nunca rebaixa a Mariana 88/alta) e o
+      // snapshot se auto-corrige no próximo evento relevante. O eventSync invalida ['adherence'] após gravar.
+      if (on) tracker.track("meal_logged", { meal_id: mealId });
+    },
+    onSettled: () => {
+      // meal_logs já está atualizado (mutationFn aguardada) -> estas leituras refletem o toggle na hora.
+      void qc.invalidateQueries({ queryKey: ["mealsDoneToday"] });
+      void qc.invalidateQueries({ queryKey: ["mealAdherenceToday"] });
+      // NÃO invalidar ['adherence'] aqui: o snapshot do VRI é escrito por cadeia async do eventSync;
+      // invalidar agora releria o snapshot ANTIGO. Quem invalida ['adherence'] é o eventSync, pós-insert.
+    },
+  });
+
+  const handleToggleMeal = (mealId: string | null, currentlyDone: boolean) => {
+    if (!mealId) return; // sem plano real não há o que gravar
+    toggleMeal.mutate({ mealId, on: !currentlyDone });
+  };
 
   const handleTabChange = (t: Tab) => {
     setTab(t);
@@ -69,15 +124,37 @@ export default function Plan() {
                   <span className="text-sm font-semibold text-foreground">{planTitle}</span>
                 </div>
               )}
-              {meals.map((meal, i) => (
-                <div key={i} className={`bg-card rounded-xl p-4 ${meal.done ? "border border-success/20" : ""}`}>
+              {meals.map((meal, i) => {
+                const isDone = usingRealMeals && meal.id ? (doneToday?.has(meal.id) ?? false) : meal.done;
+                return (
+                <div key={meal.id ?? i} className={`bg-card rounded-xl p-4 ${isDone ? "border border-success/20" : ""}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <Clock size={14} className="text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">{meal.time}</span>
                       <span className="text-sm font-semibold text-foreground">{meal.name}</span>
                     </div>
-                    {meal.done && <div className="w-5 h-5 rounded-full bg-success flex items-center justify-center"><Check size={12} className="text-success-foreground" /></div>}
+                    {usingRealMeals ? (
+                      <button
+                        onClick={() => handleToggleMeal(meal.id, isDone)}
+                        disabled={toggleMeal.isPending}
+                        aria-pressed={isDone}
+                        aria-label={isDone ? `Desmarcar ${meal.name}` : `Marcar ${meal.name} como feita`}
+                        className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all disabled:opacity-60 ${
+                          isDone ? "bg-success border-success" : "border-muted-foreground/40 hover:border-success/60"
+                        }`}
+                      >
+                        {isDone && <Check size={12} className="text-success-foreground" />}
+                      </button>
+                    ) : (
+                      <div
+                        aria-disabled
+                        title="Disponível quando seu nutricionista publicar o plano"
+                        className="w-6 h-6 rounded-full flex items-center justify-center border border-muted-foreground/20 opacity-40"
+                      >
+                        {meal.done && <Check size={12} className="text-muted-foreground" />}
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col gap-0.5 ml-6">
                     {meal.items.map((item, j) => (<span key={j} className="text-xs text-muted-foreground">• {item}</span>))}
@@ -87,7 +164,8 @@ export default function Plan() {
                     <button className="text-[10px] text-primary font-medium">Ver opções</button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </motion.div>
           )}
 

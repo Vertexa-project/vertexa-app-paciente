@@ -3,6 +3,7 @@ import { getMyPatientId } from "./patient";
 
 // A meal shaped like the mock mealPlan entries the Plan screen already renders.
 export interface MealView {
+  id: string; // meals.id (uuid estável) — alvo do toggle "feita" (meal_logs). Ausente no mock.
   time: string;
   name: string;
   items: string[];
@@ -17,6 +18,7 @@ export interface NutritionPlanView {
 }
 
 interface RawMeal {
+  id: string;
   time: string | null;
   name: string | null;
   items: string[] | null;
@@ -46,18 +48,19 @@ export async function getMyNutritionPlan(): Promise<NutritionPlanView | null> {
 
   const { data, error } = await supabase
     .from("meals")
-    .select("time, name, items, calories, order_index")
+    .select("id, time, name, items, calories, order_index")
     .eq("nutrition_plan_id", plan.id)
     .order("order_index", { ascending: true });
   if (error) throw error;
 
   const rows = (data ?? []) as RawMeal[];
   const meals: MealView[] = rows.map((m) => ({
+    id: m.id,
     time: m.time ?? "",
     name: m.name ?? "",
     items: m.items ?? [],
     calories: m.calories,
-    done: false,
+    done: false, // "feita" agora vem de meal_logs (getMealsDoneToday), não desta leitura do plano.
   }));
 
   return { title: plan.title ?? "", status: plan.status ?? "", meals };

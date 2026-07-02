@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { deriveAdherenceConfig, adherenceStateFromSnapshot, getAdherenceState } from "./adherenceEngine";
+import { deriveAdherenceConfig, adherenceStateFromSnapshot, getAdherenceState, type AdherenceLevel } from "./adherenceEngine";
+
+const levelRank: Record<AdherenceLevel, number> = { risco: 0, baixa: 1, moderada: 2, alta: 3 };
 
 const now = new Date(2026, 5, 25, 12, 0, 0); // 25 Jun 2026
 const iso = (y: number, m: number, d: number, h = 8) => new Date(y, m, d, h, 0, 0).toISOString();
@@ -105,5 +107,48 @@ describe("getAdherenceState (fórmula C6 intacta)", () => {
     const s = getAdherenceState();
     expect(s.score).toBeGreaterThanOrEqual(80);
     expect(s.level).toBe("alta");
+  });
+});
+
+describe("fator de ADESÃO ALIMENTAR (aditivo; preserva a Mariana — pendência #3)", () => {
+  it("deriva mealAdherenceRatio de done/total; 0 sem plano ativo ou input ausente", () => {
+    const withPlan = deriveAdherenceConfig({ events: [], lastWeightAt: null, lastPhotoAt: null, now, mealAdherenceToday: { done: 2, total: 4 } });
+    expect(withPlan.mealAdherenceRatio).toBeCloseTo(0.5);
+
+    const noPlan = deriveAdherenceConfig({ events: [], lastWeightAt: null, lastPhotoAt: null, now, mealAdherenceToday: { done: 0, total: 0 } });
+    expect(noPlan.mealAdherenceRatio).toBe(0);
+
+    const absent = deriveAdherenceConfig({ events: [], lastWeightAt: null, lastPhotoAt: null, now });
+    expect(absent.mealAdherenceRatio).toBe(0);
+  });
+
+  it("é ADITIVO/não-negativo: nunca REDUZ o score nem REBAIXA o nível", () => {
+    const bases: Parameters<typeof getAdherenceState>[0][] = [
+      {},
+      { daysWithoutInteraction: 5, habitsLoggedToday: 0, workoutsThisWeek: 1, weightLoggedRecently: false, streak: 0 },
+      { daysWithoutInteraction: 2, habitsLoggedToday: 2, workoutsThisWeek: 3, streak: 10 },
+      { daysWithoutInteraction: 20, habitsLoggedToday: 0, workoutsThisWeek: 0, weightLoggedRecently: false, streak: 0 },
+    ];
+    for (const base of bases) {
+      const without = getAdherenceState({ ...base, mealAdherenceRatio: 0 });
+      for (const ratio of [0.25, 0.5, 0.75, 1]) {
+        const withMeals = getAdherenceState({ ...base, mealAdherenceRatio: ratio });
+        expect(withMeals.score).toBeGreaterThanOrEqual(without.score);
+        expect(levelRank[withMeals.level]).toBeGreaterThanOrEqual(levelRank[without.level]);
+      }
+    }
+  });
+
+  it("config engajada (Mariana-like) permanece >=88/alta com qualquer adesão alimentar", () => {
+    // Perfil engajado que satura no topo (como a Mariana reconciliada 88/alta). O fator não a rebaixa.
+    const marianaLike = { daysWithoutInteraction: 1, habitsLoggedToday: 3, workoutsThisWeek: 3, weightLoggedRecently: true, planViewedRecently: true, streak: 18 };
+    const base = getAdherenceState({ ...marianaLike, mealAdherenceRatio: 0 });
+    expect(base.score).toBeGreaterThanOrEqual(88);
+    expect(base.level).toBe("alta");
+    for (const ratio of [0, 0.33, 0.66, 1]) {
+      const s = getAdherenceState({ ...marianaLike, mealAdherenceRatio: ratio });
+      expect(s.score).toBeGreaterThanOrEqual(88);
+      expect(s.level).toBe("alta");
+    }
   });
 });
