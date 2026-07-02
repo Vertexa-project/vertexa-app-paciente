@@ -219,6 +219,68 @@ describe("fator de ATIVIDADE COMPLEMENTAR (aditivo; preserva a Mariana — pend�
   });
 });
 
+describe("fator de SUPLEMENTOS (aditivo; respeita o soft-cap C7 e a Mariana convergente 96)", () => {
+  // Config da Mariana CONVERGENTE pós-SEED (janela rolante de 18d): evento hoje, 4 treinos/semana,
+  // peso/foto/plano recentes, streak 18 -> engine = 96/alta (baseline a232d1a4). NÃO pode regredir.
+  const marianaConvergente = {
+    daysWithoutInteraction: 0,
+    habitsLoggedToday: 1,
+    workoutsThisWeek: 4,
+    weightLoggedRecently: true,
+    photoLoggedRecently: true,
+    planViewedRecently: true,
+    streak: 18,
+  };
+
+  it("deriva supplementAdherenceRatio de taken/total; 0 sem lista ou input ausente", () => {
+    const withList = deriveAdherenceConfig({ events: [], lastWeightAt: null, lastPhotoAt: null, now, supplementAdherenceToday: { taken: 2, total: 5 } });
+    expect(withList.supplementAdherenceRatio).toBeCloseTo(0.4);
+
+    const noList = deriveAdherenceConfig({ events: [], lastWeightAt: null, lastPhotoAt: null, now, supplementAdherenceToday: { taken: 0, total: 0 } });
+    expect(noList.supplementAdherenceRatio).toBe(0);
+
+    const absent = deriveAdherenceConfig({ events: [], lastWeightAt: null, lastPhotoAt: null, now });
+    expect(absent.supplementAdherenceRatio).toBe(0);
+  });
+
+  it("é ADITIVO/não-negativo: nunca REDUZ o score nem REBAIXA o nível", () => {
+    const bases: Parameters<typeof getAdherenceState>[0][] = [
+      {},
+      { daysWithoutInteraction: 5, habitsLoggedToday: 0, workoutsThisWeek: 1, weightLoggedRecently: false, streak: 0 },
+      { daysWithoutInteraction: 20, habitsLoggedToday: 0, workoutsThisWeek: 0, weightLoggedRecently: false, streak: 0 },
+      marianaConvergente,
+    ];
+    for (const base of bases) {
+      const without = getAdherenceState({ ...base, supplementAdherenceRatio: 0 });
+      for (const ratio of [0.2, 0.4, 0.6, 0.8, 1]) {
+        const withSupp = getAdherenceState({ ...base, supplementAdherenceRatio: ratio });
+        expect(withSupp.score).toBeGreaterThanOrEqual(without.score);
+        expect(levelRank[withSupp.level]).toBeGreaterThanOrEqual(levelRank[without.level]);
+      }
+    }
+  });
+
+  it("Mariana convergente (96/alta) NÃO regride e NÃO crava 100 com suplementos", () => {
+    const base = getAdherenceState({ ...marianaConvergente, supplementAdherenceRatio: 0 });
+    expect(base.score).toBeGreaterThanOrEqual(96);
+    expect(base.level).toBe("alta");
+    for (const ratio of [0, 0.2, 0.6, 1]) {
+      const s = getAdherenceState({ ...marianaConvergente, supplementAdherenceRatio: ratio });
+      expect(s.score).toBeGreaterThanOrEqual(base.score); // nunca regride
+      expect(s.level).toBe("alta");
+      expect(s.score).toBeLessThan(100); // soft-cap respeitado: reforço, não teto
+    }
+  });
+
+  it("combina com os outros fatores aditivos sem NUNCA reduzir", () => {
+    const base = { daysWithoutInteraction: 3, habitsLoggedToday: 1, workoutsThisWeek: 2, weightLoggedRecently: false, streak: 4 };
+    const none = getAdherenceState({ ...base, mealAdherenceRatio: 0, complementaryActivityDaysThisWeek: 0, supplementAdherenceRatio: 0 });
+    const all = getAdherenceState({ ...base, mealAdherenceRatio: 1, complementaryActivityDaysThisWeek: 3, supplementAdherenceRatio: 1 });
+    expect(all.score).toBeGreaterThanOrEqual(none.score);
+    expect(levelRank[all.level]).toBeGreaterThanOrEqual(levelRank[none.level]);
+  });
+});
+
 describe("calibração do VRI (C7): perfil REAL da Mariana lande ~88, NÃO crava 100", () => {
   // Eventos REAIS da Mariana (confirmados via MCP): workout+hidratação @29/06, peso @28/06, foto @25/06.
   // now fixo = 02/07 (a mesma janela em que o VRI vivo saturava em 100 nas S1/S2).

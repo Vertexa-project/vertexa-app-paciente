@@ -36,6 +36,9 @@ export interface MockConfig {
   // Nº de DIAS distintos com atividade complementar (activity_logged) nos últimos 7 dias.
   // Opcional/aditivo: ausente ou 0 => nenhum efeito (constância complementar; ver ACTIVITY_BONUS_*).
   complementaryActivityDaysThisWeek?: number;
+  // Fração 0..1 dos suplementos da lista tomados HOJE. Opcional/aditivo: ausente ou 0 => nenhum
+  // efeito (ver SUPPLEMENT_ADHERENCE_BONUS_MAX).
+  supplementAdherenceRatio?: number;
 }
 
 // Bônus máximo (pontos) da ADESÃO ALIMENTAR do dia. É ESTRITAMENTE NÃO-NEGATIVO e entra ANTES
@@ -53,6 +56,13 @@ const MEAL_ADHERENCE_BONUS_MAX = 6;
 // hardcode definitivo: será unificada numa fonte única (S7/Desafios).
 const ACTIVITY_BONUS_PER_DAY = 2;
 const ACTIVITY_BONUS_DAYS_CAP = 3;
+
+// Bônus máximo (pontos) da adesão a SUPLEMENTOS do dia (S3). Mesmo racional dos fatores alimentar/
+// atividade: ESTRITAMENTE NÃO-NEGATIVO, entra no orçamento de engajamento ANTES da curva/clamp =>
+// nunca reduz score/nível (preserva a Mariana convergente 96/alta). Calibrado MENOR que o alimentar
+// (4 < 6): é reforço de rotina, não driver. A tabela de pontuação NÃO é hardcode definitivo — será
+// unificada numa fonte única na S7/Desafios.
+const SUPPLEMENT_ADHERENCE_BONUS_MAX = 4;
 
 const DEFAULT_CONFIG: MockConfig = {
   daysWithoutInteraction: 1,
@@ -80,7 +90,11 @@ const DEFAULT_CONFIG: MockConfig = {
 const VRI_BASE = 70; // piso da banda "engajado" (o clamp inferior [0] segue como rede de segurança)
 const VRI_HEADROOM = 30; // VRI_BASE + VRI_HEADROOM = 100 (teto reservado ao near-perfect)
 const VRI_CURVE = 0.42; // < 1 => retornos decrescentes (comprime o topo; ação isolada = nudge pequeno)
-const VRI_SIGNAL_MAX = 75; // máx possível: recência (12) + engajamento (63)
+// ÂNCORA DE CALIBRAÇÃO da C7 (recência 12 + engajamento 63 da época) — CONGELADA de propósito.
+// Fatores aditivos novos (meal/activity/supplement/S7...) elevam o sinal máximo REAL acima de 75;
+// o min(1, ...) satura por design. NÃO "corrigir" este denominador para o novo máximo: rebasear
+// REDUZIRIA o score de todos os perfis (Mariana 96 -> ~95) e violaria o invariante não-regressivo.
+const VRI_SIGNAL_MAX = 75;
 
 // Recência como termo POSITIVO limitado — não-crescente nos dias sem interação, SEM o cliff/reset que
 // zerava a penalidade a cada evento novo (uma das causas do "100 no primeiro toque").
@@ -112,10 +126,17 @@ function computeScore(config: MockConfig): number {
   if (config.complementaryActivityDaysThisWeek && config.complementaryActivityDaysThisWeek > 0) {
     engagement += Math.min(config.complementaryActivityDaysThisWeek, ACTIVITY_BONUS_DAYS_CAP) * ACTIVITY_BONUS_PER_DAY;
   }
+  // Suplementos do dia (ADITIVO, não-negativo — S3). Mesmo racional dos fatores acima.
+  if (config.supplementAdherenceRatio && config.supplementAdherenceRatio > 0) {
+    engagement += Math.round(Math.min(1, config.supplementAdherenceRatio) * SUPPLEMENT_ADHERENCE_BONUS_MAX);
+  }
 
   // Sinal total (recência + engajamento) normalizado e comprimido por retornos decrescentes dentro
   // da banda [VRI_BASE, VRI_BASE+VRI_HEADROOM]. O clamp final é só rede de segurança.
-  const signal = recencyPoints(config.daysWithoutInteraction) + engagement; // ∈ [0, VRI_SIGNAL_MAX]
+  // NOTA (S3): fatores aditivos novos podem levar o sinal ALÉM de VRI_SIGNAL_MAX — o min(1, ...)
+  // abaixo satura em 1 DE PROPÓSITO. NÃO rebasear o denominador ao adicionar fator (isso REDUZIRIA
+  // o score de todo mundo e violaria o invariante aditivo/não-regressivo da Mariana).
+  const signal = recencyPoints(config.daysWithoutInteraction) + engagement; // ∈ [0, ~VRI_SIGNAL_MAX+]
   const normalized = Math.min(1, Math.max(0, signal / VRI_SIGNAL_MAX));
   const score = VRI_BASE + VRI_HEADROOM * Math.pow(normalized, VRI_CURVE);
 
@@ -174,6 +195,7 @@ function getPositiveFactors(config: MockConfig): string[] {
   if (config.planViewedRecently) factors.push('Plano acompanhado');
   if ((config.mealAdherenceRatio ?? 0) >= 0.6) factors.push('Refeições do dia em dia');
   if ((config.complementaryActivityDaysThisWeek ?? 0) >= 2) factors.push('Atividades complementares na semana');
+  if ((config.supplementAdherenceRatio ?? 0) >= 0.6) factors.push('Suplementos em dia');
   return factors;
 }
 
@@ -215,6 +237,8 @@ export interface AdherenceActivityInput {
   now: Date;
   // Adesão alimentar de HOJE (meal_logs vs plano ativo). Opcional/aditivo — ver MEAL_ADHERENCE_BONUS_MAX.
   mealAdherenceToday?: { done: number; total: number } | null;
+  // Suplementos tomados HOJE (supplement_intakes vs lista). Opcional/aditivo — ver SUPPLEMENT_ADHERENCE_BONUS_MAX.
+  supplementAdherenceToday?: { taken: number; total: number } | null;
 }
 
 function localDayKey(iso: string): string {
@@ -232,7 +256,7 @@ function localDayKey(iso: string): string {
  * - streak: dias consecutivos (terminando hoje ou ontem) com ≥1 evento.
  */
 export function deriveAdherenceConfig(input: AdherenceActivityInput): MockConfig {
-  const { events, lastWeightAt, lastPhotoAt, now, mealAdherenceToday } = input;
+  const { events, lastWeightAt, lastPhotoAt, now, mealAdherenceToday, supplementAdherenceToday } = input;
 
   const mostRecent = events.reduce<string | null>((acc, e) => {
     if (!acc) return e.created_at;
@@ -263,6 +287,12 @@ export function deriveAdherenceConfig(input: AdherenceActivityInput): MockConfig
       ? mealAdherenceToday.done / mealAdherenceToday.total
       : 0;
 
+  // Fração de suplementos tomados hoje (0..1). Sem lista (total=0) -> 0 (sem efeito).
+  const supplementAdherenceRatio =
+    supplementAdherenceToday && supplementAdherenceToday.total > 0
+      ? supplementAdherenceToday.taken / supplementAdherenceToday.total
+      : 0;
+
   // streak: começa em hoje se houver evento hoje, senão ontem; conta dias consecutivos para trás.
   const dayKeys = new Set(events.map((e) => localDayKey(e.created_at)));
   let streak = 0;
@@ -285,6 +315,7 @@ export function deriveAdherenceConfig(input: AdherenceActivityInput): MockConfig
     streak,
     mealAdherenceRatio,
     complementaryActivityDaysThisWeek: activityDaysThisWeek.size,
+    supplementAdherenceRatio,
   };
 }
 
