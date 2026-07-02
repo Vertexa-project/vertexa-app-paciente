@@ -152,3 +152,68 @@ describe("fator de ADESÃO ALIMENTAR (aditivo; preserva a Mariana — pendência
     }
   });
 });
+
+describe("fator de ATIVIDADE COMPLEMENTAR (aditivo; preserva a Mariana — pendência #3)", () => {
+  it("deriva complementaryActivityDaysThisWeek = DIAS distintos com activity_logged nos últimos 7", () => {
+    const cfg = deriveAdherenceConfig({
+      events: [
+        { type: "activity_logged", created_at: iso(2026, 5, 25, 7) },
+        { type: "activity_logged", created_at: iso(2026, 5, 25, 19) }, // mesmo dia -> 1 distinto
+        { type: "activity_logged", created_at: iso(2026, 5, 23) },
+        { type: "activity_logged", created_at: iso(2026, 5, 10) }, // >6 dias -> fora da janela
+        { type: "hydration_logged", created_at: iso(2026, 5, 24) }, // outro tipo -> não conta
+      ],
+      lastWeightAt: null,
+      lastPhotoAt: null,
+      now,
+    });
+    expect(cfg.complementaryActivityDaysThisWeek).toBe(2); // dias 25 e 23
+  });
+
+  it("0 quando não há activity_logged (input compatível com o antigo)", () => {
+    const cfg = deriveAdherenceConfig({
+      events: [{ type: "hydration_logged", created_at: iso(2026, 5, 25) }],
+      lastWeightAt: null,
+      lastPhotoAt: null,
+      now,
+    });
+    expect(cfg.complementaryActivityDaysThisWeek).toBe(0);
+  });
+
+  it("é ADITIVO/não-negativo: nunca REDUZ o score nem REBAIXA o nível", () => {
+    const bases: Parameters<typeof getAdherenceState>[0][] = [
+      {},
+      { daysWithoutInteraction: 5, habitsLoggedToday: 0, workoutsThisWeek: 1, weightLoggedRecently: false, streak: 0 },
+      { daysWithoutInteraction: 2, habitsLoggedToday: 2, workoutsThisWeek: 3, streak: 10 },
+      { daysWithoutInteraction: 20, habitsLoggedToday: 0, workoutsThisWeek: 0, weightLoggedRecently: false, streak: 0 },
+    ];
+    for (const base of bases) {
+      const without = getAdherenceState({ ...base, complementaryActivityDaysThisWeek: 0 });
+      for (const days of [1, 2, 3, 5, 7]) {
+        const withActivity = getAdherenceState({ ...base, complementaryActivityDaysThisWeek: days });
+        expect(withActivity.score).toBeGreaterThanOrEqual(without.score);
+        expect(levelRank[withActivity.level]).toBeGreaterThanOrEqual(levelRank[without.level]);
+      }
+    }
+  });
+
+  it("combina com adesão alimentar sem NUNCA reduzir (os dois fatores são aditivos)", () => {
+    const base = { daysWithoutInteraction: 3, habitsLoggedToday: 1, workoutsThisWeek: 2, weightLoggedRecently: false, streak: 4 };
+    const none = getAdherenceState({ ...base, mealAdherenceRatio: 0, complementaryActivityDaysThisWeek: 0 });
+    const both = getAdherenceState({ ...base, mealAdherenceRatio: 1, complementaryActivityDaysThisWeek: 3 });
+    expect(both.score).toBeGreaterThanOrEqual(none.score);
+    expect(levelRank[both.level]).toBeGreaterThanOrEqual(levelRank[none.level]);
+  });
+
+  it("config engajada (Mariana-like) permanece >=88/alta com qualquer atividade complementar", () => {
+    const marianaLike = { daysWithoutInteraction: 1, habitsLoggedToday: 3, workoutsThisWeek: 3, weightLoggedRecently: true, planViewedRecently: true, streak: 18 };
+    const base = getAdherenceState({ ...marianaLike, complementaryActivityDaysThisWeek: 0 });
+    expect(base.score).toBeGreaterThanOrEqual(88);
+    expect(base.level).toBe("alta");
+    for (const days of [0, 1, 2, 3, 5, 7]) {
+      const s = getAdherenceState({ ...marianaLike, complementaryActivityDaysThisWeek: days });
+      expect(s.score).toBeGreaterThanOrEqual(88);
+      expect(s.level).toBe("alta");
+    }
+  });
+});

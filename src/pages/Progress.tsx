@@ -2,9 +2,13 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Calendar, Image, TrendingDown, TrendingUp, Flame, Dumbbell, Timer, BarChart3, Layers, ChevronRight, Zap, Activity, Camera, X, ArrowRight, Plus, Watch } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { weightHistory, achievements, patient } from "@/data/mockData";
 import { getAdherenceState } from "@/lib/adherenceEngine";
 import { tracker } from "@/lib/eventTracker";
+import { getActivitySessionsSince } from "@/lib/api";
+import { modalityBySlug } from "@/lib/activityModalities";
+import { daysAgoLocal, localDateKey } from "@/lib/pendingLogic";
 import BottomNav from "@/components/BottomNav";
 import DynamicBodyMap from "@/components/DynamicBodyMap";
 
@@ -51,12 +55,23 @@ const periodStats: Record<Period, { workouts: number; time: string; calories: nu
   "28d": { workouts: 17, time: "15:30", calories: 7650, exercises: 136, sets: 408, reps: 4760, load: "52.1t" },
 };
 
-// Mock complementary activities
-const recentActivities = [
-  { id: "1", modality: "Corrida", icon: "🏃", duration: 35, calories: 385, date: "Hoje", source: "manual" as const },
-  { id: "2", modality: "Jiu-Jitsu", icon: "🥋", duration: 60, calories: 720, date: "Ontem", source: "manual" as const },
-  { id: "3", modality: "Caminhada", icon: "🚶", duration: 45, calories: 225, date: "Ter", source: "device" as const },
-];
+// Rótulo de data relativa p/ a lista de atividades complementares reais (fuso local; reusa daysAgoLocal).
+function activityDateLabel(iso: string, now: Date): string {
+  const days = daysAgoLocal(iso, now);
+  if (days === 0) return "Hoje";
+  if (days === 1) return "Ontem";
+  if (days <= 6) {
+    const wd = new Date(iso).toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
+    return wd.charAt(0).toUpperCase() + wd.slice(1);
+  }
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function formatExtraTime(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
 
 const evolutionPhotos = [
   { id: 'jan', month: 'Jan', year: '2026', label: 'Janeiro 2026', hasPhoto: true },
@@ -76,6 +91,25 @@ export default function Progress() {
   const [compareView, setCompareView] = useState(false);
   const state = getAdherenceState();
   const stats = periodStats[period];
+
+  // Atividades complementares REAIS (activity_sessions) da SEMANA (últimos 7 dias locais). Uma ÚNICA
+  // fonte week-scoped (sem cap por LIMIT) -> lista e somatório sempre CONSISTENTES entre si e com o
+  // rótulo "na semana". Vazio -> estado vazio real; erro -> estado de erro (contrato: loading/empty/error).
+  const activitiesNow = new Date();
+  const weekStart = new Date(activitiesNow.getFullYear(), activitiesNow.getMonth(), activitiesNow.getDate() - 6);
+  const {
+    data: weekActivitySessions = [],
+    isLoading: activitiesLoading,
+    isError: activitiesError,
+    refetch: refetchActivities,
+  } = useQuery({
+    queryKey: ["activity-sessions", "week", localDateKey(activitiesNow)],
+    queryFn: () => getActivitySessionsSince(weekStart),
+  });
+  const recentActivities = weekActivitySessions.slice(0, 5);
+  const weekActivityMinutes = weekActivitySessions.reduce((sum, a) => sum + (a.duration_min ?? 0), 0);
+  const weekActivityCalories = weekActivitySessions.reduce((sum, a) => sum + (a.calories ?? 0), 0);
+  const hasActivities = weekActivitySessions.length > 0;
   const maxW = Math.max(...weightHistory.map(w => w.weight));
   const minW = Math.min(...weightHistory.map(w => w.weight));
   const range = maxW - minW || 1;
@@ -239,8 +273,7 @@ export default function Progress() {
           </div>
         </motion.div>
 
-        {/* ═══ LAYER 5: Volume Evolution ═══ */}
-        {/* ═══ LAYER 4.5: Complementary Activities ═══ */}
+        {/* ═══ LAYER 4.5: Complementary Activities (activity_sessions REAIS) ═══ */}
         <motion.div {...anim(0.37)} className="bg-card rounded-2xl p-5 shadow-card mb-5">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
@@ -251,6 +284,7 @@ export default function Progress() {
             </div>
             <button
               onClick={() => navigate("/log-activity")}
+              aria-label="Registrar atividade complementar"
               className="w-7 h-7 rounded-full gradient-orange flex items-center justify-center shadow-orange"
             >
               <Plus size={14} className="text-primary-foreground" />
@@ -258,48 +292,69 @@ export default function Progress() {
           </div>
           <p className="text-[11px] text-muted-foreground mb-4 ml-9">Outras modalidades registradas na semana</p>
 
-          {recentActivities.length > 0 ? (
+          {activitiesLoading ? (
             <div className="space-y-2.5">
-              {recentActivities.map((a) => (
-                <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 border border-border/50">
-                  <span className="text-lg">{a.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-semibold text-foreground">{a.modality}</p>
-                      {a.source === "device" && <Watch size={10} className="text-muted-foreground" />}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground">{a.duration} min · {a.calories} kcal</p>
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">{a.date}</span>
-                </div>
+              {[0, 1].map((i) => (
+                <div key={i} className="h-[52px] rounded-xl bg-muted/40 border border-border/50 animate-pulse" />
               ))}
             </div>
+          ) : activitiesError ? (
+            <div className="w-full p-4 rounded-xl border border-dashed border-red-500/30 flex flex-col items-center gap-2 text-center">
+              <p className="text-xs text-red-400">Não foi possível carregar suas atividades.</p>
+              <button onClick={() => refetchActivities()} className="text-[11px] font-semibold text-primary">
+                Tentar novamente
+              </button>
+            </div>
+          ) : hasActivities ? (
+            <>
+              <div className="space-y-2.5">
+                {recentActivities.map((a) => {
+                  const meta = modalityBySlug(a.modality);
+                  return (
+                    <div key={a.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 border border-border/50">
+                      <span className="text-lg">{meta.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-semibold text-foreground">{meta.label}</p>
+                          {a.source === "device" && <Watch size={10} className="text-muted-foreground" />}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {a.duration_min} min{a.calories != null ? ` · ${a.calories} kcal` : ""}
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">{activityDateLabel(a.performed_at, activitiesNow)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Weekly summary — soma REAL dos últimos 7 dias */}
+              <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Tempo extra</p>
+                    <p className="text-sm font-bold text-foreground">{formatExtraTime(weekActivityMinutes)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Calorias</p>
+                    <p className="text-sm font-bold text-foreground">{weekActivityCalories.toLocaleString("pt-BR")} kcal</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10">
+                  <span className="text-[10px] font-semibold text-primary">+bônus ranking</span>
+                </div>
+              </div>
+            </>
           ) : (
             <button
               onClick={() => navigate("/log-activity")}
               className="w-full p-4 rounded-xl border border-dashed border-border flex flex-col items-center gap-2"
             >
               <Plus size={18} className="text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Registrar atividade</p>
+              <p className="text-xs text-muted-foreground">Nenhuma atividade complementar ainda</p>
+              <p className="text-[10px] text-muted-foreground">Toque para registrar</p>
             </button>
           )}
-
-          {/* Weekly summary */}
-          <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div>
-                <p className="text-[10px] text-muted-foreground">Tempo extra</p>
-                <p className="text-sm font-bold text-foreground">2h 20min</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground">Calorias</p>
-                <p className="text-sm font-bold text-foreground">1.330 kcal</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10">
-              <span className="text-[10px] font-semibold text-primary">+bônus ranking</span>
-            </div>
-          </div>
         </motion.div>
 
         <motion.div {...anim(0.4)} className="bg-card rounded-2xl p-5 shadow-card mb-5">

@@ -1,25 +1,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Check, Clock, Flame, Plus, Watch, Smartphone } from "lucide-react";
+import { ArrowLeft, Check, Clock, Flame, Watch, Smartphone, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
-interface SportModality {
-  id: string;
-  name: string;
-  icon: string;
-  calPerMin: number;
-}
-
-const modalities: SportModality[] = [
-  { id: "running", name: "Corrida", icon: "🏃", calPerMin: 11 },
-  { id: "walking", name: "Caminhada", icon: "🚶", calPerMin: 5 },
-  { id: "cycling", name: "Ciclismo", icon: "🚴", calPerMin: 9 },
-  { id: "swimming", name: "Natação", icon: "🏊", calPerMin: 10 },
-  { id: "jiujitsu", name: "Jiu-Jitsu", icon: "🥋", calPerMin: 12 },
-  { id: "tennis", name: "Tênis", icon: "🎾", calPerMin: 8 },
-  { id: "cardio", name: "Cardio", icon: "❤️‍🔥", calPerMin: 9 },
-  { id: "other", name: "Outra", icon: "⚡", calPerMin: 7 },
-];
+import { ACTIVITY_MODALITIES, type ActivityModality } from "@/lib/activityModalities";
+import { logActivitySession } from "@/lib/api";
+import { tracker } from "@/lib/eventTracker";
 
 const durationPresets = [15, 30, 45, 60, 90];
 
@@ -28,14 +13,40 @@ type Step = "modality" | "details" | "success";
 export default function LogActivity() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("modality");
-  const [selected, setSelected] = useState<SportModality | null>(null);
+  const [selected, setSelected] = useState<ActivityModality | null>(null);
   const [duration, setDuration] = useState(30);
   const [source, setSource] = useState<"manual" | "device">("manual");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const estimatedCal = selected ? selected.calPerMin * duration : 0;
 
-  const handleSave = () => {
-    setStep("success");
+  // Persiste a atividade complementar de VERDADE (activity_sessions) + dispara o MARCADOR
+  // 'activity_logged' (eventSync espelha em activity_events e recomputa o VRI) ANTES de navegar
+  // para o sucesso. Se a escrita falhar, NÃO avança — mostra o erro e permite tentar de novo.
+  const handleSave = async () => {
+    if (!selected || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await logActivitySession({
+        modality: selected.slug,
+        durationMin: duration,
+        calories: estimatedCal,
+        source,
+      });
+      tracker.track("activity_logged", {
+        modality: selected.slug,
+        duration_min: duration,
+        calories: estimatedCal,
+        source,
+      });
+      setStep("success");
+    } catch {
+      setError("Não foi possível salvar sua atividade. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -60,15 +71,15 @@ export default function LogActivity() {
               <p className="text-[11px] text-muted-foreground mb-5">Selecione a atividade que você praticou</p>
 
               <div className="grid grid-cols-2 gap-3">
-                {modalities.map((m) => (
+                {ACTIVITY_MODALITIES.map((m) => (
                   <button
-                    key={m.id}
-                    onClick={() => { setSelected(m); setStep("details"); }}
+                    key={m.slug}
+                    onClick={() => { setSelected(m); setStep("details"); setError(null); }}
                     className="bg-card rounded-2xl p-4 flex items-center gap-3 border border-border hover:border-primary/40 transition-all text-left shadow-card"
                   >
                     <span className="text-2xl">{m.icon}</span>
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{m.name}</p>
+                      <p className="text-sm font-semibold text-foreground">{m.label}</p>
                       <p className="text-[10px] text-muted-foreground">~{m.calPerMin} kcal/min</p>
                     </div>
                   </button>
@@ -93,7 +104,7 @@ export default function LogActivity() {
                   <span className="text-2xl">{selected.icon}</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-foreground">{selected.name}</p>
+                  <p className="text-sm font-semibold text-foreground">{selected.label}</p>
                   <p className="text-[11px] text-muted-foreground">Atividade complementar</p>
                 </div>
                 <button onClick={() => setStep("modality")} className="text-[11px] text-primary font-medium">Trocar</button>
@@ -177,10 +188,17 @@ export default function LogActivity() {
               {/* Save button */}
               <button
                 onClick={handleSave}
-                className="w-full py-4 rounded-2xl gradient-orange text-primary-foreground font-display font-bold text-base shadow-orange"
+                disabled={saving}
+                aria-label="Salvar atividade"
+                aria-busy={saving}
+                className="w-full py-4 rounded-2xl gradient-orange text-primary-foreground font-display font-bold text-base shadow-orange flex items-center justify-center gap-2 disabled:opacity-60 disabled:pointer-events-none"
               >
-                Salvar atividade
+                {saving && <Loader2 size={18} className="animate-spin" />}
+                {saving ? "Salvando…" : "Salvar atividade"}
               </button>
+              {error && (
+                <p role="alert" className="mt-3 text-center text-xs text-red-400">{error}</p>
+              )}
             </motion.div>
           )}
 
@@ -203,7 +221,7 @@ export default function LogActivity() {
 
               <h2 className="text-xl font-display font-bold text-foreground mb-2">Atividade registrada!</h2>
               <p className="text-sm text-muted-foreground mb-8 max-w-[280px]">
-                <span className="text-primary font-semibold">{selected.name}</span> · {duration} min · {estimatedCal} kcal
+                <span className="text-primary font-semibold">{selected.label}</span> · {duration} min · {estimatedCal} kcal
               </p>
 
               {/* Impact summary */}
@@ -211,8 +229,8 @@ export default function LogActivity() {
                 <p className="text-xs text-muted-foreground mb-3">Impacto no seu dia</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="text-center">
-                    <p className="text-lg font-display font-bold text-primary">+{Math.round(duration * 0.8)}</p>
-                    <p className="text-[10px] text-muted-foreground">pts bônus</p>
+                    <p className="text-lg font-display font-bold text-primary">{duration}</p>
+                    <p className="text-[10px] text-muted-foreground">min</p>
                   </div>
                   <div className="text-center">
                     <p className="text-lg font-display font-bold text-foreground">{estimatedCal}</p>
