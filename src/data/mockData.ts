@@ -147,16 +147,9 @@ export const workoutPlan = [
 // (S3) O mock de suplementos foi REMOVIDO: a aba Suplem. lê a tabela `supplements` (autoria web,
 // seed da Mariana na migration 20260702140000). Sem fallback mock de propósito — vazio real.
 
-export const achievements = [
-  { id: 1, title: "Primeira semana completa", icon: "🔥", date: "22 Jan", unlocked: true, description: "Completou 7 dias seguidos" },
-  { id: 2, title: "10 treinos concluídos", icon: "🏆", date: "05 Fev", unlocked: true, description: "Atingiu 10 treinos registrados" },
-  { id: 3, title: "Meta de água por 5 dias", icon: "💧", date: "12 Fev", unlocked: true, description: "Bebeu 2.5L por 5 dias seguidos" },
-  { id: 4, title: "3kg eliminados", icon: "⚖️", date: "28 Fev", unlocked: true, description: "Perdeu 3kg desde o início" },
-  { id: 5, title: "Mês consistente", icon: "📅", date: "15 Mar", unlocked: true, description: "Score acima de 70% por 30 dias" },
-  { id: 6, title: "5kg eliminados", icon: "🎯", date: "10 Abr", unlocked: true, description: "Perdeu 5kg desde o início" },
-  { id: 7, title: "50 treinos concluídos", icon: "💎", date: "", unlocked: false, description: "Faltam 8 treinos" },
-  { id: 8, title: "Sequência de 30 dias", icon: "🔥", date: "", unlocked: false, description: "Faltam 12 dias" },
-];
+// (S5) O mock de conquistas foi REMOVIDO: a tela /achievements e o card "Conquistas recentes" leem o
+// catálogo REAL (tabela `achievements`) + os unlocks (`patient_achievements`) via achievementsEngine +
+// useAchievements. Sem fallback mock de propósito — motor é a S5 (migration 20260702210746).
 
 export const notifications = [
   { id: 1, type: "reminder", title: "Hora de beber água!", message: "Você está em 1.2L. Meta: 2.5L", time: "Agora", read: false },

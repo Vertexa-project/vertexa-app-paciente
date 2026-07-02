@@ -14,6 +14,7 @@ import { modalityBySlug } from "@/lib/activityModalities";
 import { daysAgoLocal, localDateKey } from "@/lib/pendingLogic";
 import { deriveConstancy, countWorkoutDaysInWindow } from "@/lib/constancy";
 import { tracker } from "@/lib/eventTracker";
+import { useAchievements } from "@/hooks/useAchievements";
 import BottomNav from "@/components/BottomNav";
 import DynamicBodyMap from "@/components/DynamicBodyMap";
 
@@ -58,6 +59,8 @@ export default function Progress() {
   const [showCompare, setShowCompare] = useState(false);
   const now = new Date();
   const windowDays = periodDays[period];
+  // Conquistas recentes (S5): destravadas mais recentes, via motor (patient_achievements). Só leitura.
+  const { recent: recentAchievements, isLoading: achievementsLoading } = useAchievements();
 
   useEffect(() => { tracker.track('home_viewed'); }, []);
 
@@ -438,15 +441,44 @@ export default function Progress() {
           )}
         </motion.div>
 
-        {/* ═══ Conquistas — estado vazio (motor de conquistas = S5; sem mock ativo) ═══ */}
+        {/* ═══ Conquistas recentes — REAL (motor S5: patient_achievements via achievementsEngine) ═══ */}
         <motion.div {...anim(0.65)}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground">Conquistas recentes</h3>
+            <button onClick={() => navigate("/achievements")} className="text-xs text-primary font-medium flex items-center gap-1">
+              Ver todas <ArrowRight size={12} />
+            </button>
           </div>
-          <div className="p-5 rounded-xl border border-dashed border-border flex flex-col items-center gap-2 text-center mb-5">
-            <Trophy size={20} className="text-muted-foreground/50" />
-            <p className="text-xs text-muted-foreground">Suas conquistas aparecerão aqui</p>
-          </div>
+          {achievementsLoading ? (
+            <div className="flex flex-col gap-2 mb-5">
+              {[0, 1].map((i) => <div key={i} className="h-14 rounded-xl bg-muted animate-pulse" />)}
+            </div>
+          ) : recentAchievements.length > 0 ? (
+            <div className="flex flex-col gap-2 mb-5">
+              {recentAchievements.map((a) => (
+                <button
+                  key={a.code}
+                  onClick={() => navigate("/achievements")}
+                  className="bg-card rounded-xl p-3 flex items-center gap-3 shadow-card active:scale-[0.98] transition-transform text-left"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                    <span className="text-xl">{a.icon}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{a.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{a.unlockedAt ? activityDateLabel(a.unlockedAt, now) : ""}</p>
+                  </div>
+                  <Trophy size={16} className="text-warning shrink-0" />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="p-5 rounded-xl border border-dashed border-border flex flex-col items-center gap-2 text-center mb-5">
+              <Trophy size={20} className="text-muted-foreground/50" />
+              <p className="text-xs text-muted-foreground">Suas conquistas aparecerão aqui</p>
+              <p className="text-[10px] text-muted-foreground">Complete ações no app para desbloquear</p>
+            </div>
+          )}
         </motion.div>
       </div>
       <BottomNav />

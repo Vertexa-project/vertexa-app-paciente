@@ -32,6 +32,19 @@ export {
   getLatestAdherenceState,
 } from "./adherence";
 export type { InsertAdherenceSnapshotInput } from "./adherence";
+export {
+  getAchievementsCatalog,
+  getPatientAchievements,
+  getAchievementsView,
+  computeAndPersistAchievements,
+} from "./achievements";
+export type {
+  AchievementDef,
+  AchievementView,
+  PatientAchievementRow,
+  AchievementCategory,
+  ComputeAchievementsResult,
+} from "./achievements";
 export { getMyWorkoutPlan } from "./workouts";
 export { logWeight, getRecentWeightLogs } from "./weight";
 export type { LogWeightInput, WeightLogRow } from "./weight";

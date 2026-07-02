@@ -11,6 +11,7 @@ import {
   insertAdherenceSnapshot,
   computeAdherenceFromActivity,
   getLatestAdherenceState,
+  computeAndPersistAchievements,
 } from "@/lib/api";
 import { musclesForWorkout } from "@/lib/muscleMap";
 import { queryClient } from "@/lib/queryClient";
@@ -47,7 +48,8 @@ export function startEventSync(): void {
 /**
  * Persiste o evento e, se ele de fato entrou no banco, atualiza o estado derivado:
  * - conclusão de treino COM workoutId (WorkoutGuide OU Records, objetivo #5) -> recuperação muscular (4c-2);
- * - QUALQUER ação relevante persistida -> recomputa o VRI de dados REAIS e grava um snapshot (objetivo #7).
+ * - QUALQUER ação relevante persistida -> recomputa o VRI de dados REAIS e grava um snapshot (objetivo #7);
+ * - QUALQUER ação relevante persistida -> reavalia as CONQUISTAS e destrava as novas (S5).
  * O VRI só é recomputado se o mirror confirmou a escrita, para não persistir um VRI calculado
  * sem o evento que acabou de acontecer.
  */
@@ -67,6 +69,9 @@ async function handleEvent(event: AppEvent): Promise<void> {
   }
 
   await updateAdherence();
+  // Conquistas (S5): caminho SEPARADO do VRI. Roda DEPOIS e de forma independente — um erro aqui
+  // não afeta o snapshot de adesão já gravado, e o motor de conquistas NÃO alimenta o VRI.
+  await updateAchievements();
 }
 
 /** Espelha o evento em activity_events. Retorna true se a linha foi gravada. */
@@ -120,6 +125,27 @@ async function updateAdherence(): Promise<void> {
   } catch (err) {
     if (import.meta.env.DEV) {
       console.error("[VERTEXA eventSync] failed to write adherence snapshot", err);
+    }
+  }
+}
+
+/**
+ * Reavalia as CONQUISTAS (S5) a partir dos dados reais e faz UPSERT das destravadas (motor puro
+ * achievementsEngine + api/achievements). Caminho ISOLADO do VRI: escreve SÓ em
+ * patient_achievements, NÃO toca adherence_snapshots nem o adherenceEngine/denominador — logo NÃO
+ * pode mover o VRI (prova: a Mariana segue 96/alta). Invalida ['achievements'] (tela /achievements
+ * + card "Conquistas recentes") só depois do upsert, mesmo padrão de ['adherence']/['recovery'].
+ */
+async function updateAchievements(): Promise<void> {
+  try {
+    const { newlyUnlocked } = await computeAndPersistAchievements();
+    // Só há o que repintar se algo NOVO destravou (upsert idempotente não muda o já existente).
+    if (newlyUnlocked.length > 0) {
+      void queryClient.invalidateQueries({ queryKey: ["achievements"] });
+    }
+  } catch (err) {
+    if (import.meta.env.DEV) {
+      console.error("[VERTEXA eventSync] failed to update achievements", err);
     }
   }
 }
