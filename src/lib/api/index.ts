@@ -45,6 +45,15 @@ export type {
   AchievementCategory,
   ComputeAchievementsResult,
 } from "./achievements";
+export {
+  getMyNotifications,
+  getUnreadCount,
+  markAsRead,
+  markAllNotificationsRead,
+} from "./notifications";
+export type { NotificationRow, NotificationType } from "./notifications";
+export { getJourneyData } from "./journey";
+export type { JourneyData } from "./journey";
 export { getMyWorkoutPlan } from "./workouts";
 export { logWeight, getRecentWeightLogs } from "./weight";
 export type { LogWeightInput, WeightLogRow } from "./weight";

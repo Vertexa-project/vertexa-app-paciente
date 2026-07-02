@@ -151,14 +151,8 @@ export const workoutPlan = [
 // catálogo REAL (tabela `achievements`) + os unlocks (`patient_achievements`) via achievementsEngine +
 // useAchievements. Sem fallback mock de propósito — motor é a S5 (migration 20260702210746).
 
-export const notifications = [
-  { id: 1, type: "reminder", title: "Hora de beber água!", message: "Você está em 1.2L. Meta: 2.5L", time: "Agora", read: false },
-  { id: 2, type: "motivation", title: "Você está arrasando! 🔥", message: "4 dias consecutivos com score acima de 80%", time: "2h atrás", read: false },
-  { id: 3, type: "reminder", title: "Treino de hoje", message: "Treino C — Full Body às 18:00", time: "4h atrás", read: true },
-  { id: 4, type: "achievement", title: "Nova conquista! 🏆", message: "Você completou 5kg eliminados", time: "Ontem", read: true },
-  { id: 5, type: "reminder", title: "Registrar peso semanal", message: "É dia de registrar seu peso. Não esqueça!", time: "Ontem", read: true },
-  { id: 6, type: "professional", title: "Mensagem da Dra. Camila", message: "Seu plano alimentar foi atualizado", time: "2 dias", read: true },
-];
+// (S6) O mock de notificações foi REMOVIDO: a tela /notifications lê a tabela real `notifications`
+// (via api/notifications + useNotifications) e o badge usa getUnreadCount. Sem fallback mock.
 
 export const sosCategories = [
   { id: "travel", icon: "✈️", label: "Estou viajando", description: "Preciso adaptar minha rotina" },

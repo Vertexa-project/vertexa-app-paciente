@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { dailyGoals, weeklyProgress } from "@/data/mockData";
 import { workoutSchedule } from "@/data/workoutData";
 import { useMe } from "@/hooks/useMe";
+import { useUnreadNotificationCount } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAdherenceState, getAutoActions } from "@/lib/adherenceEngine";
 import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
@@ -103,6 +104,9 @@ export default function HomePage() {
   const pendingQuery = useQuery({ queryKey: ["pendingSummary"], queryFn: getPendingSummary });
   const pending = pendingQuery.data;
 
+  // Badge de notificações NÃO lidas (real; fim do ponto estático). Zera ao marcar lidas em /notifications.
+  const { count: unreadNotifications } = useUnreadNotificationCount();
+
   // Adesão alimentar do dia (meal_logs vs plano ativo) — meta "Refeições" real + pendência.
   const mealAdherenceQuery = useQuery({ queryKey: ["mealAdherenceToday"], queryFn: getMealAdherenceToday });
   const mealAdherence = mealAdherenceQuery.data;
@@ -183,7 +187,11 @@ export default function HomePage() {
           </div>
           <button onClick={() => navigate("/notifications")} className="relative w-10 h-10 rounded-full bg-card flex items-center justify-center">
             <Bell size={20} className="text-foreground" />
-            <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-primary border-2 border-background" />
+            {unreadNotifications > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1 border-2 border-background">
+                {unreadNotifications}
+              </span>
+            )}
           </button>
         </motion.div>
 

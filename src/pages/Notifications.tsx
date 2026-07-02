@@ -2,8 +2,8 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Droplets, Dumbbell, Trophy, MessageSquare, Bell, AlertTriangle, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { notifications } from "@/data/mockData";
-import { getAdherenceState } from "@/lib/adherenceEngine";
+import { useNotifications } from "@/hooks/useNotifications";
+import { daysAgoLocal } from "@/lib/pendingLogic";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 
@@ -25,20 +25,21 @@ const typeColors: Record<string, string> = {
   system: "bg-muted text-muted-foreground",
 };
 
+// "Hoje" / "Ontem" / "Nd" / "dd/mm" a partir do created_at (fuso local).
+function timeLabel(iso: string, now: Date): string {
+  const d = daysAgoLocal(iso, now);
+  if (d === 0) return "Hoje";
+  if (d === 1) return "Ontem";
+  if (d <= 6) return `${d} dias`;
+  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
 export default function Notifications() {
   const navigate = useNavigate();
-  const state = getAdherenceState();
+  const { notifications, unreadCount, isLoading, isError, markRead, markAllRead } = useNotifications();
+  const now = new Date();
 
   useEffect(() => { tracker.track('notification_viewed'); }, []);
-
-  // Combine mock notifications with retention-aware ones
-  const retentionNotifs = state.level !== 'alta' ? [
-    { id: 100, type: "retention", title: "Sua constância precisa de atenção", message: `Seu VRI está em ${state.score}%. Registre seus hábitos para melhorar.`, time: "Agora", read: false },
-  ] : [
-    { id: 100, type: "motivation", title: "Adesão excelente! 🔥", message: `Seu VRI está em ${state.score}%. Sua constância está fazendo a diferença.`, time: "Agora", read: false },
-  ];
-
-  const allNotifs = [...retentionNotifs, ...notifications];
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -48,32 +49,56 @@ export default function Notifications() {
             <ArrowLeft size={20} className="text-foreground" />
           </button>
           <h1 className="text-xl font-display font-bold text-foreground">Notificações</h1>
-          <span className="ml-auto text-xs text-primary font-medium">{allNotifs.filter(n => !n.read).length} novas</span>
+          {unreadCount > 0 && (
+            <button onClick={() => markAllRead()} className="ml-auto text-xs text-primary font-medium">
+              {unreadCount} novas · marcar todas
+            </button>
+          )}
         </div>
 
-        <div className="flex flex-col gap-2">
-          {allNotifs.map((n, i) => {
-            const Icon = typeIcons[n.type] || Bell;
-            const colorClass = typeColors[n.type] || "bg-muted text-muted-foreground";
-            return (
-              <motion.div key={n.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
-                className={`flex items-start gap-3 p-4 rounded-xl ${!n.read ? "bg-card" : "bg-card/50"}`}
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
-                  <Icon size={18} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className={`text-sm font-medium ${!n.read ? "text-foreground" : "text-muted-foreground"}`}>{n.title}</p>
-                    {!n.read && <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+        {isError ? (
+          <p className="text-xs text-red-400 text-center py-8">Não foi possível carregar suas notificações.</p>
+        ) : isLoading ? (
+          <div className="flex flex-col gap-2">
+            {[0, 1, 2].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="p-6 rounded-xl border border-dashed border-border flex flex-col items-center gap-2 text-center mt-4">
+            <Bell size={22} className="text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">Nenhuma notificação por aqui</p>
+            <p className="text-[11px] text-muted-foreground">Você está em dia! 🎉</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {notifications.map((n, i) => {
+              const Icon = typeIcons[n.type] || Bell;
+              const colorClass = typeColors[n.type] || "bg-muted text-muted-foreground";
+              const unread = !n.read_at;
+              return (
+                <motion.button
+                  key={n.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  onClick={() => unread && markRead(n.id)}
+                  className={`w-full text-left flex items-start gap-3 p-4 rounded-xl ${unread ? "bg-card" : "bg-card/50"} ${unread ? "active:scale-[0.99] transition-transform" : ""}`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${colorClass}`}>
+                    <Icon size={18} />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
-                  <span className="text-[10px] text-muted-foreground mt-1 block">{n.time}</span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className={`text-sm font-medium ${unread ? "text-foreground" : "text-muted-foreground"}`}>{n.title}</p>
+                      {unread && <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">{n.body}</p>
+                    <span className="text-[10px] text-muted-foreground mt-1 block">{timeLabel(n.created_at, now)}</span>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+        )}
       </div>
       <BottomNav />
     </div>
