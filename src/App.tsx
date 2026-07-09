@@ -1,6 +1,9 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
 import { queryClient } from "@/lib/queryClient";
+import { AuthProvider } from "@/providers/auth-provider";
+import { RequireAuth } from "@/app/RequireAuth";
+import { AuthCallback } from "@/app/AuthCallback";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import FloatingChatButton from "@/components/FloatingChatButton";
@@ -27,34 +30,44 @@ import NotFound from "./pages/NotFound";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Sonner />
-      <BrowserRouter>
-        <FloatingChatButton />
-        <Routes>
-          <Route path="/" element={<Splash />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/home" element={<HomePage />} />
-          <Route path="/progress" element={<Progress />} />
-          <Route path="/plan" element={<Plan />} />
-          <Route path="/workout-guide" element={<WorkoutGuide />} />
-          <Route path="/challenges" element={<Challenges />} />
-          <Route path="/team-chat" element={<TeamChat />} />
-          <Route path="/share" element={<ShareStory />} />
-          <Route path="/challenge-checkin" element={<ChallengeCheckIn />} />
-          <Route path="/log-activity" element={<LogActivity />} />
-          <Route path="/habits" element={<Habits />} />
-          <Route path="/records" element={<Records />} />
-          <Route path="/achievements" element={<Achievements />} />
-          <Route path="/journey" element={<Journey />} />
-          <Route path="/sos" element={<SOS />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Sonner />
+        <BrowserRouter>
+          <FloatingChatButton />
+          <Routes>
+            {/* Públicas: entrada + retorno do OAuth. Em demo, tudo se comporta como hoje. */}
+            <Route path="/" element={<Splash />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+
+            {/* Protegidas (modo real): exigem sessão + identidade 'active'. Em demo, RequireAuth
+                é pass-through → app IDÊNTICO a hoje. */}
+            <Route element={<RequireAuth><Outlet /></RequireAuth>}>
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/progress" element={<Progress />} />
+              <Route path="/plan" element={<Plan />} />
+              <Route path="/workout-guide" element={<WorkoutGuide />} />
+              <Route path="/challenges" element={<Challenges />} />
+              <Route path="/team-chat" element={<TeamChat />} />
+              <Route path="/share" element={<ShareStory />} />
+              <Route path="/challenge-checkin" element={<ChallengeCheckIn />} />
+              <Route path="/log-activity" element={<LogActivity />} />
+              <Route path="/habits" element={<Habits />} />
+              <Route path="/records" element={<Records />} />
+              <Route path="/achievements" element={<Achievements />} />
+              <Route path="/journey" element={<Journey />} />
+              <Route path="/sos" element={<SOS />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
