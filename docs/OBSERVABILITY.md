@@ -12,6 +12,9 @@
 - **Rejections não tratadas** e `window.onerror` (integração default `globalHandlers` do SDK).
 - **Erros de dados (Supabase/API)** — todo erro de query/mutation do react-query é reportado
   no `QueryCache`/`MutationCache` (`src/lib/queryClient.ts`), sem tocar em `api/`/`hooks/`.
+- **Erros de autenticação (AUTH-02)** — falhas de OAuth/resolução de identidade com
+  `source:"auth"` (ver `auth-provider.tsx`, `AuthCallback.tsx`, `useIdentity.ts`). **Sem PII**:
+  só a razão do provedor; nunca email/nome/uid.
 
 Metadados: `environment`, `release` (commit SHA) e `sendDefaultPii: false`.
 

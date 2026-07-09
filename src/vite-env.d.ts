@@ -4,6 +4,9 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string;
   readonly VITE_SUPABASE_ANON_KEY: string;
   readonly VITE_DEMO_PATIENT_PROFILE_ID: string;
+  // Modo de autenticação. "demo" (default) = app IDÊNTICO a hoje (identidade via pin).
+  // "real" = login Google real (auth.uid() → profiles → patients). Ver src/lib/auth/authMode.ts.
+  readonly VITE_AUTH_MODE?: "demo" | "real";
   // Observabilidade (Sentry). Todas OPCIONAIS — sem DSN a observabilidade fica desligada (no-op).
   // Ver src/lib/observability/sentry.ts e docs/OBSERVABILITY.md.
   readonly VITE_SENTRY_DSN?: string;

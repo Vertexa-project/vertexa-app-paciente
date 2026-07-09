@@ -13,6 +13,9 @@ import type {
  */
 export async function getMyChannel(): Promise<ChatChannel | null> {
   const profileId = getCurrentPatientProfileId();
+  // Sem profile atuante (ex.: modo real pré-login) → sem canal. Evita `.eq("profile_id","")`,
+  // que numa coluna uuid é um 400 (invalid input syntax for uuid), não "0 linhas".
+  if (!profileId) return null;
 
   const { data: patient, error: patientError } = await supabase
     .from("patients")
