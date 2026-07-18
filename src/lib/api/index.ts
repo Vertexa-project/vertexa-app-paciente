@@ -59,6 +59,14 @@ export { logWeight, getRecentWeightLogs } from "./weight";
 export type { LogWeightInput, WeightLogRow } from "./weight";
 export { logHydration, getHydrationTodayLiters } from "./hydration";
 export type { LogHydrationInput } from "./hydration";
-export { uploadProgressPhoto, getLatestProgressPhoto, getMyProgressPhotos } from "./photos";
-export type { UploadProgressPhotoResult, ProgressPhotoRow } from "./photos";
+export {
+  uploadProgressPhoto,
+  getLatestProgressPhoto,
+  getMyProgressPhotos,
+  validateProgressPhotoFile,
+  ProgressPhotoValidationError,
+  ALLOWED_PROGRESS_PHOTO_MIME,
+  MAX_PROGRESS_PHOTO_BYTES,
+} from "./photos";
+export type { UploadProgressPhotoResult, ProgressPhotoRow, ProgressPhotoWithUrl } from "./photos";
 export { getPendingSummary } from "./pending";
