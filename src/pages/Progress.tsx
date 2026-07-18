@@ -120,7 +120,14 @@ export default function Progress() {
     data: photos = [],
     isLoading: photosLoading,
     isError: photosError,
-  } = useQuery({ queryKey: ["progress-photos"], queryFn: getMyProgressPhotos });
+  } = useQuery({
+    queryKey: ["progress-photos"],
+    queryFn: getMyProgressPhotos,
+    // display_url é signed URL com TTL de 10 min. Mantém o cache abaixo disso para nunca
+    // reutilizar uma URL assinada expirada (WP-STORAGE P2).
+    staleTime: 5 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+  });
   const canCompare = photos.length >= 2;
   const firstPhoto = photos[0] ?? null;
   const lastPhoto = photos[photos.length - 1] ?? null;
@@ -423,7 +430,9 @@ export default function Progress() {
               <div className="grid grid-cols-3 gap-2">
                 {photos.map((p) => (
                   <div key={p.id} className="aspect-[3/4] rounded-xl bg-muted overflow-hidden relative">
-                    <img src={p.photo_url} alt={`Foto ${photoLabel(p.taken_at)}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                    {p.display_url ? (
+                      <img src={p.display_url} alt={`Foto ${photoLabel(p.taken_at)}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                    ) : null}
                     <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-background/70 backdrop-blur-sm text-[9px] text-foreground">{photoLabel(p.taken_at)}</span>
                   </div>
                 ))}
@@ -517,7 +526,9 @@ export default function Progress() {
                   {[{ p: firstPhoto, tag: "ANTES", accent: false }, { p: lastPhoto, tag: "ATUAL", accent: true }].map(({ p, tag, accent }, idx) => (
                     <div key={idx} className="flex-1">
                       <div className={`aspect-[3/4] rounded-2xl overflow-hidden relative border ${accent ? "border-primary/15" : "border-border"}`}>
-                        <img src={p.photo_url} alt={`Foto ${tag}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                        {p.display_url ? (
+                          <img src={p.display_url} alt={`Foto ${tag}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                        ) : null}
                         <div className={`absolute top-2 left-2 px-2 py-1 rounded-full backdrop-blur-sm ${accent ? "bg-primary/20" : "bg-background/70"}`}>
                           <span className={`text-[9px] font-bold ${accent ? "text-primary" : "text-muted-foreground"}`}>{tag}</span>
                         </div>

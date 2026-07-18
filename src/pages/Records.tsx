@@ -11,6 +11,8 @@ import {
   uploadProgressPhoto,
   getLatestProgressPhoto,
   getMyWorkoutPlan,
+  validateProgressPhotoFile,
+  ProgressPhotoValidationError,
 } from "@/lib/api";
 import { workoutSchedule } from "@/data/workoutData";
 import BottomNav from "@/components/BottomNav";
@@ -106,6 +108,15 @@ export default function Records() {
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Guarda de UX: MIME allowlist + tamanho (msg amigável e específica) antes de preparar o envio.
+    // A barreira REAL continua sendo a RLS de storage.objects (P1) + a validação em uploadProgressPhoto.
+    try {
+      validateProgressPhotoFile(file);
+    } catch (err) {
+      if (err instanceof ProgressPhotoValidationError) flashError(err.message);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
