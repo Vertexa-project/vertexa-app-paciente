@@ -1,19 +1,15 @@
-// Event sink: mirrors relevant eventTracker events into Supabase activity_events,
-// updates muscle_recovery_states (4c-2) and writes an adherence snapshot (4c-2b / VRI de
-// dados reais) when a relevant action is persisted. The eventTracker and its call sites
-// stay untouched.
+// Event sink: espelha eventos relevantes do eventTracker em activity_events (o BRUTO) e DISPARA o
+// recálculo server-side das métricas DERIVADAS (WP-RLS2): VRI e conquistas via RPC; recuperação
+// muscular via TRIGGER no próprio evento bruto (sem chamada do app). O app NÃO calcula nem grava as
+// 3 tabelas de métricas (lockdown) — só grava o BRUTO e LÊ o resultado. eventTracker intocado.
 import { tracker } from "@/lib/eventTracker";
 import type { AppEvent, EventType } from "@/lib/eventTracker";
 import {
   getMyPatientId,
   logActivityEvent,
-  upsertMuscleRecovery,
-  insertAdherenceSnapshot,
-  computeAdherenceFromActivity,
-  getLatestAdherenceState,
-  computeAndPersistAchievements,
+  recomputeAdherence,
+  recomputeAchievements,
 } from "@/lib/api";
-import { musclesForWorkout } from "@/lib/muscleMap";
 import { queryClient } from "@/lib/queryClient";
 
 // EXPLICIT allow-list of patient-action events to persist. Everything else
@@ -46,12 +42,12 @@ export function startEventSync(): void {
 }
 
 /**
- * Persiste o evento e, se ele de fato entrou no banco, atualiza o estado derivado:
- * - conclusão de treino COM workoutId (WorkoutGuide OU Records, objetivo #5) -> recuperação muscular (4c-2);
- * - QUALQUER ação relevante persistida -> recomputa o VRI de dados REAIS e grava um snapshot (objetivo #7);
- * - QUALQUER ação relevante persistida -> reavalia as CONQUISTAS e destrava as novas (S5).
- * O VRI só é recomputado se o mirror confirmou a escrita, para não persistir um VRI calculado
- * sem o evento que acabou de acontecer.
+ * Persiste o evento BRUTO e, se ele entrou no banco, DISPARA o recálculo server-side das métricas:
+ * - conclusão de treino => a recuperação muscular já foi recalculada por TRIGGER no INSERT do evento
+ *   (activity_events/workout_checked-completed); aqui só invalidamos p/ repintar o body map;
+ * - QUALQUER ação relevante persistida => RPC recompute_adherence (VRI de dados reais no servidor);
+ * - QUALQUER ação relevante persistida => RPC recompute_achievements (conquistas no servidor).
+ * O app NÃO calcula/grava essas 3 tabelas (lockdown) — o valor é derivado do bruto no servidor.
  */
 async function handleEvent(event: AppEvent): Promise<void> {
   if (!RELEVANT_EVENT_TYPES.has(event.type)) return;
@@ -65,16 +61,16 @@ async function handleEvent(event: AppEvent): Promise<void> {
     payload?.action === "completed" &&
     typeof payload?.workoutId === "string"
   ) {
-    await updateMuscleRecovery(payload.workoutId);
+    // A recuperação já foi escrita pelo trigger no INSERT do evento acima; só repintar o body map.
+    void queryClient.invalidateQueries({ queryKey: ["recovery"] });
   }
 
   await updateAdherence();
-  // Conquistas (S5): caminho SEPARADO do VRI. Roda DEPOIS e de forma independente — um erro aqui
-  // não afeta o snapshot de adesão já gravado, e o motor de conquistas NÃO alimenta o VRI.
+  // Conquistas: caminho SEPARADO do VRI. Um erro aqui não afeta o snapshot de adesão já disparado.
   await updateAchievements();
 }
 
-/** Espelha o evento em activity_events. Retorna true se a linha foi gravada. */
+/** Espelha o evento em activity_events (o BRUTO). Retorna true se a linha foi gravada. */
 async function mirror(type: EventType, payload?: Record<string, unknown>): Promise<boolean> {
   try {
     const patientId = await getMyPatientId();
@@ -89,63 +85,32 @@ async function mirror(type: EventType, payload?: Record<string, unknown>): Promi
   }
 }
 
-async function updateMuscleRecovery(workoutId: string): Promise<void> {
-  try {
-    const patientId = await getMyPatientId();
-    if (!patientId) return;
-    const muscles = musclesForWorkout(workoutId);
-    if (muscles.length === 0) return;
-    await upsertMuscleRecovery({ patientId, muscles });
-    // O body map dinâmico lê ['recovery', patientId]; invalida p/ repintar ao concluir o treino.
-    void queryClient.invalidateQueries({ queryKey: ["recovery"] });
-  } catch (err) {
-    if (import.meta.env.DEV) {
-      console.error("[VERTEXA eventSync] failed to update muscle recovery", workoutId, err);
-    }
-  }
-}
-
 /**
- * Recomputa o VRI a partir de dados reais e grava um snapshot novo (a web/app leem o último).
- * Sem dedup por sessão (cada ação real pode mudar o VRI), mas evita gravar snapshots IDÊNTICOS
- * consecutivos (ex.: ações que não movem o score saturado) comparando com o último persistido.
+ * Dispara o recálculo server-side do VRI (RPC recompute_adherence, que deriva do bruto e faz o
+ * skip-if-unchanged no servidor) e invalida a Home. Erro NUNCA quebra o app (no-op silencioso).
  */
 async function updateAdherence(): Promise<void> {
   try {
-    const patientId = await getMyPatientId();
-    if (!patientId) return;
-    const state = await computeAdherenceFromActivity();
-    const last = await getLatestAdherenceState();
-    if (last && last.score === state.score && last.level === state.level) return;
-    await insertAdherenceSnapshot({ patientId, state });
-    // A Home lê ['adherence'] (getLatestAdherenceState). Invalida AQUI, DEPOIS do snapshot novo existir —
-    // a escrita do VRI é assíncrona/desacoplada da mutação, então quem dispara a ação (ex.: Plan.tsx) não
-    // consegue invalidar sem correr contra este insert. Mesmo padrão do ['recovery'] em updateMuscleRecovery.
+    await recomputeAdherence();
     void queryClient.invalidateQueries({ queryKey: ["adherence"] });
   } catch (err) {
     if (import.meta.env.DEV) {
-      console.error("[VERTEXA eventSync] failed to write adherence snapshot", err);
+      console.error("[VERTEXA eventSync] recompute_adherence failed", err);
     }
   }
 }
 
 /**
- * Reavalia as CONQUISTAS (S5) a partir dos dados reais e faz UPSERT das destravadas (motor puro
- * achievementsEngine + api/achievements). Caminho ISOLADO do VRI: escreve SÓ em
- * patient_achievements, NÃO toca adherence_snapshots nem o adherenceEngine/denominador — logo NÃO
- * pode mover o VRI (prova: a Mariana segue 96/alta). Invalida ['achievements'] (tela /achievements
- * + card "Conquistas recentes") só depois do upsert, mesmo padrão de ['adherence']/['recovery'].
+ * Dispara o recálculo server-side das CONQUISTAS (RPC recompute_achievements, upsert monotônico) e
+ * invalida a tela /achievements + card. Erro NUNCA quebra o app.
  */
 async function updateAchievements(): Promise<void> {
   try {
-    const { newlyUnlocked } = await computeAndPersistAchievements();
-    // Só há o que repintar se algo NOVO destravou (upsert idempotente não muda o já existente).
-    if (newlyUnlocked.length > 0) {
-      void queryClient.invalidateQueries({ queryKey: ["achievements"] });
-    }
+    await recomputeAchievements();
+    void queryClient.invalidateQueries({ queryKey: ["achievements"] });
   } catch (err) {
     if (import.meta.env.DEV) {
-      console.error("[VERTEXA eventSync] failed to update achievements", err);
+      console.error("[VERTEXA eventSync] recompute_achievements failed", err);
     }
   }
 }

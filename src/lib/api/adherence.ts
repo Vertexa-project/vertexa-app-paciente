@@ -1,90 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { getMyPatientId } from "./patient";
-import { getMealAdherenceToday } from "./meals";
-import { getSupplementAdherenceToday } from "./supplements";
-import {
-  getAdherenceState,
-  deriveAdherenceConfig,
-  adherenceStateFromSnapshot,
-  type AdherenceState,
-} from "@/lib/adherenceEngine";
-
-export interface InsertAdherenceSnapshotInput {
-  patientId: string;
-  state: AdherenceState;
-}
-
-/**
- * Persists an adherence (VRI) snapshot computed by adherenceEngine. The web only reads
- * these; the app writes. patientId must be patients.id.
- */
-export async function insertAdherenceSnapshot({
-  patientId,
-  state,
-}: InsertAdherenceSnapshotInput): Promise<void> {
-  const { error } = await supabase.from("adherence_snapshots").insert({
-    patient_id: patientId,
-    score: state.score,
-    level: state.level,
-    status: state.status,
-    streak: state.streak,
-    weekly_completion_rate: state.weeklyCompletionRate,
-    risk_factors: state.riskFactors,
-    positive_factors: state.positiveFactors,
-  });
-  if (error) throw error;
-}
-
-/**
- * VRI computed from REAL activity (objetivo #7): lê activity_events + último peso/foto do
- * paciente, monta o config com deriveAdherenceConfig e aplica a fórmula (getAdherenceState).
- * É o que o eventSync grava como snapshot ao concluir um treino — "VRI de dados reais".
- * Fallback ao DEFAULT_CONFIG (getAdherenceState()) quando não há paciente resolvido.
- */
-export async function computeAdherenceFromActivity(): Promise<AdherenceState> {
-  const patientId = await getMyPatientId();
-  if (!patientId) return getAdherenceState();
-
-  const [eventsRes, weightRes, photoRes, mealAdherence, supplementAdherence] = await Promise.all([
-    supabase
-      .from("activity_events")
-      .select("type, created_at")
-      .eq("patient_id", patientId)
-      .order("created_at", { ascending: false })
-      .limit(500),
-    supabase
-      .from("weight_logs")
-      .select("measured_at")
-      .eq("patient_id", patientId)
-      .order("measured_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("progress_photos")
-      .select("taken_at")
-      .eq("patient_id", patientId)
-      .order("taken_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    // Adesão alimentar do dia (meal_logs vs plano ativo) — fator ADITIVO/não-negativo do VRI.
-    getMealAdherenceToday(),
-    // Suplementos do dia (supplement_intakes vs lista) — fator ADITIVO/não-negativo do VRI (S3).
-    getSupplementAdherenceToday(),
-  ]);
-  if (eventsRes.error) throw eventsRes.error;
-  if (weightRes.error) throw weightRes.error;
-  if (photoRes.error) throw photoRes.error;
-
-  const config = deriveAdherenceConfig({
-    events: (eventsRes.data ?? []) as { type: string; created_at: string }[],
-    lastWeightAt: (weightRes.data?.measured_at as string) ?? null,
-    lastPhotoAt: (photoRes.data?.taken_at as string) ?? null,
-    now: new Date(),
-    mealAdherenceToday: mealAdherence,
-    supplementAdherenceToday: supplementAdherence,
-  });
-  return getAdherenceState(config);
-}
+import { adherenceStateFromSnapshot, type AdherenceState } from "@/lib/adherenceEngine";
 
 interface AdherenceSnapshotRow {
   score: number;
@@ -98,9 +14,10 @@ interface AdherenceSnapshotRow {
 }
 
 /**
- * VRI exibido na Home = ÚLTIMO snapshot persistido (mesma fonte que a web lê) → app e web
- * mostram exatamente o mesmo número (consistência por construção). Usa os 2 últimos para o
- * badge de variação. Retorna null quando ainda não há snapshot (a Home cai no compute local).
+ * VRI exibido na Home = ÚLTIMO snapshot persistido (mesma fonte que a web lê) → app e web mostram
+ * exatamente o mesmo número. Usa os 2 últimos para o badge de variação. Retorna null quando ainda
+ * não há snapshot (a Home cai no compute local de EXIBIÇÃO). WP-RLS2: o snapshot é escrito SOMENTE
+ * pelo servidor (RPC recompute_adherence) — o app só LÊ.
  */
 export async function getLatestAdherenceState(): Promise<AdherenceState | null> {
   const patientId = await getMyPatientId();

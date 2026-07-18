@@ -11,8 +11,7 @@ export {
 export type { SendPatientMessageInput, ChannelSubscriptionHandlers } from "./chat";
 export { logActivityEvent, getActivityEventsSince } from "./events";
 export type { LogActivityEventInput } from "./events";
-export { upsertMuscleRecovery, getMuscleRecovery } from "./recovery";
-export type { UpsertMuscleRecoveryInput } from "./recovery";
+export { getMuscleRecovery } from "./recovery";
 export { getMyNutritionPlan } from "./plan";
 export type { MealView, NutritionPlanView } from "./plan";
 export { toggleMealDone, getMealsDoneToday, getMealAdherenceToday } from "./meals";
@@ -26,25 +25,20 @@ export {
   getSupplementAdherenceToday,
 } from "./supplements";
 export type { SupplementRow, ToggleSupplementTakenInput, SupplementAdherence } from "./supplements";
-export {
-  insertAdherenceSnapshot,
-  computeAdherenceFromActivity,
-  getLatestAdherenceState,
-} from "./adherence";
-export type { InsertAdherenceSnapshotInput } from "./adherence";
+export { getLatestAdherenceState } from "./adherence";
 export {
   getAchievementsCatalog,
   getPatientAchievements,
   getAchievementsView,
-  computeAndPersistAchievements,
 } from "./achievements";
 export type {
   AchievementDef,
   AchievementView,
   PatientAchievementRow,
   AchievementCategory,
-  ComputeAchievementsResult,
 } from "./achievements";
+// WP-RLS2: recálculo server-side das métricas derivadas (o app dispara, não calcula/grava).
+export { recomputeAdherence, recomputeAchievements } from "./metrics";
 export {
   getMyNotifications,
   getUnreadCount,
