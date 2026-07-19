@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ChevronRight, User, Target, Stethoscope, Bell as BellIcon, Shield, LogOut, Settings, Camera, Zap, Route } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { patient } from "@/data/mockData";
+import { useAuth } from "@/providers/auth-context";
 import { useMe } from "@/hooks/useMe";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAdherenceState } from "@/lib/adherenceEngine";
@@ -21,8 +22,15 @@ export default function Profile() {
   const navigate = useNavigate();
   const state = getAdherenceState();
   const { me, isLoading: meLoading } = useMe();
+  const { signOut } = useAuth();
 
   useEffect(() => { tracker.track('profile_viewed'); }, []);
+
+  // WP-HARDENING B1: logout de produto. signOut já limpa o cache (queryClient.clear()); navega ao login.
+  async function handleSignOut() {
+    await signOut();
+    navigate("/login", { replace: true });
+  }
 
   const menuItems = [
     { icon: Target, label: "Meu objetivo", value: me.goal },
@@ -103,7 +111,7 @@ export default function Profile() {
           ))}
         </motion.div>
 
-        <button onClick={() => navigate("/")} className="w-full flex items-center justify-center gap-2 py-3 text-destructive text-sm font-medium">
+        <button onClick={handleSignOut} className="w-full flex items-center justify-center gap-2 py-3 text-destructive text-sm font-medium">
           <LogOut size={16} />
           Sair
         </button>

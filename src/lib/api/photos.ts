@@ -21,7 +21,8 @@ const EXT_BY_MIME: Record<AllowedProgressPhotoMime, string> = {
 export interface ProgressPhotoRow {
   id: string;
   patient_id: string;
-  photo_url: string;
+  /** WP-HARDENING A5/B2: coluna nullable; o app não grava mais photo_url (só fallback de leitura legado). */
+  photo_url: string | null;
   /** WP-STORAGE-P2: path canônico {patient_id}/{uuid}.ext no bucket privado. NULL = linha legada. */
   storage_path: string | null;
   captured_in_app: boolean | null;
@@ -101,10 +102,11 @@ export async function resolveProgressPhotoDisplayUrl(
 /**
  * Foto de EVOLUÇÃO (WP-STORAGE P2): sobe o binário para o bucket PRIVADO 'progress-photos' no
  * path canônico {patient_id}/{uuid}.ext (patient_id = paciente logado; ownership) e insere a
- * linha em progress_photos com storage_path (contrato principal) + photo_url legado.
+ * linha em progress_photos com storage_path (contrato principal).
  * Guardas: MIME allowlist + teto de 10 MB (validados ANTES de qualquer I/O).
- * Leitura passa a ser signed URL (ver getMyProgressPhotos); getPublicUrl fica só como valor
- * legado da coluna NOT NULL photo_url (STORAGE-CONTRACT-1), não como contrato de leitura.
+ * Leitura é signed URL (ver getMyProgressPhotos).
+ * WP-HARDENING B2 (depende de A5 tornar photo_url nullable): o app NÃO grava mais photo_url — o
+ * fallback legado de LEITURA (resolveProgressPhotoDisplayUrl) permanece para linhas antigas.
  */
 export async function uploadProgressPhoto(file: File): Promise<UploadProgressPhotoResult> {
   validateProgressPhotoFile(file); // MIME + tamanho, fail-closed antes de qualquer upload.
@@ -121,14 +123,14 @@ export async function uploadProgressPhoto(file: File): Promise<UploadProgressPho
     .upload(path, file, { contentType: file.type, upsert: false });
   if (uploadError) throw uploadError;
 
-  // photo_url legado: coluna NOT NULL; mantém a string pública p/ compat de esquema. NÃO é mais
-  // o contrato de leitura (a exibição usa storage_path + signed URL).
+  // WP-HARDENING B2: NÃO grava mais photo_url (coluna nullable via A5). Só storage_path. O getPublicUrl
+  // serve apenas ao valor de retorno de conveniência — não é persistido nem contrato de leitura.
   const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
   const photoUrl = pub.publicUrl;
 
   const { data, error } = await supabase
     .from("progress_photos")
-    .insert({ patient_id: patientId, photo_url: photoUrl, storage_path: path, captured_in_app: true })
+    .insert({ patient_id: patientId, storage_path: path, captured_in_app: true })
     .select("*")
     .single();
   if (error) throw error;
