@@ -56,7 +56,8 @@ export interface ChannelProfessional {
 export interface ChatMessageView {
   id: string;
   channelId: string;
-  body: string;
+  /** ANULÁVEL desde WP-CHAT-ATTACH A: mensagem só-anexo não tem texto. */
+  body: string | null;
   createdAt: string | null;
   senderProfileId: string | null;
   senderRole: UserRole;
@@ -64,6 +65,11 @@ export interface ChatMessageView {
   displayName: string; // "Você" for own messages, professional full name otherwise
   specialty: string | null;
   type: ProfessionalType | null;
+  // Anexo (1 por mensagem; bucket privado chat-attachments, caminho {channel_id}/{uuid}.{ext}).
+  attachmentPath: string | null;
+  attachmentName: string | null;
+  attachmentMime: string | null;
+  attachmentSize: number | null;
 }
 
 // muscle_recovery_states.status enum (web color: fatigued=red, recovering=yellow,

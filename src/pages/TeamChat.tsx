@@ -14,6 +14,9 @@ import {
   sendPatientMessage,
 } from "@/lib/api";
 import type { ChannelProfessional, ProfessionalType } from "@/lib/api";
+import { CHAT_ATTACHMENT_MIME, validateChatAttachment } from "@/lib/api/chatAttachment";
+import { captureException } from "@/lib/observability/sentry";
+import { ChatAttachmentView } from "@/components/ChatAttachmentView";
 import { useChannelMessages } from "@/hooks/useChannelMessages";
 
 const TYPE_STYLES: Record<string, string> = {
@@ -70,8 +73,13 @@ export default function TeamChat() {
   const [selectedMention, setSelectedMention] = useState<ChannelProfessional | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showTeamInfo, setShowTeamInfo] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
 
   // Preserve existing analytics event for this screen.
   useEffect(() => {
@@ -95,6 +103,15 @@ export default function TeamChat() {
     mutationFn: sendPatientMessage,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["channelMessages", channelId] });
+    },
+    onError: (_err, vars) => {
+      // Só reporta o fluxo de ANEXO. Erro SANITIZADO (sem nome de arquivo/caminho = sem PII).
+      if (vars.file) {
+        captureException(new Error("chat attachment send failed"), {
+          source: "chat-attachment",
+          scope: "send",
+        });
+      }
     },
   });
 
@@ -128,15 +145,39 @@ export default function TeamChat() {
 
   const handleSend = () => {
     const body = input.trim();
-    if (!body || !channelId || sendMutation.isPending) return;
-    sendMutation.mutate({
-      channelId,
-      body,
-      mentionedProfileId: selectedMention?.profileId ?? null,
-    });
-    setInput("");
-    setSelectedMention(null);
-    setShowMentions(false);
+    if ((!body && !file) || !channelId || sendMutation.isPending) return;
+    sendMutation.mutate(
+      {
+        channelId,
+        body: body || null,
+        mentionedProfileId: selectedMention?.profileId ?? null,
+        file,
+      },
+      {
+        onSuccess: () => {
+          setInput("");
+          setSelectedMention(null);
+          setShowMentions(false);
+          setFile(null);
+          setAttachError(null);
+        },
+      },
+    );
+  };
+
+  const handlePickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0] ?? null;
+    e.target.value = ""; // permite re-selecionar o mesmo arquivo
+    setShowAttachMenu(false);
+    if (!picked) return;
+    const invalid = validateChatAttachment(picked); // valida tipo/tamanho ANTES do upload
+    if (invalid) {
+      setAttachError(invalid);
+      setFile(null);
+      return;
+    }
+    setAttachError(null);
+    setFile(picked);
   };
 
   const handleQuickSuggestion = (text: string) => {
@@ -256,9 +297,23 @@ export default function TeamChat() {
                     ? "bg-primary text-primary-foreground rounded-br-md"
                     : "bg-card border border-border rounded-bl-md"
                 }`}>
-                  <p className={`text-sm leading-relaxed ${isUser ? "text-primary-foreground" : "text-foreground"}`}>
-                    {msg.body}
-                  </p>
+                  {/* body é ANULÁVEL: mensagem só-anexo não tem texto. */}
+                  {msg.body ? (
+                    <p className={`text-sm leading-relaxed ${isUser ? "text-primary-foreground" : "text-foreground"}`}>
+                      {msg.body}
+                    </p>
+                  ) : null}
+                  {msg.attachmentPath ? (
+                    <div className={msg.body ? "mt-2" : ""}>
+                      <ChatAttachmentView
+                        path={msg.attachmentPath}
+                        name={msg.attachmentName}
+                        mime={msg.attachmentMime}
+                        size={msg.attachmentSize}
+                        isOwn={isUser}
+                      />
+                    </div>
+                  ) : null}
 
                   <div className="flex items-center justify-end gap-1 mt-1">
                     <span className={`text-[9px] ${isUser ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
@@ -334,10 +389,26 @@ export default function TeamChat() {
 
       {/* Input */}
       <div className="p-3 border-t border-border bg-card/95 backdrop-blur-xl">
+        {/* Anexo selecionado (chip com remover) */}
+        {file && (
+          <div className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-1.5">
+            <Paperclip size={13} className="text-muted-foreground flex-shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-[11px] text-foreground">{file.name}</span>
+            <button onClick={() => setFile(null)} disabled={sendMutation.isPending} aria-label="Remover anexo">
+              <X size={13} className="text-muted-foreground" />
+            </button>
+          </div>
+        )}
+        {attachError && (
+          <p className="mb-2 text-[11px] text-destructive" role="alert">{attachError}</p>
+        )}
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAttachMenu(!showAttachMenu)}
-            className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center flex-shrink-0"
+            disabled={!channelId || sendMutation.isPending}
+            className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center flex-shrink-0 disabled:opacity-50"
+            aria-label="Anexar arquivo"
           >
             <Paperclip size={18} className="text-muted-foreground" />
           </button>
@@ -355,19 +426,49 @@ export default function TeamChat() {
           </div>
           <button
             onClick={handleSend}
-            disabled={!input.trim() || !channelId || sendMutation.isPending}
+            disabled={(!input.trim() && !file) || !channelId || sendMutation.isPending}
             className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-              input.trim() && channelId && !sendMutation.isPending ? "bg-primary" : "bg-secondary"
+              (input.trim() || file) && channelId && !sendMutation.isPending ? "bg-primary" : "bg-secondary"
             }`}
           >
             {sendMutation.isPending
               ? <Loader2 size={16} className="text-muted-foreground animate-spin" />
-              : <Send size={16} className={input.trim() && channelId ? "text-primary-foreground" : "text-muted-foreground"} />}
+              : <Send size={16} className={(input.trim() || file) && channelId ? "text-primary-foreground" : "text-muted-foreground"} />}
           </button>
         </div>
       </div>
 
-      {/* Attach menu (cosmetic, out of scope) */}
+      {/* Inputs de arquivo (ocultos) — upload REAL (WP-CHAT-ATTACH B). Câmera/Galeria → imagem; Documento → PDF. */}
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        capture="environment"
+        className="hidden"
+        onChange={handlePickFile}
+        aria-hidden
+        tabIndex={-1}
+      />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={handlePickFile}
+        aria-hidden
+        tabIndex={-1}
+      />
+      <input
+        ref={documentInputRef}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={handlePickFile}
+        aria-hidden
+        tabIndex={-1}
+      />
+
+      {/* Attach menu — upload REAL (substitui o menu cosmético) */}
       <AnimatePresence>
         {showAttachMenu && (
           <motion.div
@@ -376,11 +477,15 @@ export default function TeamChat() {
           >
             <div className="flex justify-around py-4 px-6">
               {[
-                { icon: Camera, label: "Câmera", color: "bg-blue-500/15 text-blue-400" },
-                { icon: ImageIcon, label: "Galeria", color: "bg-emerald-500/15 text-emerald-400" },
-                { icon: FileText, label: "Documento", color: "bg-purple-500/15 text-purple-400" },
+                { icon: Camera, label: "Câmera", color: "bg-blue-500/15 text-blue-400", ref: cameraInputRef },
+                { icon: ImageIcon, label: "Galeria", color: "bg-emerald-500/15 text-emerald-400", ref: galleryInputRef },
+                { icon: FileText, label: "Documento", color: "bg-purple-500/15 text-purple-400", ref: documentInputRef },
               ].map(item => (
-                <button key={item.label} onClick={() => setShowAttachMenu(false)} className="flex flex-col items-center gap-2">
+                <button
+                  key={item.label}
+                  onClick={() => item.ref.current?.click()}
+                  className="flex flex-col items-center gap-2"
+                >
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${item.color}`}>
                     <item.icon size={22} />
                   </div>

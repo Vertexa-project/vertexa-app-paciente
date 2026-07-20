@@ -1,5 +1,10 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentPatientProfileId } from "@/lib/currentPatient";
+import {
+  deleteChatAttachmentObject,
+  sendWithOrphanCleanup,
+  uploadChatAttachment,
+} from "./chatAttachment";
 import type {
   ChatChannel,
   ChannelProfessional,
@@ -41,8 +46,12 @@ interface RawMessageRow {
   channel_id: string;
   sender_profile_id: string | null;
   sender_role: ChatMessageView["senderRole"];
-  body: string;
+  body: string | null;
   created_at: string | null;
+  attachment_path: string | null;
+  attachment_name: string | null;
+  attachment_mime: string | null;
+  attachment_size: number | null;
   sender: {
     id: string;
     full_name: string;
@@ -62,6 +71,7 @@ export async function getChannelMessages(channelId: string): Promise<ChatMessage
     .from("chat_messages")
     .select(
       "id, channel_id, sender_profile_id, sender_role, body, created_at, " +
+        "attachment_path, attachment_name, attachment_mime, attachment_size, " +
         "sender:profiles(id, full_name, professionals(type, specialty))"
     )
     .eq("channel_id", channelId)
@@ -84,6 +94,10 @@ export async function getChannelMessages(channelId: string): Promise<ChatMessage
       displayName: isOwn ? "Você" : row.sender?.full_name ?? "Profissional",
       specialty: prof?.specialty ?? null,
       type: prof?.type ?? null,
+      attachmentPath: row.attachment_path,
+      attachmentName: row.attachment_name,
+      attachmentMime: row.attachment_mime,
+      attachmentSize: row.attachment_size,
     };
   });
 }
@@ -126,34 +140,51 @@ export async function listChannelProfessionals(
 
 export interface SendPatientMessageInput {
   channelId: string;
-  body: string;
+  /** Legenda opcional; pode ser vazia quando há anexo (mensagem só-anexo). */
+  body?: string | null;
   mentionedProfileId?: string | null;
+  /** Anexo opcional (PDF/imagem). */
+  file?: File | null;
 }
 
 /**
  * Inserts a patient message into chat_messages (sender_role='patient',
- * sender_profile_id = demo patient). If a professional is mentioned, also
- * inserts a chat_mentions row referencing the new message.
+ * sender_profile_id = demo patient), com anexo OPCIONAL. Se houver arquivo: valida → sobe →
+ * insere; se o insert falhar, o objeto órfão é removido (sendWithOrphanCleanup). Exige body OU
+ * anexo (espelha o CHECK do banco). Se houver menção, insere chat_mentions referenciando a mensagem.
  */
 export async function sendPatientMessage({
   channelId,
   body,
   mentionedProfileId,
+  file,
 }: SendPatientMessageInput): Promise<{ id: string }> {
   const senderProfileId = getCurrentPatientProfileId();
+  const text = body?.trim() ? body.trim() : null;
+  if (!text && !file) throw new Error("Escreva uma mensagem ou anexe um arquivo.");
 
-  const { data: message, error } = await supabase
-    .from("chat_messages")
-    .insert({
-      channel_id: channelId,
-      sender_role: "patient",
-      sender_profile_id: senderProfileId,
-      body,
-    })
-    .select("id")
-    .single();
-
-  if (error) throw error;
+  const message = await sendWithOrphanCleanup<{ id: string }>({
+    upload: () => (file ? uploadChatAttachment(channelId, file) : Promise.resolve(null)),
+    insert: async (attachment) => {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .insert({
+          channel_id: channelId,
+          sender_role: "patient",
+          sender_profile_id: senderProfileId,
+          body: text,
+          attachment_path: attachment?.path ?? null,
+          attachment_name: attachment?.name ?? null,
+          attachment_mime: attachment?.mime ?? null,
+          attachment_size: attachment?.size ?? null,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return { id: data.id as string };
+    },
+    removeObject: (path) => deleteChatAttachmentObject(path),
+  });
 
   if (mentionedProfileId) {
     const { error: mentionError } = await supabase.from("chat_mentions").insert({
@@ -163,7 +194,7 @@ export async function sendPatientMessage({
     if (mentionError) throw mentionError;
   }
 
-  return { id: message.id as string };
+  return { id: message.id };
 }
 
 export interface ChannelSubscriptionHandlers {
