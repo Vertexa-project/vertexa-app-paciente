@@ -4,21 +4,25 @@ import { QUOTE_UNAVAILABLE, quotedPreview } from "@/lib/chatReply";
 import type { ChatMessageView } from "@/lib/api";
 
 /**
- * Citação da mensagem original, acima de uma resposta (WP-APP-3 item 4). SÓ EXIBE — não existe
- * caminho neste app para CRIAR uma resposta, porque o painel do profissional ainda não sabe
- * mostrar citação.
+ * Citação da mensagem original, acima de uma resposta (WP-APP-3 item 4; o app passou a CRIAR
+ * resposta no WP-APP-5, agora que o painel também exibe citação — PR #40).
  *
  * Três estados, e nenhum deles quebra a lista:
  *   quoted  -> autor + trecho da original
  *   pending -> a busca da original ainda está em voo
  *   null    -> não veio (apagada, fora do canal, erro): degrada para QUOTE_UNAVAILABLE
+ *
+ * O AUTOR CHEGA PRONTO, por `authorName`: quem resolve nome é `messageAuthor` (lib/chatTeam.ts),
+ * um lugar só, o MESMO que nomeia a bolha. Este componente não decide nome de ninguém.
  */
 export function ChatReplyQuote({
   quoted,
+  authorName,
   pending,
   isOwn,
 }: {
   quoted: ChatMessageView | null;
+  authorName: string | null;
   pending: boolean;
   isOwn: boolean;
 }) {
@@ -31,7 +35,7 @@ export function ChatReplyQuote({
       <div className={`flex items-center gap-1 ${tone}`}>
         <CornerUpLeft size={9} className="flex-shrink-0" />
         <span className="text-[9px] font-medium truncate">
-          {quoted ? quoted.displayName : pending ? "Carregando…" : "Resposta"}
+          {quoted ? authorName ?? "Profissional" : pending ? "Carregando…" : "Resposta"}
         </span>
       </div>
       <p className={`mt-0.5 text-[10px] leading-snug line-clamp-2 ${tone} ${quoted ? "" : "italic"}`}>

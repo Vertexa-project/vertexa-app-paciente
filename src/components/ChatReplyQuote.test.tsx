@@ -13,9 +13,7 @@ const original: ChatMessageView = {
   senderProfileId: "p1",
   senderRole: "patient",
   isOwn: true,
-  displayName: "Você",
-  specialty: null,
-  type: null,
+  senderName: null,
   attachmentPath: null,
   attachmentName: null,
   attachmentMime: null,
@@ -25,19 +23,19 @@ const original: ChatMessageView = {
 
 describe("ChatReplyQuote — só exibe, e nunca quebra a lista", () => {
   it("com a original resolvida: autor + trecho", () => {
-    render(<ChatReplyQuote quoted={original} pending={false} isOwn={false} />);
+    render(<ChatReplyQuote quoted={original} authorName="Você" pending={false} isOwn={false} />);
     expect(screen.getByText("Você")).toBeInTheDocument();
     expect(screen.getByText("Pode aumentar a carga do agachamento?")).toBeInTheDocument();
   });
 
   it("enquanto busca: estado de carregamento, sem afirmar ausência", () => {
-    render(<ChatReplyQuote quoted={null} pending isOwn={false} />);
+    render(<ChatReplyQuote quoted={null} authorName={null} pending isOwn={false} />);
     expect(screen.getByText("Buscando a mensagem original…")).toBeInTheDocument();
     expect(screen.queryByText(QUOTE_UNAVAILABLE)).not.toBeInTheDocument();
   });
 
   it("original não veio: degrada para indisponível em vez de sumir ou estourar", () => {
-    render(<ChatReplyQuote quoted={null} pending={false} isOwn={false} />);
+    render(<ChatReplyQuote quoted={null} authorName={null} pending={false} isOwn={false} />);
     expect(screen.getByText(QUOTE_UNAVAILABLE)).toBeInTheDocument();
   });
 
@@ -45,10 +43,18 @@ describe("ChatReplyQuote — só exibe, e nunca quebra a lista", () => {
     render(
       <ChatReplyQuote
         quoted={{ ...original, body: null, attachmentPath: "ch1/u.pdf", attachmentName: "exame.pdf" }}
+        authorName="Você"
         pending={false}
         isOwn
       />,
     );
     expect(screen.getByText("exame.pdf")).toBeInTheDocument();
+  });
+
+  // O nome NÃO é decidido aqui: chega pronto de `messageAuthor`. Sem nome, o genérico — nunca
+  // um espaço em branco onde deveria haver alguém.
+  it("autor nulo com original resolvida: cai no genérico, não em vazio", () => {
+    render(<ChatReplyQuote quoted={original} authorName={null} pending={false} isOwn={false} />);
+    expect(screen.getByText("Profissional")).toBeInTheDocument();
   });
 });

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const db = vi.hoisted(() => ({
   messageInsert: { data: { id: "msg-1" } as { id: string } | null, error: null as unknown },
   mentionInsert: { error: null as unknown },
+  messageRows: [] as Record<string, unknown>[],
   mentionRows: [] as Record<string, unknown>[],
   rpc: { data: null as unknown, error: null as unknown },
   rpcCalls: [] as { fn: string; args: unknown }[],
@@ -14,6 +15,7 @@ vi.mock("@/lib/supabase", () => ({
     from: (table: string) => ({
       insert: (row: Record<string, unknown>) => {
         if (table === "chat_messages") {
+          db.messageRows.push(row);
           return { select: () => ({ single: async () => db.messageInsert }) };
         }
         db.mentionRows.push(row);
@@ -39,6 +41,7 @@ const PROF = "aa000000-0000-0000-0000-0000000000b2";
 beforeEach(() => {
   db.messageInsert = { data: { id: "msg-1" }, error: null };
   db.mentionInsert = { error: null };
+  db.messageRows = [];
   db.mentionRows = [];
   db.rpc = { data: null, error: null };
   db.rpcCalls = [];
@@ -154,5 +157,44 @@ describe("sendPatientMessage — a corrida da menção (item 2)", () => {
     await expect(sendPatientMessage({ channelId: CHANNEL, body: "   " })).rejects.toThrow(
       /Escreva uma mensagem ou anexe um arquivo/,
     );
+  });
+});
+
+describe("sendPatientMessage — CRIAR RESPOSTA (WP-APP-5 item 1)", () => {
+  const ORIGINAL = "11111111-1111-1111-1111-111111111111";
+
+  it("manda reply_to_message_id CRU no INSERT", async () => {
+    await sendPatientMessage({ channelId: CHANNEL, body: "resposta", replyToMessageId: ORIGINAL });
+    expect(db.messageRows).toHaveLength(1);
+    expect(db.messageRows[0].reply_to_message_id).toBe(ORIGINAL);
+    // channel_id vai junto porque a FK é COMPOSTA — é o par que garante a mesma conversa.
+    expect(db.messageRows[0].channel_id).toBe(CHANNEL);
+  });
+
+  it("sem resposta, a coluna vai NULA (não indefinida)", async () => {
+    await sendPatientMessage({ channelId: CHANNEL, body: "oi" });
+    expect(db.messageRows[0].reply_to_message_id).toBeNull();
+  });
+
+  // A regra "mesma conversa" é do BANCO (FK composta). Se a interface começar a validar, passa a
+  // existir um segundo lugar para essa regra divergir — e o mais fraco dos dois é o daqui.
+  it("NÃO valida a origem da citada: o id passa adiante como veio", async () => {
+    const forasteira = "22222222-2222-2222-2222-222222222222";
+    await expect(
+      sendPatientMessage({ channelId: CHANNEL, body: "oi", replyToMessageId: forasteira }),
+    ).resolves.toMatchObject({ id: "msg-1" });
+    expect(db.messageRows[0].reply_to_message_id).toBe(forasteira);
+  });
+
+  it("resposta com menção: as duas coisas convivem no mesmo envio", async () => {
+    const result = await sendPatientMessage({
+      channelId: CHANNEL,
+      body: "oi",
+      mentionedProfileId: PROF,
+      replyToMessageId: ORIGINAL,
+    });
+    expect(result.mentionFailed).toBe(false);
+    expect(db.messageRows[0].reply_to_message_id).toBe(ORIGINAL);
+    expect(db.mentionRows).toEqual([{ message_id: "msg-1", mentioned_profile_id: PROF }]);
   });
 });
