@@ -8,6 +8,7 @@ import { tracker } from "@/lib/eventTracker";
 import { logHydration, getHydrationTodayLiters } from "@/lib/api";
 import { WATER_GOAL_LITERS, WATER_INCREMENT_LITERS } from "@/lib/hydrationMath";
 import BottomNav from "@/components/BottomNav";
+import ComingSoonLock, { STEPS_LOCK_REASON } from "@/components/ComingSoonLock";
 
 export default function Habits() {
   const navigate = useNavigate();
@@ -117,7 +118,17 @@ export default function Habits() {
           </div>
         </motion.div>
 
-        {/* Steps */}
+        {/* Steps — BLOQUEADO (WP-APP-1).
+            O card abaixo mostrava `habitTracking.steps` (6.420 / 8.000), que é MOCK fixo em
+            src/data/mockData.ts: não vem de aparelho, de relógio nem de tabela — nunca muda.
+            Trocado pelo cadeado. O código do card ativo está preservado logo abaixo, comentado,
+            para voltar inteiro quando existir a integração; ele só precisa trocar
+            `habitTracking.steps` pela fonte real. NÃO apagar. */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-4">
+          <ComingSoonLock title="Passos" reason={STEPS_LOCK_REASON} icon={Footprints} />
+        </motion.div>
+
+        {/* DESATIVADO ATRÁS DO CADEADO — não apagar (ver comentário acima):
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-card rounded-2xl p-5 shadow-card mb-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -131,6 +142,7 @@ export default function Habits() {
               animate={{ width: `${(habitTracking.steps.current / habitTracking.steps.target) * 100}%` }} transition={{ duration: 0.8 }} />
           </div>
         </motion.div>
+        */}
 
         {/* Mood */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bg-card rounded-2xl p-5 shadow-card mb-4">
