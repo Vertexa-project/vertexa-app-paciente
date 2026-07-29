@@ -31,6 +31,26 @@ interface ComingSoonLockProps {
   className?: string;
 }
 
+/**
+ * Selo "Em breve" isolado — MESMO texto e MESMO visual do selo interno do cadeado.
+ *
+ * Existe para telas onde o bloco inteiro não cabe mas o rótulo precisa ser idêntico
+ * (ex.: botões desabilitados de ShareStory e Achievements). Reusar isto em vez de escrever
+ * "em breve" à mão é o que impede as telas de divergirem no texto.
+ */
+export function ComingSoonBadge({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={["inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5", className].join(" ")}
+    >
+      <Lock size={10} className="text-muted-foreground/70" aria-hidden />
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
+        Em breve
+      </span>
+    </span>
+  );
+}
+
 export default function ComingSoonLock({
   title,
   reason,
@@ -67,12 +87,7 @@ export default function ComingSoonLock({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="text-sm font-medium text-muted-foreground">{title}</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5">
-            <Lock size={10} className="text-muted-foreground/70" aria-hidden />
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70">
-              Em breve
-            </span>
-          </span>
+          <ComingSoonBadge />
         </div>
         <p className="text-xs text-muted-foreground/70 mt-0.5">{reason}</p>
       </div>
@@ -85,4 +100,12 @@ export default function ComingSoonLock({
  * não divergirem. Honesto sobre a causa: falta a integração, não é bug.
  */
 export const STEPS_LOCK_REASON =
+  "Depende de integração com aparelho ou relógio, ainda não disponível.";
+
+/**
+ * Texto ÚNICO do cadeado de SONO (WP-APP-2 2.2) — compartilhado pela Home e por Hábitos.
+ * Mesmo problema dos passos: `habitTracking.sleep` (7h, "boa", 23:00 → 06:30) é fixo em
+ * src/data/mockData.ts. Não vem de aparelho, de relógio nem de tabela — nunca muda.
+ */
+export const SLEEP_LOCK_REASON =
   "Depende de integração com aparelho ou relógio, ainda não disponível.";

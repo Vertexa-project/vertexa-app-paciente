@@ -1,4 +1,8 @@
 import type { Config } from "tailwindcss";
+// Import ESM em vez de `require()` (@typescript-eslint/no-require-imports). O pacote é CJS
+// (`export = plugin`); o loader de config do Tailwind resolve o default do CJS. Mesmo plugin,
+// mesma versão — nada de comportamento muda.
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -135,5 +139,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;
