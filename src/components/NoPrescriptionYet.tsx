@@ -133,6 +133,42 @@ export const VRI_NOT_AVAILABLE_TITLE = "Índice VRI ainda não disponível";
 export const VRI_NOT_AVAILABLE_MESSAGE =
   "Seu índice aparece assim que houver registros para calcular.";
 
+/**
+ * AS DUAS AUSÊNCIAS DO PROFISSIONAL, agora separadas (WP-APP-7 item 2.4).
+ *
+ * Até aqui havia UM texto para duas realidades muito diferentes, porque o app não sabia qual
+ * era qual. Agora ele lê `professional_patient_links` (a paciente tem esse direito por
+ * `ppl_select` / `is_self_patient`) e sabe:
+ *
+ *  · LINKED_NAME_UNAVAILABLE — ela TEM vínculo ativo, e o nome não chega. Causa real: o nome
+ *    vem do roster do canal, e o canal é criado pelo profissional. NÃO PROMETE que o nome vai
+ *    aparecer, e isso é deliberado: um vínculo EXTERNO (`is_external = true`) é excluído do
+ *    roster de propósito e para sempre — `get_or_create_channel` não o insere e DELETA se
+ *    entrar. Prometer chegada seria criar uma espera que nunca termina.
+ *
+ *  · NO_ACTIVE_LINK — não há vínculo ativo NENHUM no cadastro dela. Esta é a única situação
+ *    em que afirmar ausência é honesto, porque o app leu o cadastro e viu.
+ *    ⚠️ Este texto DIZ "vinculado" de propósito, e não contradiz a regra do
+ *    PROFESSIONAL_UNAVAILABLE_* abaixo: lá o app não sabia e por isso não podia afirmar;
+ *    aqui ele sabe. A regra nunca foi "não fale de vínculo", foi "não afirme o que não sabe".
+ *
+ * O PREDICADO é `coalesce(status,'active') = 'active'`, SEM filtrar `is_external` — e essa
+ * escolha tem consequência. O filtro do roster (que também exclui externo) faria a paciente
+ * com APENAS vínculo externo ler "nenhum profissional vinculado", o que é falso: ela tem uma
+ * nutricionista de verdade. Em produção hoje ninguém está nesse estado (a única linha externa
+ * é da Sofia, que também tem uma interna), mas o estado é construível, e errar ali seria
+ * negar o profissional dela na cara dela.
+ */
+export const LINKED_NAME_UNAVAILABLE_TITLE = "Nome do profissional não disponível aqui";
+export const LINKED_NAME_UNAVAILABLE_MESSAGE =
+  "Você tem profissional vinculado ao seu cadastro, mas o nome não aparece nesta tela. " +
+  "Em caso de dúvida, fale com sua clínica.";
+
+export const NO_ACTIVE_LINK_TITLE = "Nenhum profissional vinculado ao seu cadastro";
+export const NO_ACTIVE_LINK_MESSAGE =
+  "Não encontramos vínculo ativo no seu cadastro. Fale com sua clínica para ser vinculada ao " +
+  "seu profissional.";
+
 export const PROFESSIONAL_UNAVAILABLE_TITLE = "Profissional responsável ainda não disponível";
 export const PROFESSIONAL_UNAVAILABLE_MESSAGE =
   "Ainda não conseguimos mostrar o nome aqui. Isso não quer dizer que você não tenha um " +

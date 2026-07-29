@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { Bell, Droplets, Moon, Footprints, UtensilsCrossed, Dumbbell, Scale, Camera, HelpCircle, ChevronRight, AlertTriangle, TrendingUp, Zap, Trophy, MessageCircle, CircleAlert, ImagePlus } from "lucide-react";
+import { Bell, Droplets, Moon, Footprints, UtensilsCrossed, Dumbbell, Scale, Camera, HelpCircle, ChevronRight, AlertTriangle, TrendingUp, TrendingDown, Zap, Trophy, MessageCircle, CircleAlert, ImagePlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dailyGoals } from "@/data/mockData";
 import { useMe } from "@/hooks/useMe";
@@ -344,10 +344,25 @@ export default function HomePage() {
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <p className="text-xs font-semibold text-muted-foreground">Índice VRI</p>
-                <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${state.lastScoreChange >= 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
-                  <TrendingUp size={10} />
-                  {state.lastScoreChange >= 0 ? '+' : ''}{state.lastScoreChange}
-                </div>
+                {/* PÍLULA DE VARIAÇÃO — só existe quando HÁ variação (WP-APP-7 item 2.2).
+                    ANTES ela era incondicional, e `lastScoreChange` vale 0 justamente quando
+                    NÃO HÁ medição anterior: `adherenceStateFromSnapshot` faz
+                    `prevScore === undefined ? 0 : latest.score - prevScore`. Como a RPC
+                    `recompute_adherence` só grava quando o score ou o nível MUDAM, a segunda
+                    linha demora — então "+0" com seta de ALTA em VERDE era o que TODA paciente
+                    via na sua PRIMEIRA medição real. Afirmava uma subida que não houve, e o
+                    verde dizia "melhorou" no exato momento em que não havia com o que comparar.
+                    Ausência de pílula não afirma nada: é o que se sabe quando não se sabe.
+                    (O mesmo vale para o zero verdadeiro — score igual e nível diferente. Não
+                    há variação a mostrar nos dois casos, e o silêncio serve aos dois.)
+                    A SETA também deixou de mentir: era `TrendingUp` inclusive para queda —
+                    vermelho, mas apontando para cima. Agora a direção acompanha o sinal. */}
+                {state.lastScoreChange !== 0 && (
+                  <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${state.lastScoreChange > 0 ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'}`}>
+                    {state.lastScoreChange > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                    {state.lastScoreChange > 0 ? '+' : ''}{state.lastScoreChange}
+                  </div>
+                )}
               </div>
               <p className="text-sm text-foreground">{state.score >= 80 ? 'Excelente! Sua constância está ótima.' : state.score >= 50 ? 'Bom ritmo. Continue registrando.' : 'Vamos retomar sua rotina?'}</p>
               {/* BARRA SEMANAL REMOVIDA (WP-APP-4 item 1) — não havia o que derivar.

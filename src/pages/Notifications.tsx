@@ -63,10 +63,25 @@ export default function Notifications() {
             {[0, 1, 2].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}
           </div>
         ) : notifications.length === 0 ? (
+          /* ESTADO VAZIO HONESTO (WP-APP-7 item 2.3).
+             ANTES: "Você está em dia! 🎉" — uma afirmação sobre a rotina dela, feita a
+             partir de uma lista vazia. O app não sabe se ela está em dia; sabe apenas que
+             não há linha nenhuma. E a razão da lista estar vazia não é mérito dela: NADA
+             emite notificação no produto ainda. Medido no banco: 0 linhas em `notifications`
+             em toda a base, e o único trigger sobre activity_events é o de recuperação
+             muscular. A dívida já estava registrada em lib/api/notifications.ts ("a LISTA
+             nasce de seed/migration; emissor no web").
+             Ficou pior quando o item de menu do Perfil passou a levar até aqui (WP-APP-6
+             3.3): a frase deixou de ser um canto esquecido e virou destino.
+             O texto novo diz a causa e NEGA explicitamente a leitura errada — mesmo padrão
+             do estado vazio do profissional responsável. */
           <div className="p-6 rounded-xl border border-dashed border-border flex flex-col items-center gap-2 text-center mt-4">
             <Bell size={22} className="text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">Nenhuma notificação por aqui</p>
-            <p className="text-[11px] text-muted-foreground">Você está em dia! 🎉</p>
+            <p className="text-[11px] text-muted-foreground/70 max-w-[280px] leading-relaxed">
+              Esta lista ainda não recebe avisos automáticos. A lista vazia não quer dizer que
+              esteja tudo em dia — suas pendências continuam na tela inicial.
+            </p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
