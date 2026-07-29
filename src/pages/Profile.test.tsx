@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -27,6 +27,13 @@ const identity = vi.hoisted(() => ({
 
 vi.mock("@/hooks/useMe", () => ({ useMe: () => ({ me: identity.me, isLoading: false, isError: false }) }));
 vi.mock("@/providers/auth-context", () => ({ useAuth: () => ({ signOut: vi.fn() }) }));
+
+// `navigate` espionado para provar que a seta do item de menu leva mesmo a algum lugar.
+const navigate = vi.hoisted(() => vi.fn());
+vi.mock("react-router-dom", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react-router-dom")>()),
+  useNavigate: () => navigate,
+}));
 
 const { default: Profile } = await import("./Profile");
 const { PROFESSIONAL_UNAVAILABLE_TITLE, PROFESSIONAL_UNAVAILABLE_MESSAGE } = await import(
@@ -64,6 +71,7 @@ beforeEach(() => {
   api.team = [];
   api.teamThrows = false;
   identity.me = { ...MARIANA };
+  navigate.mockClear();
 });
 
 describe("Perfil / profissional responsável (WP-APP-4 item 2)", () => {
@@ -160,6 +168,54 @@ describe("Perfil / VRI e sequência (WP-APP-4 item 2)", () => {
     expect(screen.queryByText("VRI")).not.toBeInTheDocument();
     expect(screen.queryByText("Sequência")).not.toBeInTheDocument();
     expect(screen.queryByText("95%")).not.toBeInTheDocument();
+  });
+});
+
+// WP-APP-6 item 3.3 — "ou levam a algum lugar, ou deixam de parecer que levam".
+describe("Perfil / itens de menu (WP-APP-6 item 3.3)", () => {
+  it("os itens sem destino saíram da lista", async () => {
+    renderProfile();
+    await screen.findByText(PROFESSIONAL_UNAVAILABLE_TITLE);
+
+    expect(screen.queryByText("Configurações")).not.toBeInTheDocument();
+    expect(screen.queryByText("Privacidade")).not.toBeInTheDocument();
+  });
+
+  it("Notificações continua e agora LEVA a /notifications", async () => {
+    renderProfile();
+    await screen.findByText(PROFESSIONAL_UNAVAILABLE_TITLE);
+
+    const item = screen.getByText("Notificações").closest("button");
+    expect(item).not.toBeNull();
+    fireEvent.click(item!);
+    expect(navigate).toHaveBeenCalledWith("/notifications");
+  });
+
+  // Exibe patients.goal, que é real — por isso fica. Mas não pode levar a lugar nenhum: a
+  // policy patients_update não tem is_self_patient, e nenhuma RPC escreve goal para ela.
+  it("Meu objetivo mostra o valor real, e deixou de ser botão", async () => {
+    renderProfile();
+    await screen.findByText(PROFESSIONAL_UNAVAILABLE_TITLE);
+
+    expect(screen.getByText("Emagrecimento")).toBeInTheDocument();
+    expect(screen.getByText("Meu objetivo").closest("button")).toBeNull();
+  });
+
+  it("sem objetivo no cadastro, a linha inteira some — rótulo sozinho não é informação", async () => {
+    identity.me = { ...MARIANA, goal: "" };
+    renderProfile();
+    await screen.findByText(PROFESSIONAL_UNAVAILABLE_TITLE);
+
+    expect(screen.queryByText("Meu objetivo")).not.toBeInTheDocument();
+  });
+
+  // Eu mesmo introduzi este <button> com seta e sem onClick no WP-APP-4.
+  it("Profissional responsável com nome também deixou de ser botão", async () => {
+    api.team = [prof("Bruno Salles")];
+    renderProfile();
+    await screen.findByText("Bruno Salles");
+
+    expect(screen.getByText("Profissional responsável").closest("button")).toBeNull();
   });
 });
 
