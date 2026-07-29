@@ -15,7 +15,7 @@ import {
   ProgressPhotoValidationError,
 } from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
-import ComingSoonLock, { SLEEP_LOCK_REASON } from "@/components/ComingSoonLock";
+import ComingSoonLock, { SLEEP_LOCK_REASON, NOTES_LOCK_REASON } from "@/components/ComingSoonLock";
 import NoPrescriptionYet, { NO_WORKOUT_PLAN_TITLE, NO_WORKOUT_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
 
 const recordTypes = [
@@ -382,14 +382,15 @@ export default function Records() {
           )}
 
           {activeRecord === "notes" && (
-            <motion.div key="notes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-card rounded-2xl p-5 shadow-card">
-              <h3 className="text-sm font-semibold text-foreground mb-4">Observações</h3>
-              <textarea placeholder="Escreva suas observações..."
-                className="w-full h-32 bg-muted rounded-xl p-3 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              <button onClick={() => flashSaved("Observação salva!")}
-                className="w-full h-12 rounded-xl gradient-orange text-primary-foreground font-semibold text-sm shadow-orange active:scale-[0.98] transition-transform mt-3">
-                Salvar
-              </button>
+            /* CADEADO (WP-APP-6 item 3.1) — o gêmeo exato do sono, e o caso mais puro da tela.
+               O <textarea> não tinha `value`, `onChange` nem `ref`: era não-controlado e nunca
+               lido em lugar nenhum. O botão fazia `flashSaved("Observação salva!")` e MAIS NADA
+               — nem uma chamada de rede. O texto que a paciente escrevia morria no unmount da
+               aba, e ela saía com a confirmação na tela, achando que o profissional leria.
+               Antes de bloquear eu procurei onde gravar de verdade: não existe destino legítimo
+               em produção (o detalhe da varredura está em NOTES_LOCK_REASON). */
+            <motion.div key="notes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <ComingSoonLock title="Observações" reason={NOTES_LOCK_REASON} icon={FileText} />
             </motion.div>
           )}
         </AnimatePresence>

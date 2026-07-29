@@ -114,6 +114,25 @@ export const NO_WORKOUT_PLAN_MESSAGE =
  * O que o app sabe com honestidade é só isto: o nome não está disponível agora. É o que o
  * texto diz, e ele nega explicitamente a inferência errada.
  */
+/**
+ * ÍNDICE VRI — "ainda não há o que calcular" (WP-APP-6 item 3.2).
+ *
+ * TERCEIRO caso, distinto dos outros dois, e é por isso que o texto é próprio:
+ *  · não é ComingSoonLock — a funcionalidade EXISTE e roda (a RPC `recompute_adherence`
+ *    escreve snapshot real; há um em produção). "Em breve" seria falso ao contrário.
+ *  · não é "ainda não prescrito" — não falta ninguém publicar nada.
+ * Reusa esta casca pela regra do topo do arquivo: quem afirma é o TEXTO.
+ *
+ * ⚠️ O TEXTO NÃO ATRIBUI CULPA, DE PROPÓSITO. `getLatestAdherenceState` devolve null em DUAS
+ * situações que o app não distingue: não há linha em `adherence_snapshots`, ou o `patients.id`
+ * dela não resolveu (adherence.ts:24). Dizer "registre seus hábitos" mandaria a segunda
+ * paciente consertar algo que não está com ela. "Assim que houver registros" enuncia a
+ * condição sem apontar o dedo.
+ */
+export const VRI_NOT_AVAILABLE_TITLE = "Índice VRI ainda não disponível";
+export const VRI_NOT_AVAILABLE_MESSAGE =
+  "Seu índice aparece assim que houver registros para calcular.";
+
 export const PROFESSIONAL_UNAVAILABLE_TITLE = "Profissional responsável ainda não disponível";
 export const PROFESSIONAL_UNAVAILABLE_MESSAGE =
   "Ainda não conseguimos mostrar o nome aqui. Isso não quer dizer que você não tenha um " +

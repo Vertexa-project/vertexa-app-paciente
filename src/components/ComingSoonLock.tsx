@@ -109,3 +109,31 @@ export const STEPS_LOCK_REASON =
  */
 export const SLEEP_LOCK_REASON =
   "Depende de integração com aparelho ou relógio, ainda não disponível.";
+
+/**
+ * Texto do cadeado de OBSERVAÇÕES (WP-APP-6 item 3.1). A razão aqui é OUTRA: não falta
+ * integração com aparelho nenhum — falta o registro existir no produto. Por isso o texto é
+ * próprio, e não uma cópia dos dois acima.
+ *
+ * VARRIDO ANTES DE BLOQUEAR (o dono prefere gravar a bloquear): não existe em produção nenhum
+ * destino legítimo para uma observação escrita pela paciente. Os únicos lugares onde ela
+ * consegue gravar texto falham cada um por um motivo:
+ *  · `activity_events.payload` — ela grava (activity_events_insert_self), mas QUALQUER evento
+ *    entra em `private.event_streak_brt`, que conta dias distintos SEM filtrar `type`, e em
+ *    `v_days_without` dentro de `recompute_adherence`. Registrar "hoje me senti mal" SUBIRIA
+ *    o VRI dela e poderia desbloquear conquista. Pior que a tela atual.
+ *  · `workout_session_logs.notes` — existe e o profissional lê, mas a linha É uma sessão de
+ *    treino: escrever ali fabricaria um treino que não aconteceu. E o app nunca tocou essa
+ *    tabela (zero ocorrências em src/).
+ *  · `appointments.notes` — RLS de escrita é do profissional; a paciente não insere.
+ *  · `chat_messages` — é a conversa, que já existe e tem tela própria. Não é "observação".
+ * Tabela própria (`patient_notes`) exigiria MIGRATION, e este repo não cria migration:
+ * isso é BLOQUEIO a reportar, não caminho a seguir.
+ *
+ * O texto NÃO manda a paciente ao chat de propósito: o canal dela pode não existir ainda
+ * (`get_or_create_channel` nunca é chamado por este app — quem cria é o profissional), e
+ * TeamChat tem estado `noChannel`. Mandar para uma porta que pode estar fechada seria trocar
+ * uma promessa falsa por outra.
+ */
+export const NOTES_LOCK_REASON =
+  "O registro de observações ainda não existe no Vertexa.";

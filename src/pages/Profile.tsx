@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, ChevronRight, User, Target, Stethoscope, Bell as BellIcon, Shield, LogOut, Settings, Camera, Zap, Route } from "lucide-react";
+// Settings e Shield saíram junto com os itens "Configurações" e "Privacidade" (WP-APP-6 3.3).
+import { ArrowLeft, ChevronRight, User, Target, Stethoscope, Bell as BellIcon, LogOut, Camera, Zap, Route } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/providers/auth-context";
@@ -61,10 +62,25 @@ export default function Profile() {
 
   const startedAt = me.startDate ? formatMonthYear(me.startDate) : null;
 
+  // WP-APP-6 item 3.3 — "ou levam a algum lugar, ou deixam de parecer que levam".
+  // A lista genérica sobrou com UM item, e ele leva a algum lugar de verdade. Os outros três
+  // viraram tratamento próprio (ver o card do menu abaixo). O que saiu, e por quê:
+  //
+  //  · "Configurações" — REMOVIDO. Não existe rota, não existe tela, não existe tabela de
+  //    preferências do paciente (varri App.tsx e o schema). Não é funcionalidade esperando
+  //    dado: é rótulo sem objeto. O selo "Em breve" também não cabe — neste repo ele é usado
+  //    sempre sobre algo CONSTRUÍDO e desligado (WorkoutGuide, Achievements); aqui prometeria
+  //    uma tela que ninguém especificou. A única configuração que de fato existe nesta tela —
+  //    sair da conta — já está no botão do rodapé.
+  //
+  //  · "Privacidade" — REMOVIDO, por motivo diferente. Numa lista de perfil de app de saúde,
+  //    "Privacidade — Em breve" lê-se como "seus controles de privacidade ainda não existem",
+  //    e o app NÃO TEM COMO SABER ISSO: a clínica pode ter consentimentos registrados em
+  //    `media_consents` (a paciente inclusive já PODE lê-los e revogá-los pela RPC
+  //    media_consent_revoke); este app é que nunca leu essa tabela. Remover não afirma nada.
+  //    Construir a tela seria inventar tela nova, o que o WP proíbe explicitamente.
   const menuItems = [
-    { icon: Settings, label: "Configurações", value: "" },
-    { icon: BellIcon, label: "Notificações", value: "" },
-    { icon: Shield, label: "Privacidade", value: "" },
+    { icon: BellIcon, label: "Notificações", path: "/notifications" },
   ];
 
   return (
@@ -145,12 +161,26 @@ export default function Profile() {
 
         {/* Menu */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bg-card rounded-2xl overflow-hidden shadow-card mb-6">
-          <button className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border">
-            <Target size={18} className="text-primary" />
-            <span className="text-sm text-foreground flex-1 text-left">Meu objetivo</span>
-            {me.goal && <span className="text-xs text-muted-foreground max-w-[140px] truncate">{me.goal}</span>}
-            <ChevronRight size={16} className="text-muted-foreground" />
-          </button>
+          {/* MEU OBJETIVO — vira LINHA, não botão (WP-APP-6 item 3.3).
+              Exibe dado REAL (patients.goal, via useMe) e é o único dos quatro que exibe algo —
+              por isso não sai da lista. Mas não leva a lugar nenhum, e não pode levar: a policy
+              `patients_update` é `is_clinic_admin(clinic_id) OR is_common_professional_of_patient(id)`
+              — `is_self_patient` NÃO aparece nela, e nenhuma das 35 RPCs de `public` escreve
+              `patients.goal` para a paciente. O objetivo é conduta definida pela clínica, e
+              habilitar edição exigiria MIGRATION: bloqueio, não caminho.
+              Vira <div> e PERDE o ChevronRight — a seta sozinha continuaria prometendo
+              navegação. Mesmo padrão dos estados sem ação logo abaixo, e a regra está escrita
+              em ComingSoonLock.tsx ("não interativo de propósito") e em NoPrescriptionYet.tsx
+              ("botão que não faz nada é exatamente o que este WP está removendo").
+              Sem goal no cadastro a linha inteira some, como "Paciente desde" acima: rótulo
+              sozinho não é informação. */}
+          {me.goal && (
+            <div className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border">
+              <Target size={18} className="text-primary" />
+              <span className="text-sm text-foreground flex-1 text-left">Meu objetivo</span>
+              <span className="text-xs text-muted-foreground max-w-[140px] truncate">{me.goal}</span>
+            </div>
+          )}
 
           {/* PROFISSIONAL RESPONSÁVEL — nome REAL (WP-APP-4 item 2).
               Substituiu "Dra. Camila Rocha" (mockData.ts:6), que não é ninguém: uma profissional
@@ -177,12 +207,14 @@ export default function Profile() {
               </button>
             </div>
           ) : professionalLabel ? (
-            <button className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border">
+            // <div>, não <button> (WP-APP-6 item 3.3). Eu mesmo introduzi este botão com seta e
+            // sem onClick no WP-APP-4 — é o mesmo defeito dos outros itens deste card, e os dois
+            // estados irmãos logo acima já eram <div>. Não há tela de profissional para onde ir.
+            <div className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border">
               <Stethoscope size={18} className="text-primary" />
               <span className="text-sm text-foreground flex-1 text-left">Profissional responsável</span>
               <span className="text-xs text-muted-foreground max-w-[140px] truncate">{professionalLabel}</span>
-              <ChevronRight size={16} className="text-muted-foreground" />
-            </button>
+            </div>
           ) : (
             <div className="p-3 border-b border-border">
               <NoPrescriptionYet
@@ -194,11 +226,17 @@ export default function Profile() {
             </div>
           )}
 
-          {menuItems.map((item, i) => (
-            <button key={i} className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border last:border-0">
+          {/* NOTIFICAÇÕES — o único dos quatro que já tinha destino: /notifications existe
+              (App.tsx), lê dado real e trata os quatro estados. Aqui a seta deixa de mentir
+              porque agora ela leva mesmo. */}
+          {menuItems.map((item) => (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border last:border-0"
+            >
               <item.icon size={18} className="text-primary" />
               <span className="text-sm text-foreground flex-1 text-left">{item.label}</span>
-              {item.value && <span className="text-xs text-muted-foreground max-w-[140px] truncate">{item.value}</span>}
               <ChevronRight size={16} className="text-muted-foreground" />
             </button>
           ))}

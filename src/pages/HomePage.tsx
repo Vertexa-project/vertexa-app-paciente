@@ -8,8 +8,12 @@ import { useMe } from "@/hooks/useMe";
 import { useUnreadNotificationCount } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import ComingSoonLock, { STEPS_LOCK_REASON, SLEEP_LOCK_REASON } from "@/components/ComingSoonLock";
-import NoPrescriptionYet, { NO_MEAL_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
-import { getAdherenceState, getAutoActions } from "@/lib/adherenceEngine";
+import NoPrescriptionYet, {
+  NO_MEAL_PLAN_MESSAGE,
+  VRI_NOT_AVAILABLE_TITLE,
+  VRI_NOT_AVAILABLE_MESSAGE,
+} from "@/components/NoPrescriptionYet";
+import { getAutoActions } from "@/lib/adherenceEngine";
 import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
@@ -82,11 +86,30 @@ export default function HomePage() {
   const navigate = useNavigate();
 
   // VRI exibido = ÚLTIMO snapshot persistido (mesma fonte que a web → consistência app↔web).
-  // Enquanto carrega / se ainda não há snapshot, cai no compute local (DEFAULT_CONFIG).
+  //
+  // WP-APP-6 item 3.2 — O QUE SAIU DAQUI: `?? getAdherenceState()`. Sem argumento, essa chamada
+  // cai no DEFAULT_CONFIG do motor (adherenceEngine.ts:67-75) — a configuração de EXEMPLO do
+  // módulo — e a Home renderizava o resultado como se fosse o índice da paciente: 95%, "Alta
+  // adesão", "+3", "18 dias de sequência", "60% da semana", "Você está arrasando! 🔥" e a ação
+  // automática "Você está incrível! Sua adesão está excelente". Para quem nunca registrou nada.
+  // Idêntico ao que o WP-APP-4 tirou do Perfil, e sobrevivia na PRIMEIRA tela que ela abre.
+  // Não era caso de borda: medido em produção, 6 das 7 pacientes caem neste caminho hoje
+  // (adherence_snapshots tem 1 linha, de 1 paciente).
+  //
+  // O `??` ainda tratava TRÊS situações diferentes como a mesma, e todas viravam 95%:
+  //   carregando (data undefined) · resolveu sem snapshot (data null) · ERRO (data undefined).
+  // A terceira era a pior: uma falha de leitura virava um índice saudável, sem sinal nenhum.
+  // Agora são três ramos distintos no render — skeleton / vazio honesto / falha com retry —
+  // e `state` pode ser null, que é a verdade quando não há snapshot.
   const adherenceQuery = useQuery({ queryKey: ["adherence"], queryFn: getLatestAdherenceState });
-  const state = adherenceQuery.data ?? getAdherenceState();
-  const autoActions = getAutoActions(state);
-  const statusInfo = statusLabels[state.status] ?? statusLabels["em_acompanhamento"];
+  const state = adherenceQuery.data ?? null;
+  // `isPending` e NÃO `isLoading`: em react-query v5, `isLoading === isPending && isFetching`.
+  // Offline (fetchStatus 'paused') o isLoading é false com data undefined — uma guarda por
+  // isLoading afirmaria "você não tem índice" quando o app está é sem rede. Segue o Perfil.
+  const adherenceLoading = adherenceQuery.isPending;
+  // Sem state não há ação derivável. A guarda fica AQUI, na chamada, e não dentro do motor.
+  const autoActions = state ? getAutoActions(state) : [];
+  const statusInfo = state ? statusLabels[state.status] ?? statusLabels["em_acompanhamento"] : null;
 
   useEffect(() => { tracker.track('home_viewed'); }, []);
 
@@ -203,7 +226,10 @@ export default function HomePage() {
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-xl font-display font-bold text-foreground">{meLoading ? <Skeleton className="inline-block h-6 w-3/4 max-w-[260px] align-middle rounded" /> : pickWelcomeMessage({ name: me.name })} 👋</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{state.contextualMessage}</p>
+            {/* Frase de coaching DERIVADA do score (adherenceEngine.ts:169-177). Sem score não
+                há do que derivar: sem snapshot ela dizia "Você está arrasando! 🔥" para quem
+                nunca registrou nada. A saudação acima é real (me.name) e fica. */}
+            {state && <p className="text-sm text-muted-foreground mt-0.5">{state.contextualMessage}</p>}
           </div>
           <button onClick={() => navigate("/notifications")} className="relative w-10 h-10 rounded-full bg-card flex items-center justify-center">
             <Bell size={20} className="text-foreground" />
@@ -217,11 +243,19 @@ export default function HomePage() {
 
         {/* Status badge + journey phase */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="flex items-center gap-2 mb-5">
-          <span className={`px-3 py-1 rounded-full text-[10px] font-semibold ${statusInfo.color}`}>
-            {statusInfo.label}
-          </span>
-          <span className="text-[10px] text-muted-foreground">•</span>
-          <span className="text-[10px] text-muted-foreground">{phaseLabels[state.journeyPhase]}</span>
+          {/* "Em acompanhamento" e "Acompanhamento ativo" são rótulos quase-clínicos, e sem
+              snapshot os dois vinham do DEFAULT_CONFIG. Só os DOIS SPANS somem — o botão "Ver
+              jornada" é navegação real, não depende de `state`, e continua (o ml-auto dele já
+              o mantém alinhado sozinho). */}
+          {state && statusInfo && (
+            <>
+              <span className={`px-3 py-1 rounded-full text-[10px] font-semibold ${statusInfo.color}`}>
+                {statusInfo.label}
+              </span>
+              <span className="text-[10px] text-muted-foreground">•</span>
+              <span className="text-[10px] text-muted-foreground">{phaseLabels[state.journeyPhase]}</span>
+            </>
+          )}
           <button onClick={() => navigate("/journey")} className="ml-auto text-[10px] text-primary font-medium flex items-center gap-0.5">
             Ver jornada <ChevronRight size={12} />
           </button>
@@ -268,7 +302,40 @@ export default function HomePage() {
           </motion.div>
         )}
 
-        {/* VRI Score Card */}
+        {/* VRI Score Card — QUATRO estados distintos, na ordem de precedência (WP-APP-6 3.2).
+            Este é o único bloco que NÃO some sem snapshot: o assunto dele É o índice, e um
+            buraco no topo da tela deixaria a paciente sem saber se o app quebrou. */}
+        {adherenceLoading ? (
+          // CARREGANDO — nunca o estado vazio. Afirmar "não há índice" antes de a leitura
+          // resolver seria mentir na direção contrária (regra do NoPrescriptionYet).
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="bg-card rounded-2xl p-6 shadow-card mb-5"
+          >
+            <div className="h-[130px] rounded-xl bg-muted animate-pulse" />
+          </motion.div>
+        ) : adherenceQuery.isError ? (
+          // FALHOU a leitura. Antes deste WP, ERRO caía no mesmo `??` e virava 95% "Alta
+          // adesão": a falha se disfarçava de saúde. Falha ≠ "não tem" ≠ número bonito.
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+            className="bg-card rounded-2xl p-5 shadow-card mb-5 flex flex-col items-center gap-2 text-center border border-dashed border-red-500/30"
+          >
+            <p className="text-xs text-red-400">Não foi possível carregar seu índice VRI.</p>
+            <button onClick={() => adherenceQuery.refetch()} className="text-[11px] font-semibold text-primary">
+              Tentar novamente
+            </button>
+          </motion.div>
+        ) : !state ? (
+          // RESOLVEU e não há snapshot: estado vazio honesto, sem número nenhum.
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-5">
+            <NoPrescriptionYet
+              title={VRI_NOT_AVAILABLE_TITLE}
+              message={VRI_NOT_AVAILABLE_MESSAGE}
+              icon={TrendingUp}
+            />
+          </motion.div>
+        ) : (
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="bg-card rounded-2xl p-6 shadow-card mb-5"
@@ -307,9 +374,10 @@ export default function HomePage() {
             <span className="text-[10px] text-muted-foreground ml-auto">{state.weeklyCompletionRate}% da semana</span>
           </div>
         </motion.div>
+        )}
 
         {/* Risk / Attention Alert */}
-        {state.riskFactors.length > 0 && state.level !== 'alta' && (
+        {state && state.riskFactors.length > 0 && state.level !== 'alta' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
             className={`rounded-2xl p-4 mb-5 border ${levelBg[state.level]}`}
           >
