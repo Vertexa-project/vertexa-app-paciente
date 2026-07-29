@@ -19,6 +19,11 @@ export const dailyGoals = [
   { id: "workout", label: "Treino", icon: "🏋️", current: 0, target: 1, unit: "", done: false },
 ];
 
+// (WP-APP-4 item 1) NÃO É MAIS CONSUMIDO POR NENHUMA TELA. A Home exibia `days` como a barra
+// semanal ao lado do anel do VRI; foi removida porque não existe fonte real de score POR DIA
+// (adherence_snapshots não é série diária — ver o comentário no HomePage.tsx). Mantido aqui,
+// como os demais mocks, para não apagar código: se um dia houver histórico diário real, o bloco
+// da Home volta lendo ESSA fonte, não isto.
 export const weeklyProgress = {
   score: 78,
   status: "bom" as const,

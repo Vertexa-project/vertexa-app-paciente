@@ -89,3 +89,13 @@ export const NO_MEAL_PLAN_MESSAGE =
 export const NO_WORKOUT_PLAN_TITLE = "Treino ainda não prescrito";
 export const NO_WORKOUT_PLAN_MESSAGE =
   "Seu profissional ainda não publicou sua ficha. Assim que publicar, seus treinos aparecem aqui.";
+
+/**
+ * (WP-APP-4 item 2) Mesmo padrão, causa análoga: quem publica é a clínica, ao vincular o
+ * profissional. NÃO é ComingSoonLock — o vínculo existe no produto e funciona; o que falta é
+ * alguém do outro lado fazê-lo. Substituiu "Dra. Camila Rocha" (mockData.ts), nome de uma
+ * profissional que não existe e que nunca atendeu ninguém.
+ */
+export const NO_PROFESSIONAL_TITLE = "Profissional ainda não vinculado";
+export const NO_PROFESSIONAL_MESSAGE =
+  "Assim que sua clínica vincular seu profissional, o nome dele aparece aqui.";

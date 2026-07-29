@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Check, Clock, Pill, BookOpen, UtensilsCrossed } from "lucide-react";
+import { ArrowLeft, Check, Clock, Pill, BookOpen, UtensilsCrossed, Dumbbell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -10,11 +10,17 @@ import {
   getMySupplements,
   getSupplementsTakenToday,
   toggleSupplementTaken,
+  getMyWorkoutPlan,
 } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import { localDateKey } from "@/lib/pendingLogic";
 import BottomNav from "@/components/BottomNav";
-import NoPrescriptionYet, { NO_MEAL_PLAN_TITLE, NO_MEAL_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
+import NoPrescriptionYet, {
+  NO_MEAL_PLAN_TITLE,
+  NO_MEAL_PLAN_MESSAGE,
+  NO_WORKOUT_PLAN_TITLE,
+  NO_WORKOUT_PLAN_MESSAGE,
+} from "@/components/NoPrescriptionYet";
 
 type Tab = "alimentar" | "treino" | "suplementos" | "orientacoes";
 
@@ -123,6 +129,21 @@ export default function Plan() {
     toggleMeal.mutate({ mealId, on: !currentlyDone });
   };
 
+  // ── Ficha de treino REAL (WP-APP-4 item 6) ────────────────────────────────────────────────
+  // A aba "Treino" NÃO lia nada: mostrava um card fixo prometendo "sua ficha completa" e um botão
+  // "Abrir meu treino" — mesmo para quem não tem ficha publicada. O texto AFIRMAVA a existência de
+  // algo ("Veja sua ficha completa, inicie o treino do dia..."), e a paciente só descobria que não
+  // havia nada depois de tocar e cair no estado vazio do /workout-guide. Agora a aba pergunta antes
+  // de afirmar. MESMA query (["workoutPlan"]) que a Home e Registros já usam — cache compartilhado,
+  // nenhuma leitura nova; e os MESMOS três estados da aba Alimentar: carregando / falhou / sem ficha.
+  const {
+    data: workoutPlan,
+    isPending: workoutLoading,
+    isError: workoutError,
+    refetch: refetchWorkout,
+  } = useQuery({ queryKey: ["workoutPlan"], queryFn: getMyWorkoutPlan });
+  const hasRealWorkoutPlan = (workoutPlan?.length ?? 0) > 0;
+
   // ── Suplementos (S3): lista REAL (autoria web) + "tomado hoje" persistido (supplement_intakes) ──
   const {
     data: supplementList = [],
@@ -181,7 +202,9 @@ export default function Plan() {
     { key: "alimentar", label: "Alimentar" },
     { key: "treino", label: "Treino" },
     { key: "suplementos", label: "Suplem." },
-    { key: "orientacoes", label: "Dicas" },
+    // "Dicas GERAIS" (WP-APP-4 item 4): as outras três abas são o plano DELA; esta não é.
+    // O rótulo carrega a diferença já na navegação, antes de ela abrir.
+    { key: "orientacoes", label: "Dicas gerais" },
   ];
 
   return (
@@ -275,13 +298,36 @@ export default function Plan() {
 
           {tab === "treino" && (
             <motion.div key="treino" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-4">
-              <div className="bg-card rounded-xl p-4 border border-primary/20">
-                <p className="text-sm font-semibold text-foreground mb-1">Guia de Treino Interativo</p>
-                <p className="text-xs text-muted-foreground mb-3">Veja sua ficha completa, inicie o treino do dia e acompanhe seu progresso exercício por exercício.</p>
-                <button onClick={() => navigate('/workout-guide')} className="w-full h-11 rounded-xl gradient-orange text-primary-foreground text-sm font-bold flex items-center justify-center gap-2">
-                  Abrir meu treino
-                </button>
-              </div>
+              {/* CARREGANDO — ainda não sabemos se há ficha. Skeleton, nunca o estado vazio
+                  (mesmo padrão das abas Alimentar e Suplem. desta tela). */}
+              {workoutLoading ? (
+                <div className="h-[124px] bg-card rounded-xl animate-pulse" />
+              ) : workoutError && !hasRealWorkoutPlan ? (
+                // FALHOU a leitura — não é "sem ficha". A paciente pode tentar de novo.
+                <div className="bg-card rounded-xl p-5 flex flex-col items-center gap-2 text-center border border-dashed border-red-500/30">
+                  <p className="text-xs text-red-400">Não foi possível carregar sua ficha de treino.</p>
+                  <button onClick={() => refetchWorkout()} className="text-[11px] font-semibold text-primary">
+                    Tentar novamente
+                  </button>
+                </div>
+              ) : !hasRealWorkoutPlan ? (
+                // RESOLVEU e não há ficha: o mesmo estado vazio que Registros e o /workout-guide
+                // já mostram — texto ÚNICO, as três telas não podem divergir na mesma frase.
+                // Sem card, sem promessa de "ficha completa", e sem botão para uma tela vazia.
+                <NoPrescriptionYet
+                  title={NO_WORKOUT_PLAN_TITLE}
+                  message={NO_WORKOUT_PLAN_MESSAGE}
+                  icon={Dumbbell}
+                />
+              ) : (
+                <div className="bg-card rounded-xl p-4 border border-primary/20">
+                  <p className="text-sm font-semibold text-foreground mb-1">Guia de Treino Interativo</p>
+                  <p className="text-xs text-muted-foreground mb-3">Veja sua ficha completa, inicie o treino do dia e acompanhe seu progresso exercício por exercício.</p>
+                  <button onClick={() => navigate('/workout-guide')} className="w-full h-11 rounded-xl gradient-orange text-primary-foreground text-sm font-bold flex items-center justify-center gap-2">
+                    Abrir meu treino
+                  </button>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -338,6 +384,22 @@ export default function Plan() {
 
           {tab === "orientacoes" && (
             <motion.div key="orientacoes" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
+              {/* RÓTULO DE ORIGEM (WP-APP-4 item 4). As quatro orientações abaixo são literais
+                  fixos deste arquivo, iguais para TODA paciente — e continuam sendo, de propósito:
+                  são recomendações gerais de saúde, não deixam de ser verdadeiras por não serem
+                  individualizadas. O problema era o CONTEXTO: dentro de "Meu Plano", ao lado das
+                  abas Alimentar/Treino/Suplem. — que são prescrição real do profissional DELA —,
+                  quatro cartões sem procedência se leem como a quinta prescrição.
+                  Este bloco é o que separa as duas coisas. Não some quando houver plano real:
+                  a origem do texto não muda por isso. */}
+              <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4">
+                <p className="text-xs font-semibold text-muted-foreground">Orientações gerais</p>
+                <p className="text-[11px] text-muted-foreground/70 mt-1 leading-relaxed">
+                  Recomendações gerais de saúde, iguais para todas as pacientes. Não são a prescrição
+                  do seu profissional — o que ele prescreveu para você está nas abas Alimentar,
+                  Treino e Suplem.
+                </p>
+              </div>
               {[
                 { title: "Hidratação adequada", desc: "Beba pelo menos 2.5L de água por dia, distribuídos ao longo do dia." },
                 { title: "Sono reparador", desc: "Durma entre 7-8 horas. Evite telas 1h antes de dormir." },

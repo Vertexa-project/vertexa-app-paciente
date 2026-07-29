@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Bell, Droplets, Moon, Footprints, UtensilsCrossed, Dumbbell, Scale, Camera, HelpCircle, ChevronRight, AlertTriangle, TrendingUp, Zap, Trophy, MessageCircle, CircleAlert, ImagePlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { dailyGoals, weeklyProgress } from "@/data/mockData";
+import { dailyGoals } from "@/data/mockData";
 import { useMe } from "@/hooks/useMe";
 import { useUnreadNotificationCount } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -282,19 +282,21 @@ export default function HomePage() {
                   {state.lastScoreChange >= 0 ? '+' : ''}{state.lastScoreChange}
                 </div>
               </div>
-              <p className="text-sm text-foreground mb-3">{state.score >= 80 ? 'Excelente! Sua constância está ótima.' : state.score >= 50 ? 'Bom ritmo. Continue registrando.' : 'Vamos retomar sua rotina?'}</p>
-              <div className="flex gap-1">
-                {weeklyProgress.days.map((d, i) => (
-                  <div key={i} className="flex flex-col items-center gap-1">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-semibold ${
-                      d.done ? "gradient-orange text-primary-foreground" : "bg-muted text-muted-foreground"
-                    }`}>
-                      {d.score > 0 ? d.score : "—"}
-                    </div>
-                    <span className="text-[9px] text-muted-foreground">{d.day}</span>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm text-foreground">{state.score >= 80 ? 'Excelente! Sua constância está ótima.' : state.score >= 50 ? 'Bom ritmo. Continue registrando.' : 'Vamos retomar sua rotina?'}</p>
+              {/* BARRA SEMANAL REMOVIDA (WP-APP-4 item 1) — não havia o que derivar.
+                  As sete caixinhas Seg→Dom vinham de `weeklyProgress.days` (mockData.ts:22-34):
+                  90, 85, 70, 75, 60, 0, 0 — literais versionados no repo, iguais para toda
+                  paciente e em todo dia da semana. Ficavam ENCOSTADAS no anel do VRI, que é
+                  real (snapshot do servidor): o número verdadeiro emprestava credibilidade
+                  ao falso, e a paciente não tinha como saber qual era qual.
+                  NÃO foi substituída por um equivalente real porque ele NÃO EXISTE: a única
+                  origem possível de um score POR DIA seria `adherence_snapshots`, e ela não é
+                  uma série diária — `recompute_adherence` só grava QUANDO o score ou o nível
+                  MUDAM (skip-if-unchanged no fim da função) e não há cron diário nenhum
+                  (o único job agendado é `recompute_recovery_decay`). Medido em produção:
+                  1 linha em toda a tabela. Derivar sete dias disso seria inventar de novo,
+                  agora com cara de dado. Dado real ou nada — e aqui é nada.
+                  Quando existir histórico diário de verdade, o bloco volta AQUI. */}
             </div>
             <VRIRing score={state.score} level={state.level} />
           </div>
