@@ -8,6 +8,7 @@ import { workoutSchedule } from "@/data/workoutData";
 import { useMe } from "@/hooks/useMe";
 import { useUnreadNotificationCount } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
+import ComingSoonLock, { STEPS_LOCK_REASON } from "@/components/ComingSoonLock";
 import { getAdherenceState, getAutoActions } from "@/lib/adherenceEngine";
 import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
@@ -126,6 +127,11 @@ export default function HomePage() {
     if (g.id === "meals") return hasRealMealPlan ? { ...g, current: mealAdherence!.done, target: mealAdherence!.total } : g;
     return g;
   });
+
+  // Metas BLOQUEADAS (WP-APP-1) — exibidas com cadeado e fora do contador de "concluídas".
+  // `steps` é o único hoje: o valor de mockData é fixo e não tem origem real.
+  const LOCKED_GOAL_IDS = new Set(["steps"]);
+  const countableGoals = goals.filter((g) => !LOCKED_GOAL_IDS.has(g.id));
 
   const pendingItems = [
     {
@@ -343,10 +349,28 @@ export default function HomePage() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-display font-semibold text-foreground">Metas do dia</h2>
-            <span className="text-xs text-primary font-medium">{goals.filter(g => g.current >= g.target).length}/{goals.length} concluídas</span>
+            {/* O contador ignora as metas bloqueadas: contar no denominador uma meta que a
+                paciente não tem como cumprir (nem enxergar) transformaria o cadeado numa
+                pendência permanente. */}
+            <span className="text-xs text-primary font-medium">{countableGoals.filter(g => g.current >= g.target).length}/{countableGoals.length} concluídas</span>
           </div>
           <div className="grid grid-cols-1 gap-3 mb-5">
             {goals.map((goal, i) => {
+              // Passos BLOQUEADO (WP-APP-1): `dailyGoals` traz 6.420/8.000 fixo de mockData —
+              // não vem de aparelho nem de tabela. Cadeado no lugar do número, na MESMA posição
+              // da lista. A entrada segue em `goals` (não apagada) para voltar quando houver dado.
+              if (goal.id === "steps") {
+                return (
+                  <motion.div
+                    key={goal.id}
+                    initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 + i * 0.05 }}
+                  >
+                    {/* Ícone passado direto (e não por `goalIcons`, que é Record<string,
+                        React.ElementType>) para o componente manter o tipo LucideIcon. */}
+                    <ComingSoonLock title={goal.label} reason={STEPS_LOCK_REASON} icon={Footprints} variant="row" />
+                  </motion.div>
+                );
+              }
               const pct = Math.min((goal.current / goal.target) * 100, 100);
               const Icon = goalIcons[goal.id] || Droplets;
               const isDone = goal.current >= goal.target;
