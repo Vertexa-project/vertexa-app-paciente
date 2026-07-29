@@ -11,8 +11,8 @@ import { careTeamLabel } from "@/lib/careTeam";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 import NoPrescriptionYet, {
-  NO_PROFESSIONAL_TITLE,
-  NO_PROFESSIONAL_MESSAGE,
+  PROFESSIONAL_UNAVAILABLE_TITLE,
+  PROFESSIONAL_UNAVAILABLE_MESSAGE,
 } from "@/components/NoPrescriptionYet";
 
 const phaseLabels: Record<string, string> = {
@@ -159,7 +159,9 @@ export default function Profile() {
               MESMO campo. Três estados, como no resto do app:
                 · carregando -> skeleton (nunca afirmar ausência antes de a leitura resolver);
                 · falhou     -> diz que falhou e oferece tentar de novo (falha ≠ "não tem");
-                · resolveu sem ninguém -> NoPrescriptionYet: quem vincula é a clínica. */}
+                · resolveu sem ninguém -> "ainda não disponível", NUNCA "não tem profissional":
+                  o canal de onde o nome sai é criado pelo PROFISSIONAL, não por ela, então
+                  paciente nova com vínculo real cai aqui. Ver PROFESSIONAL_UNAVAILABLE_*. */}
           {careTeamQuery.isPending ? (
             <div className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border">
               <Stethoscope size={18} className="text-primary" />
@@ -184,8 +186,8 @@ export default function Profile() {
           ) : (
             <div className="p-3 border-b border-border">
               <NoPrescriptionYet
-                title={NO_PROFESSIONAL_TITLE}
-                message={NO_PROFESSIONAL_MESSAGE}
+                title={PROFESSIONAL_UNAVAILABLE_TITLE}
+                message={PROFESSIONAL_UNAVAILABLE_MESSAGE}
                 icon={Stethoscope}
                 variant="row"
               />

@@ -23,6 +23,12 @@ import type { LucideIcon } from "lucide-react";
  *  · Use SOMENTE depois que a leitura resolveu. Enquanto carrega, mostre skeleton — este
  *    bloco afirma "não existe plano", e afirmar isso durante o carregamento seria mentir
  *    de novo, só que na direção contrária.
+ *
+ * QUEM AFIRMA É O TEXTO, NÃO O COMPONENTE: a casca visual (borda tracejada, tom apagado, sem
+ * ação) serve a qualquer ausência honesta. O bloco do profissional responsável usa esta mesma
+ * casca para dizer "ainda não disponível" — que é uma afirmação DIFERENTE e mais fraca do que
+ * "ainda não prescrito". Ao reusar aqui, escreva o texto que você pode PROVAR (ver
+ * PROFESSIONAL_UNAVAILABLE_MESSAGE no fim do arquivo, e o porquê).
  */
 interface NoPrescriptionYetProps {
   /** O que não foi prescrito, como a paciente chama. Ex.: "Plano alimentar". */
@@ -91,11 +97,24 @@ export const NO_WORKOUT_PLAN_MESSAGE =
   "Seu profissional ainda não publicou sua ficha. Assim que publicar, seus treinos aparecem aqui.";
 
 /**
- * (WP-APP-4 item 2) Mesmo padrão, causa análoga: quem publica é a clínica, ao vincular o
- * profissional. NÃO é ComingSoonLock — o vínculo existe no produto e funciona; o que falta é
- * alguém do outro lado fazê-lo. Substituiu "Dra. Camila Rocha" (mockData.ts), nome de uma
- * profissional que não existe e que nunca atendeu ninguém.
+ * PROFISSIONAL RESPONSÁVEL — "ainda não disponível", que NÃO é "não existe".
+ *
+ * Substituiu "Dra. Camila Rocha" (mockData.ts), nome de uma profissional que não existe e que
+ * nunca atendeu ninguém (WP-APP-4 item 2).
+ *
+ * ⚠️ ESTE TEXTO NÃO AFIRMA AUSÊNCIA, E NÃO PODE VOLTAR A AFIRMAR. A primeira versão dizia
+ * "Profissional ainda não vinculado" — uma afirmação sobre o cadastro dela, e o app NÃO TEM
+ * COMO SABER ISSO. A fonte do nome é a RPC `channel_professionals`, que depende de existir um
+ * `chat_channels` da paciente; e o canal é criado por `get_or_create_channel`, que o app do
+ * PACIENTE nunca chama (confira: a função não aparece em nenhum ponto de src/). Quem o cria é
+ * o profissional, ao abrir a conversa no painel. Ou seja: uma paciente NOVA, com vínculo ativo
+ * de verdade, cai exatamente aqui enquanto ninguém tiver aberto o chat dela — e leria que não
+ * tem profissional. Falso, e cruel de ler.
+ *
+ * O que o app sabe com honestidade é só isto: o nome não está disponível agora. É o que o
+ * texto diz, e ele nega explicitamente a inferência errada.
  */
-export const NO_PROFESSIONAL_TITLE = "Profissional ainda não vinculado";
-export const NO_PROFESSIONAL_MESSAGE =
-  "Assim que sua clínica vincular seu profissional, o nome dele aparece aqui.";
+export const PROFESSIONAL_UNAVAILABLE_TITLE = "Profissional responsável ainda não disponível";
+export const PROFESSIONAL_UNAVAILABLE_MESSAGE =
+  "Ainda não conseguimos mostrar o nome aqui. Isso não quer dizer que você não tenha um " +
+  "profissional responsável — em caso de dúvida, fale com sua clínica.";
