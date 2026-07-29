@@ -12,6 +12,12 @@ export interface Identity {
   currentWeight: number | null;
   startWeight: number | null;
   targetWeight: number | null;
+  /**
+   * `patients.start_date` (ISO, YYYY-MM-DD) — início do acompanhamento. Anulável de propósito:
+   * o Perfil exibia "Paciente desde <mês/ano>" a partir de `patient.startDate` do mock
+   * (2025-01-15, igual para todo mundo). Sem data real a linha não é exibida (WP-APP-4 item 2).
+   */
+  startDate: string | null;
 }
 
 // Neutral fallback so an error/empty never crashes a screen.
@@ -23,6 +29,7 @@ const NEUTRAL: Identity = {
   currentWeight: null,
   startWeight: null,
   targetWeight: null,
+  startDate: null,
 };
 
 function toNumber(v: unknown): number | null {
@@ -41,6 +48,8 @@ function adapt(p: PatientWithProfile): Identity {
     currentWeight: toNumber(p.current_weight),
     startWeight: toNumber(p.start_weight),
     targetWeight: toNumber(p.target_weight),
+    // `getPatient` já faz `select *` em patients — a coluna vem no payload, não há leitura nova.
+    startDate: p.start_date ?? null,
   };
 }
 

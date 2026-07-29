@@ -6,6 +6,7 @@ export {
   getChannelMessages,
   getMessagesByIds,
   listChannelProfessionals,
+  listMyCareTeam,
   sendPatientMessage,
   subscribeToChannelMessages,
 } from "./chat";

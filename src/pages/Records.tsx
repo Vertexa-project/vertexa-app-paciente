@@ -15,6 +15,7 @@ import {
   ProgressPhotoValidationError,
 } from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
+import ComingSoonLock, { SLEEP_LOCK_REASON } from "@/components/ComingSoonLock";
 import NoPrescriptionYet, { NO_WORKOUT_PLAN_TITLE, NO_WORKOUT_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
 
 const recordTypes = [
@@ -190,11 +191,13 @@ export default function Records() {
     waterMutation.mutate(liters);
   };
 
-  // ── Sleep (marcador de hábito; sem tabela própria) ──
-  const handleSaveSleep = () => {
-    tracker.track("sleep_logged", { source: "app" });
-    flashSaved("Sono registrado!");
-  };
+  // ── Sono: BLOQUEADO (WP-APP-4 item 5) ──
+  // O handler saiu junto com o formulário. O que ele fazia: disparava `sleep_logged` com payload
+  // {source:"app"} e respondia "Sono registrado!" — sem NUNCA ler o campo de horas (o input era
+  // não-controlado, `defaultValue="7.5"` e nenhum estado). O número que a paciente digitava era
+  // descartado no caminho, e ela recebia a confirmação assim mesmo. Não existe tabela de sono:
+  // o evento era um marcador vazio. É o mesmo caso já cadeado na Home e em Hábitos (WP-APP-2 2.2),
+  // e faltava só esta terceira porta.
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -367,17 +370,14 @@ export default function Records() {
           )}
 
           {activeRecord === "sleep" && (
-            <motion.div key="sleep" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-card rounded-2xl p-5 shadow-card">
-              <h3 className="text-sm font-semibold text-foreground mb-4">Registrar sono</h3>
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <input type="number" step="0.5" defaultValue="7.5"
-                  className="text-4xl font-display font-bold text-foreground bg-transparent text-center w-24 focus:outline-none" />
-                <span className="text-lg text-muted-foreground">h</span>
-              </div>
-              <button onClick={handleSaveSleep}
-                className="w-full h-12 rounded-xl gradient-orange text-primary-foreground font-semibold text-sm shadow-orange active:scale-[0.98] transition-transform mt-3">
-                Salvar
-              </button>
+            /* CADEADO (WP-APP-4 item 5) — MESMO componente e MESMO texto da Home e de Hábitos.
+               Aqui era pior que nos outros dois: lá o sono só EXIBIA mock, aqui ele ACEITAVA o
+               registro da paciente, jogava fora e respondia "Sono registrado!". Ela saía achando
+               que a equipe passaria a ver as horas dela.
+               O formulário não foi substituído por outro: enquanto não houver integração, não há
+               o que salvar. Ver o handler removido em `handleSaveSleep` acima. */
+            <motion.div key="sleep" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <ComingSoonLock title="Sono" reason={SLEEP_LOCK_REASON} icon={Moon} />
             </motion.div>
           )}
 

@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Droplets, Moon, Footprints, Smile, Plus, Check, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { habitTracking } from "@/data/mockData";
 import { tracker } from "@/lib/eventTracker";
 import { logHydration, getHydrationTodayLiters } from "@/lib/api";
 import { WATER_GOAL_LITERS, WATER_INCREMENT_LITERS } from "@/lib/hydrationMath";
@@ -13,7 +12,13 @@ import ComingSoonLock, { STEPS_LOCK_REASON, SLEEP_LOCK_REASON } from "@/componen
 export default function Habits() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [mood, setMood] = useState(habitTracking.mood);
+  // HUMOR: começa VAZIO (WP-APP-4 item 6). Antes era `useState(habitTracking.mood)` — "bem",
+  // literal de mockData.ts. A tela abria com "Bem" já aceso, do jeito exato de um registro que a
+  // paciente tivesse acabado de fazer; ela não tinha como distinguir. Não havia nada por trás:
+  // nenhum mood_logged de hoje era lido, e o valor mudava só quando ela mesma tocava.
+  // `null` = ninguém escolheu ainda, e é isso que a tela passa a dizer. Enquanto não existir
+  // leitura do mood_logged do dia (nenhuma hoje), o estado inicial honesto é nenhum.
+  const [mood, setMood] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
 
   const showSaved = useCallback((label: string) => {
@@ -45,7 +50,7 @@ export default function Habits() {
   });
 
   const logMood = (m: string) => {
-    setMood(m as typeof mood);
+    setMood(m);
     // mood_logged é hábito: o eventSync recomputa o VRI; a Home relê o snapshot ao montar.
     tracker.track("mood_logged", { mood: m });
     showSaved("Humor registrado!");
@@ -106,7 +111,10 @@ export default function Habits() {
             — nunca muda. Mesmo tratamento dado aos passos no WP-APP-1: cadeado no lugar do número.
             O código do card ativo está preservado logo abaixo, comentado, para voltar inteiro
             quando existir a integração; ele só precisa trocar `habitTracking.sleep` pela fonte
-            real. NÃO apagar. */}
+            real. NÃO apagar.
+            ⚠️ O import de `habitTracking` saiu deste arquivo no WP-APP-4 (item 6): o último uso
+            VIVO era o humor inicial. Ao reativar qualquer card abaixo, troque `habitTracking.X`
+            pela fonte real — não reponha o import do mock. */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-4">
           <ComingSoonLock title="Sono" reason={SLEEP_LOCK_REASON} icon={Moon} />
         </motion.div>

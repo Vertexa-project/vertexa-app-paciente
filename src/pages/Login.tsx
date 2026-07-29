@@ -124,7 +124,12 @@ function DemoLogin() {
             </div>
           </div>
 
-          <button type="button" className="text-primary text-xs font-medium self-end -mt-1">Esqueci minha senha</button>
+          {/* "ESQUECI MINHA SENHA" REMOVIDO (WP-APP-4 item 3) — não há senha neste produto.
+              A autenticação é Google-first: `AuthContextValue` (providers/auth-context.ts) expõe
+              apenas signInWithGoogle/signOut, não existe signInWithPassword em lugar nenhum do
+              repo, e a entrada REAL (RealLogin, acima) nem sequer mostra campo de senha. O botão
+              prometia um fluxo de recuperação que não pode existir: não há credencial a recuperar.
+              NÃO foi improvisado nenhum fluxo no lugar — quem recupera acesso é o Google. */}
 
           <button type="submit" className="h-14 rounded-xl gradient-orange text-primary-foreground font-semibold text-base shadow-orange active:scale-[0.98] transition-transform mt-4">
             Entrar
