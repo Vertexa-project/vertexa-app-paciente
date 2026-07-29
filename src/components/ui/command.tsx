@@ -21,7 +21,9 @@ const Command = React.forwardRef<
 ));
 Command.displayName = CommandPrimitive.displayName;
 
-interface CommandDialogProps extends DialogProps {}
+// Alias, não `interface ... extends DialogProps {}`: interface vazia é idêntica ao supertipo
+// (@typescript-eslint/no-empty-object-type). O tipo exposto é exatamente o mesmo — só o nome muda.
+type CommandDialogProps = DialogProps;
 
 const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
   return (

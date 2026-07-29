@@ -6,6 +6,7 @@ import { useAchievements } from "@/hooks/useAchievements";
 import { getLatestAdherenceState } from "@/lib/api";
 import type { AchievementView, AchievementCategory } from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
+import { ComingSoonBadge } from "@/components/ComingSoonLock";
 
 const categoryLabels: Record<AchievementCategory, string> = {
   first_step: "Primeiros passos",
@@ -81,14 +82,26 @@ export default function Achievements() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-card rounded-2xl p-5 shadow-card mb-5 border border-primary/20"
               >
-                <p className="text-[10px] text-primary font-semibold uppercase tracking-wider mb-2">Compartilhar conquista</p>
+                {/* WP-APP-2 2.3: o botão abaixo nunca teve onClick — clicar nele não fazia
+                    absolutamente nada, mas ele tinha aparência de ação disponível. Agora está
+                    desabilitado e o selo "Em breve" (o MESMO de ComingSoonLock) diz por quê. */}
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-[10px] text-primary font-semibold uppercase tracking-wider">Compartilhar conquista</p>
+                  <ComingSoonBadge />
+                </div>
                 <div className="bg-muted rounded-xl p-4 flex items-center gap-3">
                   <span className="text-3xl">{featured.icon}</span>
                   <div className="flex-1">
                     <p className="text-sm font-bold text-foreground">{featured.title}</p>
                     <p className="text-[10px] text-muted-foreground">Estou evoluindo com a VERTEXA 💪</p>
                   </div>
-                  <button className="w-9 h-9 rounded-full gradient-orange flex items-center justify-center shadow-orange">
+                  <button
+                    disabled
+                    aria-disabled
+                    aria-label="Compartilhar conquista — em breve"
+                    title="Compartilhar conquista — em breve"
+                    className="w-9 h-9 rounded-full gradient-orange flex items-center justify-center shadow-orange opacity-50 cursor-not-allowed"
+                  >
                     <Share2 size={14} className="text-primary-foreground" />
                   </button>
                 </div>
@@ -122,8 +135,18 @@ export default function Achievements() {
                             {a.unlocked ? unlockDateLabel(a.unlockedAt) : a.description}
                           </p>
                         </div>
+                        {/* Mesmo caso do botão do card em destaque: sem onClick, sem ação.
+                            Desabilitado. Aqui o selo visível não cabe na linha, então o rótulo
+                            "em breve" vai em aria-label/title — leitor de tela e toque longo
+                            recebem exatamente a mesma informação. */}
                         {a.unlocked && (
-                          <button className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                          <button
+                            disabled
+                            aria-disabled
+                            aria-label={`Compartilhar ${a.title} — em breve`}
+                            title="Compartilhar — em breve"
+                            className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0 opacity-50 cursor-not-allowed"
+                          >
                             <Share2 size={14} className="text-muted-foreground" />
                           </button>
                         )}

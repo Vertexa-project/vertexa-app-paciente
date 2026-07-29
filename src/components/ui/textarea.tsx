@@ -2,7 +2,9 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+// Alias, não `interface ... extends {}`: interface vazia é idêntica ao supertipo
+// (@typescript-eslint/no-empty-object-type). Segue exportado com o mesmo nome e o mesmo tipo.
+export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, ...props }, ref) => {
   return (

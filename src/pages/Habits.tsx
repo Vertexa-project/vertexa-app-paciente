@@ -8,7 +8,7 @@ import { tracker } from "@/lib/eventTracker";
 import { logHydration, getHydrationTodayLiters } from "@/lib/api";
 import { WATER_GOAL_LITERS, WATER_INCREMENT_LITERS } from "@/lib/hydrationMath";
 import BottomNav from "@/components/BottomNav";
-import ComingSoonLock, { STEPS_LOCK_REASON } from "@/components/ComingSoonLock";
+import ComingSoonLock, { STEPS_LOCK_REASON, SLEEP_LOCK_REASON } from "@/components/ComingSoonLock";
 
 export default function Habits() {
   const navigate = useNavigate();
@@ -100,7 +100,18 @@ export default function Habits() {
           )}
         </motion.div>
 
-        {/* Sleep */}
+        {/* Sono — BLOQUEADO (WP-APP-2 2.2).
+            O card abaixo mostrava `habitTracking.sleep` (7 horas, qualidade "boa", 23:00 → 06:30),
+            que é MOCK fixo em src/data/mockData.ts: não vem de aparelho, de relógio nem de tabela
+            — nunca muda. Mesmo tratamento dado aos passos no WP-APP-1: cadeado no lugar do número.
+            O código do card ativo está preservado logo abaixo, comentado, para voltar inteiro
+            quando existir a integração; ele só precisa trocar `habitTracking.sleep` pela fonte
+            real. NÃO apagar. */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-4">
+          <ComingSoonLock title="Sono" reason={SLEEP_LOCK_REASON} icon={Moon} />
+        </motion.div>
+
+        {/* DESATIVADO ATRÁS DO CADEADO — não apagar (ver comentário acima):
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-card rounded-2xl p-5 shadow-card mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Moon size={20} className="text-primary" />
@@ -117,6 +128,7 @@ export default function Habits() {
             </div>
           </div>
         </motion.div>
+        */}
 
         {/* Steps — BLOQUEADO (WP-APP-1).
             O card abaixo mostrava `habitTracking.steps` (6.420 / 8.000), que é MOCK fixo em

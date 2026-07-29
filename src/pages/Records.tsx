@@ -14,8 +14,8 @@ import {
   validateProgressPhotoFile,
   ProgressPhotoValidationError,
 } from "@/lib/api";
-import { workoutSchedule } from "@/data/workoutData";
 import BottomNav from "@/components/BottomNav";
+import NoPrescriptionYet, { NO_WORKOUT_PLAN_TITLE, NO_WORKOUT_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
 
 const recordTypes = [
   { key: "weight", icon: Scale, label: "Peso" },
@@ -53,9 +53,18 @@ export default function Records() {
   // então ao voltar para a Home a pendência some e o VRI atualiza — sem invalidação síncrona aqui
   // (que correria na frente das escritas assíncronas do eventSync).
 
-  // ── Real workout plan (objetivo #5): registra os músculos reais e dá o workoutId de hoje ──
-  const { data: realPlan } = useQuery({ queryKey: ["workoutPlan"], queryFn: getMyWorkoutPlan });
-  const schedule = realPlan && realPlan.length > 0 ? realPlan : workoutSchedule;
+  // ── Plano de treino REAL (objetivo #5): registra os músculos reais e dá o workoutId de hoje ──
+  // WP-APP-2 2.1: SEM FALLBACK. Este era o pior caso do WP — não era só exibição. Sem plano real,
+  // `todayWorkout` vinha de `workoutSchedule` (mock) e "Concluir treino" GRAVAVA esse id de mock em
+  // activity_events(workout_checked). Ou seja: a paciente registrava, no banco, a conclusão de um
+  // treino que nunca lhe foi prescrito — que então alimentava recuperação muscular e VRI.
+  // Agora, sem ficha publicada, não há o que registrar e o botão não existe.
+  const { data: realPlan, isPending: planLoading, isError: planError, refetch: refetchPlan } = useQuery({
+    queryKey: ["workoutPlan"],
+    queryFn: getMyWorkoutPlan,
+  });
+  const schedule = realPlan ?? [];
+  const hasRealPlan = schedule.length > 0;
   const todayWorkout = schedule.find((w) => w.dayIndex === new Date().getDay()) ?? schedule[0];
 
   // ── Weight ──
@@ -289,33 +298,54 @@ export default function Records() {
           {activeRecord === "workout" && (
             <motion.div key="workout" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-card rounded-2xl p-5 shadow-card">
               <h3 className="text-sm font-semibold text-foreground mb-4">Registrar treino</h3>
-              <div className="flex flex-col gap-3">
-                <div className="bg-muted rounded-xl p-3">
-                  <p className="text-sm font-medium text-foreground">
-                    {todayWorkout ? `Treino ${todayWorkout.letter} — ${todayWorkout.name}` : "Treino do dia"}
-                  </p>
-                  {todayWorkout && (
+              {/* CARREGANDO -> skeleton. Sem isto, um piscar do estado vazio afirmaria
+                  "não há ficha" antes de a leitura sequer resolver. */}
+              {planLoading ? (
+                <div className="flex flex-col gap-3">
+                  {[0, 1].map((i) => <div key={i} className="h-12 rounded-xl bg-muted animate-pulse" />)}
+                </div>
+              ) : planError && !hasRealPlan ? (
+                <div className="flex flex-col items-center gap-2 text-center py-2">
+                  <p className="text-xs text-red-400">Não foi possível carregar seu treino.</p>
+                  <button onClick={() => refetchPlan()} className="text-[11px] font-semibold text-primary">
+                    Tentar novamente
+                  </button>
+                </div>
+              ) : !hasRealPlan ? (
+                // RESOLVEU e não há ficha: nada a registrar. Sem nome de treino, sem duração,
+                // sem contagem de exercícios — e, principalmente, sem botão que grave um id falso.
+                <NoPrescriptionYet
+                  title={NO_WORKOUT_PLAN_TITLE}
+                  message={NO_WORKOUT_PLAN_MESSAGE}
+                  icon={Dumbbell}
+                />
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div className="bg-muted rounded-xl p-3">
+                    <p className="text-sm font-medium text-foreground">
+                      Treino {todayWorkout.letter} — {todayWorkout.name}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       {todayWorkout.dayOfWeek} • {todayWorkout.estimatedMinutes}min • {todayWorkout.exercises.length} exercícios
                     </p>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-muted-foreground">Como foi o treino?</label>
-                  <div className="flex gap-2">
-                    {["Leve", "Moderado", "Intenso"].map((l) => (
-                      <button key={l} onClick={() => setIntensity(l)}
-                        className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
-                          intensity === l ? "gradient-orange text-primary-foreground" : "bg-muted text-muted-foreground"
-                        }`}>{l}</button>
-                    ))}
                   </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs text-muted-foreground">Como foi o treino?</label>
+                    <div className="flex gap-2">
+                      {["Leve", "Moderado", "Intenso"].map((l) => (
+                        <button key={l} onClick={() => setIntensity(l)}
+                          className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                            intensity === l ? "gradient-orange text-primary-foreground" : "bg-muted text-muted-foreground"
+                          }`}>{l}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <button onClick={handleCompleteWorkout} disabled={workoutDone}
+                    className="w-full h-12 rounded-xl gradient-orange text-primary-foreground font-semibold text-sm shadow-orange active:scale-[0.98] transition-transform mt-2 disabled:opacity-60">
+                    {workoutDone ? "Treino concluído ✓" : "Concluir treino"}
+                  </button>
                 </div>
-                <button onClick={handleCompleteWorkout} disabled={workoutDone}
-                  className="w-full h-12 rounded-xl gradient-orange text-primary-foreground font-semibold text-sm shadow-orange active:scale-[0.98] transition-transform mt-2 disabled:opacity-60">
-                  {workoutDone ? "Treino concluído ✓" : "Concluir treino"}
-                </button>
-              </div>
+              )}
             </motion.div>
           )}
 

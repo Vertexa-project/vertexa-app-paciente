@@ -4,11 +4,11 @@ import { motion } from "framer-motion";
 import { Bell, Droplets, Moon, Footprints, UtensilsCrossed, Dumbbell, Scale, Camera, HelpCircle, ChevronRight, AlertTriangle, TrendingUp, Zap, Trophy, MessageCircle, CircleAlert, ImagePlus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dailyGoals, weeklyProgress } from "@/data/mockData";
-import { workoutSchedule } from "@/data/workoutData";
 import { useMe } from "@/hooks/useMe";
 import { useUnreadNotificationCount } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
-import ComingSoonLock, { STEPS_LOCK_REASON } from "@/components/ComingSoonLock";
+import ComingSoonLock, { STEPS_LOCK_REASON, SLEEP_LOCK_REASON } from "@/components/ComingSoonLock";
+import NoPrescriptionYet, { NO_MEAL_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
 import { getAdherenceState, getAutoActions } from "@/lib/adherenceEngine";
 import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
@@ -113,25 +113,34 @@ export default function HomePage() {
   const mealAdherence = mealAdherenceQuery.data;
   const hasRealMealPlan = !!(mealAdherence && mealAdherence.total > 0);
 
-  // Nome do treino de hoje (plano real, com fallback ao mock) para a pendência de treino.
+  // Nome do treino de hoje para a pendência. WP-APP-2 2.1: SEM FALLBACK ao mock — antes, sem
+  // ficha publicada, a pendência dizia "Treino A — Costas e Bíceps", nome de um treino que
+  // nenhum profissional prescreveu.
   const { data: realPlan } = useQuery({ queryKey: ["workoutPlan"], queryFn: getMyWorkoutPlan });
-  const schedule = realPlan && realPlan.length > 0 ? realPlan : workoutSchedule;
+  const schedule = realPlan ?? [];
+  const hasRealWorkoutPlan = schedule.length > 0;
   const todayWorkout = schedule.find((w) => w.dayIndex === new Date().getDay()) ?? schedule[0];
-  const todayWorkoutLabel = todayWorkout ? `Treino ${todayWorkout.letter} — ${todayWorkout.name}` : "Treino do dia";
+  const todayWorkoutLabel = todayWorkout ? `Treino ${todayWorkout.letter} — ${todayWorkout.name}` : "";
 
-  // Metas do dia: água, treino e refeições refletem dados reais; o resto permanece mock.
+  // Metas do dia: água, treino e refeições refletem dados reais. Sono e passos estão bloqueados.
   const goals = dailyGoals.map((g) => {
     if (g.id === "water") return { ...g, current: hydrationToday.data ?? g.current };
     if (g.id === "workout") return { ...g, current: pending && !pending.workoutPending ? 1 : 0 };
-    // Refeições: current=done, target=total do plano ativo. Sem plano real -> mantém o mock.
+    // Refeições: current=done, target=total do plano ativo. Sem plano real NÃO cai mais no mock
+    // (3/5 refeições que ninguém prescreveu) — a linha vira estado vazio honesto na renderização.
     if (g.id === "meals") return hasRealMealPlan ? { ...g, current: mealAdherence!.done, target: mealAdherence!.total } : g;
     return g;
   });
 
-  // Metas BLOQUEADAS (WP-APP-1) — exibidas com cadeado e fora do contador de "concluídas".
-  // `steps` é o único hoje: o valor de mockData é fixo e não tem origem real.
-  const LOCKED_GOAL_IDS = new Set(["steps"]);
-  const countableGoals = goals.filter((g) => !LOCKED_GOAL_IDS.has(g.id));
+  // Metas BLOQUEADAS — exibidas com cadeado e fora do contador de "concluídas".
+  //  · steps (WP-APP-1): 6.420/8.000 fixo em mockData, sem origem real.
+  //  · sleep (WP-APP-2 2.2): 7h/8h fixo em mockData, mesma ausência de integração.
+  const LOCKED_GOAL_IDS = new Set(["steps", "sleep"]);
+  // Refeições sem plano publicado também sai do denominador: não é meta que a paciente possa
+  // cumprir hoje, e contá-la deixaria "X/5" permanentemente incompleto por culpa do sistema.
+  const countableGoals = goals.filter(
+    (g) => !LOCKED_GOAL_IDS.has(g.id) && !(g.id === "meals" && !hasRealMealPlan),
+  );
 
   const pendingItems = [
     {
@@ -150,7 +159,12 @@ export default function HomePage() {
       subtitle: todayWorkoutLabel,
       cta: "Iniciar treino",
       path: "/workout-guide",
-      pending: pending?.workoutPending ?? false,
+      // `pending.workoutPending` só sabe que não houve workout_checked hoje — não sabe se existe
+      // ficha. Sem plano publicado, não há treino a concluir: cobrar por ele seria cobrar conduta
+      // não prescrita. Mesmo critério que a pendência de refeições já usava (`hasRealMealPlan`).
+      // Enquanto a leitura carrega, `hasRealWorkoutPlan` é false e a pendência fica fora — a
+      // ausência momentânea de um item é honesta; afirmar um treino inexistente não é.
+      pending: hasRealWorkoutPlan && (pending?.workoutPending ?? false),
     },
     {
       id: "weight",
@@ -368,6 +382,36 @@ export default function HomePage() {
                     {/* Ícone passado direto (e não por `goalIcons`, que é Record<string,
                         React.ElementType>) para o componente manter o tipo LucideIcon. */}
                     <ComingSoonLock title={goal.label} reason={STEPS_LOCK_REASON} icon={Footprints} variant="row" />
+                  </motion.div>
+                );
+              }
+              // Sono BLOQUEADO (WP-APP-2 2.2): `dailyGoals` traz 7h/8h fixo de mockData — mesmo
+              // caso dos passos, não vem de aparelho nem de tabela. Cadeado na MESMA posição.
+              if (goal.id === "sleep") {
+                return (
+                  <motion.div
+                    key={goal.id}
+                    initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 + i * 0.05 }}
+                  >
+                    <ComingSoonLock title={goal.label} reason={SLEEP_LOCK_REASON} icon={Moon} variant="row" />
+                  </motion.div>
+                );
+              }
+              // Refeições SEM PLANO PUBLICADO (WP-APP-2 2.1): `dailyGoals` traz 3/5 fixo. Não é
+              // "em breve" — a funcionalidade existe e roda; falta o nutricionista prescrever.
+              // Por isso NoPrescriptionYet, e não o cadeado.
+              if (goal.id === "meals" && !hasRealMealPlan) {
+                return (
+                  <motion.div
+                    key={goal.id}
+                    initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 + i * 0.05 }}
+                  >
+                    <NoPrescriptionYet
+                      title={goal.label}
+                      message={NO_MEAL_PLAN_MESSAGE}
+                      icon={UtensilsCrossed}
+                      variant="row"
+                    />
                   </motion.div>
                 );
               }

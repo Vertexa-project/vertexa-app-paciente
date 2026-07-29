@@ -2,11 +2,17 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Play, X, ChevronRight, Clock, Flame, Dumbbell, CheckCircle2, Timer, StickyNote, Trophy, Zap, Video, Camera, Upload, Sparkles, AlertCircle, ChevronDown, StretchHorizontal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { workoutSchedule, getDayColor, getWarmupForWorkout, getWarmupFocusLabel, type Workout, type Exercise, type WarmupExercise } from "@/data/workoutData";
+import { getDayColor, getWarmupForWorkout, getWarmupFocusLabel, type Workout, type WarmupExercise } from "@/data/workoutData";
 import { useQuery } from "@tanstack/react-query";
 import { getMyWorkoutPlan } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
+import NoPrescriptionYet, { NO_WORKOUT_PLAN_TITLE, NO_WORKOUT_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
+import ComingSoonLock, { ComingSoonBadge } from "@/components/ComingSoonLock";
+
+/** Motivo do cadeado da análise por vídeo. Honesto: falta a análise de verdade, não é bug. */
+const ANALYSIS_LOCK_REASON =
+  "A avaliação do seu movimento ainda não está disponível. Nenhuma análise é gerada até que esteja.";
 
 type Screen = "list" | "detail" | "warmup" | "warmup-done" | "execution" | "complete";
 
@@ -24,6 +30,21 @@ interface AnalysisResult {
   finalNote: string;
 }
 
+/**
+ * WP-APP-2 2.1 — DEVOLUTIVA PRÉ-ESCRITA, NÃO MAIS EXIBIDA.
+ *
+ * Este objeto é uma análise de execução inteira escrita à mão: nota 82, "boa amplitude",
+ * "cotovelos desalinhados", "desça contando 2 a 3 segundos". Nada disso saía de vídeo nenhum
+ * — `startCapture` esperava 5 segundos com um spinner e devolvia SEMPRE este texto, para
+ * qualquer exercício. Era correção técnica não prescrita, com aparência de laudo.
+ *
+ * PRESERVADO de propósito (não apagar): serve de contrato/`AnalysisResult` de referência para
+ * quando existir análise de verdade. O que mudou é que ele parou de alimentar a tela — o fluxo
+ * de captura agora está atrás do cadeado "em breve". Os blocos de exibição (toast, badge
+ * "Análise disponível" e a folha de resultado) continuam no arquivo, inteiros, dirigidos por
+ * `analysisResult`/`analyzedExercises`: nenhum deles renderiza enquanto nada real preencher
+ * esses estados.
+ */
 const mockAnalysisResults: Record<string, AnalysisResult> = {
   default: {
     exerciseName: "",
@@ -88,9 +109,22 @@ export default function WorkoutGuide() {
   const [warmupTimer, setWarmupTimer] = useState(0);
   const warmupTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 4c-3b: real plan (web-authored) with graceful fallback to the mock so the screen never breaks.
-  const { data: realPlan } = useQuery({ queryKey: ["workoutPlan"], queryFn: getMyWorkoutPlan });
-  const schedule = realPlan && realPlan.length > 0 ? realPlan : workoutSchedule;
+  // WP-APP-2 2.1: SEM FALLBACK. Antes, plano ausente caía em `workoutSchedule` (mock) e a tela
+  // exibia uma ficha inteira — exercícios, séries, repetições e CARGAS — que nenhum profissional
+  // prescreveu. O mock continua em src/data/workoutData.ts (e segue servindo à resolução interna
+  // de músculos e ao fallback de GIF por nome em lib/api/workouts.ts); só não alimenta mais a tela.
+  //
+  // TRÊS ESTADOS DISTINTOS da MESMA query, na ordem de precedência da renderização:
+  //  · planLoading (isPending) -> skeleton. Nunca o estado vazio.
+  //  · planError               -> erro + "tentar novamente". O retry do react-query é finito
+  //                               (3 tentativas, default), então isto RESOLVE — sem spinner eterno.
+  //  · resolveu com []         -> NoPrescriptionYet.
+  const { data: realPlan, isPending: planLoading, isError: planError, refetch: refetchPlan } = useQuery({
+    queryKey: ["workoutPlan"],
+    queryFn: getMyWorkoutPlan,
+  });
+  const schedule = realPlan ?? [];
+  const hasRealPlan = schedule.length > 0;
   const todayWorkout = schedule.find((w) => w.dayIndex === new Date().getDay());
   const todayId = todayWorkout?.id || schedule[0]?.id;
 
@@ -239,28 +273,11 @@ export default function WorkoutGuide() {
     setSetIndex(0);
   };
 
-  // ── AI Analysis handlers ──
-  const startCapture = (mode: "record" | "upload") => {
-    setShowCaptureSheet(false);
-    setAnalysisStatus("uploading");
-
-    // Simulate upload → analyzing → ready
-    setTimeout(() => {
-      setAnalysisStatus("analyzing");
-    }, 1500);
-
-    setTimeout(() => {
-      if (currentExercise) {
-        const result = getAnalysisForExercise(currentExercise.name);
-        setAnalysisResult(result);
-        setAnalyzedExercises((prev) => new Set(prev).add(currentExercise.id));
-        setAnalysisStatus("ready");
-        setAnalysisToast(true);
-        // Auto-hide toast after 6s
-        setTimeout(() => setAnalysisToast(false), 6000);
-      }
-    }, 5000);
-  };
+  // ── AI Analysis ──
+  // WP-APP-2 2.1: `startCapture` foi REMOVIDO. Ele não enviava nem analisava nada: fingia
+  // "Enviando…" por 1,5s, "Analisando…" por mais 3,5s e devolvia `mockAnalysisResults.default`
+  // — o mesmo laudo, para qualquer exercício, sem vídeo nenhum. Sem análise real, não há
+  // análise a exibir. A folha de captura passou a mostrar o cadeado "em breve".
 
   const elapsedMinutes = workoutStartTime > 0 ? Math.round((Date.now() - workoutStartTime) / 60000) : 0;
 
@@ -281,6 +298,29 @@ export default function WorkoutGuide() {
             </div>
           </div>
 
+          {planLoading ? (
+            // CARREGANDO: ainda não sabemos se há ficha. Skeleton — afirmar "não prescrito"
+            // agora seria trocar uma mentira por outra.
+            <div className="flex flex-col gap-3">
+              {[0, 1, 2].map((i) => <div key={i} className="h-[86px] rounded-2xl bg-card animate-pulse" />)}
+            </div>
+          ) : planError && !hasRealPlan ? (
+            // FALHOU a leitura — diferente de "sem ficha". Retry explícito, sem inventar treino.
+            <div className="bg-card rounded-2xl p-5 flex flex-col items-center gap-2 text-center border border-dashed border-red-500/30">
+              <p className="text-xs text-red-400">Não foi possível carregar seu treino.</p>
+              <button onClick={() => refetchPlan()} className="text-[11px] font-semibold text-primary">
+                Tentar novamente
+              </button>
+            </div>
+          ) : !hasRealPlan ? (
+            // RESOLVEU e não há ficha: estado vazio honesto. Zero exercício, zero série, zero carga.
+            <NoPrescriptionYet
+              title={NO_WORKOUT_PLAN_TITLE}
+              message={NO_WORKOUT_PLAN_MESSAGE}
+              icon={Dumbbell}
+            />
+          ) : (
+          <>
           {todayId && (
             <div className="mb-4 p-3 rounded-xl bg-primary/10 border border-primary/20">
               <div className="flex items-center gap-2">
@@ -323,6 +363,8 @@ export default function WorkoutGuide() {
               );
             })}
           </div>
+          </>
+          )}
         </div>
         <BottomNav />
       </div>
@@ -845,34 +887,46 @@ export default function WorkoutGuide() {
                   <Sparkles size={18} className="text-primary" />
                   <h3 className="text-base font-bold text-foreground">Analisar execução</h3>
                 </div>
-                <p className="text-xs text-muted-foreground mb-6">
-                  Grave ou envie um vídeo da sua execução. A IA vai avaliar seu movimento e sugerir melhorias.
-                </p>
+
+                {/* WP-APP-2 2.1: cadeado no lugar do fluxo falso. Os dois botões continuam
+                    visíveis (a funcionalidade é real no produto) mas DESABILITADOS — clicar
+                    não pode mais produzir laudo que ninguém escreveu. */}
+                <div className="mt-4 mb-5">
+                  <ComingSoonLock
+                    title="Análise de execução por vídeo"
+                    reason={ANALYSIS_LOCK_REASON}
+                    icon={Sparkles}
+                  />
+                </div>
 
                 <div className="flex flex-col gap-3">
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => startCapture("record")}
-                    className="w-full h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center gap-3"
+                  <button
+                    disabled
+                    aria-disabled
+                    aria-label="Gravar agora — em breve"
+                    className="w-full h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center gap-3 opacity-50 cursor-not-allowed"
                   >
                     <Camera size={20} className="text-primary" />
                     <span className="text-sm font-semibold text-primary">Gravar agora</span>
-                  </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => startCapture("upload")}
-                    className="w-full h-14 rounded-2xl bg-card border border-border flex items-center justify-center gap-3"
+                    <ComingSoonBadge />
+                  </button>
+                  <button
+                    disabled
+                    aria-disabled
+                    aria-label="Enviar da galeria — em breve"
+                    className="w-full h-14 rounded-2xl bg-card border border-border flex items-center justify-center gap-3 opacity-50 cursor-not-allowed"
                   >
                     <Upload size={20} className="text-muted-foreground" />
                     <span className="text-sm font-semibold text-foreground">Enviar da galeria</span>
-                  </motion.button>
+                    <ComingSoonBadge />
+                  </button>
                 </div>
 
                 <button
                   onClick={() => setShowCaptureSheet(false)}
                   className="w-full mt-4 text-center text-xs text-muted-foreground py-2"
                 >
-                  Cancelar
+                  Fechar
                 </button>
               </motion.div>
             </>

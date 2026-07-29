@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Check, Clock, Pill, BookOpen } from "lucide-react";
+import { ArrowLeft, Check, Clock, Pill, BookOpen, UtensilsCrossed } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { mealPlan } from "@/data/mockData";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getMyNutritionPlan,
@@ -15,12 +14,14 @@ import {
 import { tracker } from "@/lib/eventTracker";
 import { localDateKey } from "@/lib/pendingLogic";
 import BottomNav from "@/components/BottomNav";
+import NoPrescriptionYet, { NO_MEAL_PLAN_TITLE, NO_MEAL_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
 
 type Tab = "alimentar" | "treino" | "suplementos" | "orientacoes";
 
-// Refeição normalizada para a UI: plano real traz `id` (meals.id); mock não (id=null -> check off).
+// Refeição normalizada para a UI. `id` é sempre string (meals.id): desde o WP-APP-2 só entram
+// aqui refeições de plano REAL — não existe mais linha sem id vinda de mock.
 interface MealRow {
-  id: string | null;
+  id: string;
   time: string;
   name: string;
   items: string[];
@@ -47,17 +48,30 @@ export default function Plan() {
 
   useEffect(() => { tracker.track('plan_viewed'); }, []);
 
-  // 4c-3b: real nutrition plan (web-authored) with graceful fallback to mock so the screen never breaks.
-  const { data: nutritionPlan, isError: planError } = useQuery({ queryKey: ["nutritionPlan"], queryFn: getMyNutritionPlan });
+  // WP-APP-2 2.1: SEM FALLBACK. Antes, plano ausente caía em `mealPlan` (mock) e a tela exibia
+  // 5 refeições com horário e caloria que nenhum nutricionista prescreveu. O mock continua em
+  // src/data/mockData.ts — só não é mais usado aqui.
+  //
+  // TRÊS ESTADOS DISTINTOS, nesta ordem de precedência na renderização:
+  //  · planLoading (isPending: a leitura ainda não resolveu)      -> skeleton
+  //  · planError   (react-query esgotou os retries; retry default -> finito, sem spinner eterno)
+  //  · resolvido sem plano (null, ou plano com meals vazio)       -> NoPrescriptionYet
+  // "carregando" nunca vira "não tem plano" e vice-versa: são flags diferentes da MESMA query.
+  const {
+    data: nutritionPlan,
+    isPending: planLoading,
+    isError: planError,
+    refetch: refetchPlan,
+  } = useQuery({ queryKey: ["nutritionPlan"], queryFn: getMyNutritionPlan });
   useEffect(() => {
     if (planError && import.meta.env.DEV) {
-      console.warn("[VERTEXA Plan] failed to load real nutrition plan; using mock", planError);
+      console.warn("[VERTEXA Plan] failed to load real nutrition plan", planError);
     }
   }, [planError]);
   const usingRealMeals = !!(nutritionPlan && nutritionPlan.meals.length > 0);
   const meals: MealRow[] = usingRealMeals
     ? nutritionPlan!.meals.map((m) => ({ id: m.id, time: m.time, name: m.name, items: m.items, calories: m.calories, done: m.done }))
-    : mealPlan.map((m) => ({ id: null, time: m.time, name: m.name, items: m.items, calories: m.calories, done: m.done }));
+    : [];
   const planTitle = usingRealMeals ? nutritionPlan!.title : "";
 
   // "Feita" de hoje vem de meal_logs (só faz sentido com plano real). Optimistic no toggle.
@@ -105,8 +119,7 @@ export default function Plan() {
     },
   });
 
-  const handleToggleMeal = (mealId: string | null, currentlyDone: boolean) => {
-    if (!mealId) return; // sem plano real não há o que gravar
+  const handleToggleMeal = (mealId: string, currentlyDone: boolean) => {
     toggleMeal.mutate({ mealId, on: !currentlyDone });
   };
 
@@ -193,54 +206,70 @@ export default function Plan() {
         <AnimatePresence mode="wait">
           {tab === "alimentar" && (
             <motion.div key="alimentar" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col gap-3">
-              {planTitle && (
-                <div className="flex items-center gap-2 mb-1 px-1">
-                  <BookOpen size={16} className="text-primary" />
-                  <span className="text-sm font-semibold text-foreground">{planTitle}</span>
+              {/* CARREGANDO — ainda não sabemos se há plano. Skeleton, nunca o estado vazio.
+                  Mesmo padrão já usado na aba de suplementos desta tela. */}
+              {planLoading ? (
+                [0, 1, 2].map((i) => <div key={i} className="h-[104px] bg-card rounded-xl animate-pulse" />)
+              ) : planError && !usingRealMeals ? (
+                // FALHOU a leitura — não é "sem plano". A paciente pode tentar de novo.
+                // Só entra aqui sem plano em cache: refetch de fundo falho (isError com `data`
+                // preservado no v5) não pode apagar o plano já exibido.
+                <div className="bg-card rounded-xl p-5 flex flex-col items-center gap-2 text-center border border-dashed border-red-500/30">
+                  <p className="text-xs text-red-400">Não foi possível carregar seu plano alimentar.</p>
+                  <button onClick={() => refetchPlan()} className="text-[11px] font-semibold text-primary">
+                    Tentar novamente
+                  </button>
                 </div>
-              )}
-              {meals.map((meal, i) => {
-                const isDone = usingRealMeals && meal.id ? (doneToday?.has(meal.id) ?? false) : meal.done;
-                return (
-                <div key={meal.id ?? i} className={`bg-card rounded-xl p-4 ${isDone ? "border border-success/20" : ""}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Clock size={14} className="text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">{meal.time}</span>
-                      <span className="text-sm font-semibold text-foreground">{meal.name}</span>
+              ) : !usingRealMeals ? (
+                // RESOLVEU e não há plano: estado vazio honesto. Nenhuma refeição, nenhum
+                // horário, nenhuma caloria — nada que o nutricionista não tenha prescrito.
+                <NoPrescriptionYet
+                  title={NO_MEAL_PLAN_TITLE}
+                  message={NO_MEAL_PLAN_MESSAGE}
+                  icon={UtensilsCrossed}
+                />
+              ) : (
+                <>
+                  {planTitle && (
+                    <div className="flex items-center gap-2 mb-1 px-1">
+                      <BookOpen size={16} className="text-primary" />
+                      <span className="text-sm font-semibold text-foreground">{planTitle}</span>
                     </div>
-                    {usingRealMeals ? (
-                      <button
-                        onClick={() => handleToggleMeal(meal.id, isDone)}
-                        disabled={toggleMeal.isPending}
-                        aria-pressed={isDone}
-                        aria-label={isDone ? `Desmarcar ${meal.name}` : `Marcar ${meal.name} como feita`}
-                        className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all disabled:opacity-60 ${
-                          isDone ? "bg-success border-success" : "border-muted-foreground/40 hover:border-success/60"
-                        }`}
-                      >
-                        {isDone && <Check size={12} className="text-success-foreground" />}
-                      </button>
-                    ) : (
-                      <div
-                        aria-disabled
-                        title="Disponível quando seu nutricionista publicar o plano"
-                        className="w-6 h-6 rounded-full flex items-center justify-center border border-muted-foreground/20 opacity-40"
-                      >
-                        {meal.done && <Check size={12} className="text-muted-foreground" />}
+                  )}
+                  {meals.map((meal) => {
+                    const isDone = doneToday?.has(meal.id) ?? false;
+                    return (
+                      <div key={meal.id} className={`bg-card rounded-xl p-4 ${isDone ? "border border-success/20" : ""}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Clock size={14} className="text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">{meal.time}</span>
+                            <span className="text-sm font-semibold text-foreground">{meal.name}</span>
+                          </div>
+                          <button
+                            onClick={() => handleToggleMeal(meal.id, isDone)}
+                            disabled={toggleMeal.isPending}
+                            aria-pressed={isDone}
+                            aria-label={isDone ? `Desmarcar ${meal.name}` : `Marcar ${meal.name} como feita`}
+                            className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all disabled:opacity-60 ${
+                              isDone ? "bg-success border-success" : "border-muted-foreground/40 hover:border-success/60"
+                            }`}
+                          >
+                            {isDone && <Check size={12} className="text-success-foreground" />}
+                          </button>
+                        </div>
+                        <div className="flex flex-col gap-0.5 ml-6">
+                          {meal.items.map((item, j) => (<span key={j} className="text-xs text-muted-foreground">• {item}</span>))}
+                        </div>
+                        <div className="mt-2 ml-6 flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground">{meal.calories} kcal</span>
+                          <button className="text-[10px] text-primary font-medium">Ver opções</button>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-0.5 ml-6">
-                    {meal.items.map((item, j) => (<span key={j} className="text-xs text-muted-foreground">• {item}</span>))}
-                  </div>
-                  <div className="mt-2 ml-6 flex items-center justify-between">
-                    <span className="text-[10px] text-muted-foreground">{meal.calories} kcal</span>
-                    <button className="text-[10px] text-primary font-medium">Ver opções</button>
-                  </div>
-                </div>
-                );
-              })}
+                    );
+                  })}
+                </>
+              )}
             </motion.div>
           )}
 

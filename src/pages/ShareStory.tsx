@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  ArrowLeft, Download, Share2, Copy, Check, X,
+  ArrowLeft, Download, Share2, Copy,
   Dumbbell, Trophy, Flame, TrendingUp, Camera,
-  Award, Calendar, Target, Zap, ChevronRight,
+  Award, Target, Zap, ChevronRight,
   Image as ImageIcon
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ComingSoonBadge } from "@/components/ComingSoonLock";
 
 type TemplateType = 'workout' | 'evolution' | 'challenge' | 'achievement';
 type FormatType = 'story' | 'feed' | 'whatsapp';
@@ -36,18 +37,13 @@ export default function ShareStory() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType | null>(initialType);
   const [selectedFormat, setSelectedFormat] = useState<FormatType>('story');
   const [showPreview, setShowPreview] = useState(!!initialType);
-  const [copied, setCopied] = useState(false);
-  const [shared, setShared] = useState(false);
 
-  const handleShare = () => {
-    setShared(true);
-    setTimeout(() => setShared(false), 2500);
-  };
-
-  const handleCopy = () => {
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // WP-APP-2 2.3: `shared` e `copied` foram REMOVIDOS junto com `handleShare`/`handleCopy`.
+  // Eram estado puramente cosmético: o botão trocava para "Compartilhado!" por 2,5s (e "Copiado"
+  // por 2s) sem ter compartilhado nem copiado coisa alguma — não há geração de imagem no app
+  // (nenhum html2canvas/dom-to-image/satori; os cards são JSX, nunca rasterizados) nem chamada a
+  // navigator.share/clipboard. Botão nenhum pode alegar sucesso sem ter feito nada.
+  // Os três botões agora são desabilitados com o MESMO selo "Em breve" do ComingSoonLock.
 
   const selectTemplate = (type: TemplateType) => {
     setSelectedTemplate(type);
@@ -425,28 +421,39 @@ export default function ShareStory() {
             </div>
           </div>
 
-          {/* Action buttons */}
+          {/* Action buttons — DESABILITADOS (WP-APP-2 2.3).
+              Compartilhar, copiar e salvar dependem de rasterizar o card em imagem, o que o app
+              ainda não faz. Ficam visíveis (a tela continua existindo e a prévia é real) mas
+              inertes e rotulados, em vez de fingir sucesso. */}
           <div className="space-y-3 pt-2">
             <button
-              onClick={handleShare}
-              className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2"
+              disabled
+              aria-disabled
+              aria-label={`${getShareLabel()} — em breve`}
+              className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
             >
-              {shared ? (
-                <><Check size={18} /> Compartilhado!</>
-              ) : (
-                <><Share2 size={18} /> {getShareLabel()}</>
-              )}
+              <Share2 size={18} /> {getShareLabel()}
+              <ComingSoonBadge />
             </button>
 
             <div className="flex items-center gap-3">
               <button
-                onClick={handleCopy}
-                className="flex-1 py-3 rounded-xl bg-secondary text-foreground font-medium text-sm flex items-center justify-center gap-2"
+                disabled
+                aria-disabled
+                aria-label="Copiar — em breve"
+                className="flex-1 py-3 rounded-xl bg-secondary text-foreground font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
               >
-                {copied ? <><Check size={16} /> Copiado</> : <><Copy size={16} /> Copiar</>}
+                <Copy size={16} /> Copiar
+                <ComingSoonBadge />
               </button>
-              <button className="flex-1 py-3 rounded-xl bg-secondary text-foreground font-medium text-sm flex items-center justify-center gap-2">
+              <button
+                disabled
+                aria-disabled
+                aria-label="Salvar — em breve"
+                className="flex-1 py-3 rounded-xl bg-secondary text-foreground font-medium text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+              >
                 <Download size={16} /> Salvar
+                <ComingSoonBadge />
               </button>
             </div>
           </div>
