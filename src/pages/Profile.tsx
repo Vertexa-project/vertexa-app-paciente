@@ -7,13 +7,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/providers/auth-context";
 import { useMe } from "@/hooks/useMe";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getLatestAdherenceState, listMyCareTeam } from "@/lib/api";
+import { getLatestAdherenceState, listMyCareTeam, countMyActiveProfessionalLinks } from "@/lib/api";
 import { careTeamLabel } from "@/lib/careTeam";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 import NoPrescriptionYet, {
   PROFESSIONAL_UNAVAILABLE_TITLE,
   PROFESSIONAL_UNAVAILABLE_MESSAGE,
+  LINKED_NAME_UNAVAILABLE_TITLE,
+  LINKED_NAME_UNAVAILABLE_MESSAGE,
+  NO_ACTIVE_LINK_TITLE,
+  NO_ACTIVE_LINK_MESSAGE,
 } from "@/components/NoPrescriptionYet";
 
 const phaseLabels: Record<string, string> = {
@@ -51,6 +55,19 @@ export default function Profile() {
   // o caminho é o roster do canal e não o join direto (a RLS de `professionals` fecha para ela).
   const careTeamQuery = useQuery({ queryKey: ["careTeam"], queryFn: listMyCareTeam });
   const professionalLabel = careTeamQuery.data ? careTeamLabel(careTeamQuery.data) : null;
+
+  // WP-APP-7 item 2.4 — só entra em cena quando NÃO HÁ NOME. Serve para dizer QUAL das duas
+  // ausências é: "tem vínculo e o nome não chegou" ou "não há vínculo". `enabled` evita a
+  // leitura no caso comum (nome resolvido), que é a maioria em produção.
+  // `null` do queryFn = não deu para saber (sem patients.id); erro propaga. Nos dois casos
+  // caímos no texto neutro de antes, que não afirma nem uma coisa nem outra.
+  const noName = !careTeamQuery.isPending && !careTeamQuery.isError && !professionalLabel;
+  const linksQuery = useQuery({
+    queryKey: ["myProfessionalLinks"],
+    queryFn: countMyActiveProfessionalLinks,
+    enabled: noName,
+  });
+  const activeLinks = linksQuery.data ?? null;
 
   useEffect(() => { tracker.track('profile_viewed'); }, []);
 
@@ -216,13 +233,43 @@ export default function Profile() {
               <span className="text-xs text-muted-foreground max-w-[140px] truncate">{professionalLabel}</span>
             </div>
           ) : (
+            /* SEM NOME — e agora a tela diz QUAL das duas ausências é (WP-APP-7 item 2.4).
+               Precedência: o NOME do roster sempre ganha (ramo acima). Estes ramos só existem
+               quando não há nome, e a pergunta que eles respondem é sobre o CADASTRO dela.
+                 · lendo os vínculos        -> skeleton (não afirmar antes de saber)
+                 · vínculos ativos > 0      -> "tem vínculo, o nome não aparece aqui"
+                 · vínculos ativos == 0     -> "não há vínculo" (única vez em que dá para
+                                               afirmar ausência: o app leu o cadastro)
+                 · não deu para saber/erro  -> o texto neutro de antes, que não afirma nada */
             <div className="p-3 border-b border-border">
-              <NoPrescriptionYet
-                title={PROFESSIONAL_UNAVAILABLE_TITLE}
-                message={PROFESSIONAL_UNAVAILABLE_MESSAGE}
-                icon={Stethoscope}
-                variant="row"
-              />
+              {linksQuery.isPending ? (
+                <div className="flex items-center gap-3 px-1 py-2">
+                  <Stethoscope size={18} className="text-muted-foreground/60" />
+                  <span className="text-sm text-muted-foreground flex-1">Profissional responsável</span>
+                  <Skeleton className="h-3 w-24 rounded" />
+                </div>
+              ) : activeLinks === null ? (
+                <NoPrescriptionYet
+                  title={PROFESSIONAL_UNAVAILABLE_TITLE}
+                  message={PROFESSIONAL_UNAVAILABLE_MESSAGE}
+                  icon={Stethoscope}
+                  variant="row"
+                />
+              ) : activeLinks > 0 ? (
+                <NoPrescriptionYet
+                  title={LINKED_NAME_UNAVAILABLE_TITLE}
+                  message={LINKED_NAME_UNAVAILABLE_MESSAGE}
+                  icon={Stethoscope}
+                  variant="row"
+                />
+              ) : (
+                <NoPrescriptionYet
+                  title={NO_ACTIVE_LINK_TITLE}
+                  message={NO_ACTIVE_LINK_MESSAGE}
+                  icon={Stethoscope}
+                  variant="row"
+                />
+              )}
             </div>
           )}
 

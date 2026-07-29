@@ -11,6 +11,9 @@ const api = vi.hoisted(() => ({
   snapshot: null as AdherenceState | null,
   team: [] as ChannelProfessional[],
   teamThrows: false,
+  // WP-APP-7 2.4: nº de vínculos ativos. `null` = não deu para saber.
+  activeLinks: null as number | null,
+  linksThrows: false,
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -18,6 +21,10 @@ vi.mock("@/lib/api", () => ({
   listMyCareTeam: vi.fn(async () => {
     if (api.teamThrows) throw new Error("boom");
     return api.team;
+  }),
+  countMyActiveProfessionalLinks: vi.fn(async () => {
+    if (api.linksThrows) throw new Error("boom");
+    return api.activeLinks;
   }),
 }));
 
@@ -36,9 +43,12 @@ vi.mock("react-router-dom", async (importOriginal) => ({
 }));
 
 const { default: Profile } = await import("./Profile");
-const { PROFESSIONAL_UNAVAILABLE_TITLE, PROFESSIONAL_UNAVAILABLE_MESSAGE } = await import(
-  "@/components/NoPrescriptionYet"
-);
+const {
+  PROFESSIONAL_UNAVAILABLE_TITLE,
+  PROFESSIONAL_UNAVAILABLE_MESSAGE,
+  LINKED_NAME_UNAVAILABLE_TITLE,
+  NO_ACTIVE_LINK_TITLE,
+} = await import("@/components/NoPrescriptionYet");
 
 function prof(name: string): ChannelProfessional {
   return { profileId: `p-${name}`, name, specialty: null, type: null, disciplines: [] };
@@ -70,6 +80,8 @@ beforeEach(() => {
   api.snapshot = null;
   api.team = [];
   api.teamThrows = false;
+  api.activeLinks = null;
+  api.linksThrows = false;
   identity.me = { ...MARIANA };
   navigate.mockClear();
 });
@@ -168,6 +180,72 @@ describe("Perfil / VRI e sequência (WP-APP-4 item 2)", () => {
     expect(screen.queryByText("VRI")).not.toBeInTheDocument();
     expect(screen.queryByText("Sequência")).not.toBeInTheDocument();
     expect(screen.queryByText("95%")).not.toBeInTheDocument();
+  });
+});
+
+// WP-APP-7 item 2.4 — sem nome, a tela diz QUAL das duas ausências é.
+describe("Perfil / as duas ausências do profissional (WP-APP-7 item 2.4)", () => {
+  it("com vínculo ativo e sem nome: diz que TEM vínculo, sem prometer o nome", async () => {
+    api.team = [];
+    api.activeLinks = 2;
+    renderProfile();
+
+    expect(await screen.findByText(LINKED_NAME_UNAVAILABLE_TITLE)).toBeInTheDocument();
+    expect(screen.getByText(/você tem profissional vinculado ao seu cadastro/i)).toBeInTheDocument();
+    // não é o texto de "não sabemos", nem o de ausência
+    expect(screen.queryByText(PROFESSIONAL_UNAVAILABLE_TITLE)).not.toBeInTheDocument();
+    expect(screen.queryByText(NO_ACTIVE_LINK_TITLE)).not.toBeInTheDocument();
+  });
+
+  // Vínculo EXTERNO não entra no roster nunca (get_or_create_channel o deleta), então este
+  // ramo não pode prometer que o nome vai chegar.
+  it("o texto de 'tem vínculo' não promete chegada nem prazo", async () => {
+    api.team = [];
+    api.activeLinks = 1;
+    renderProfile();
+    await screen.findByText(LINKED_NAME_UNAVAILABLE_TITLE);
+
+    expect(screen.queryByText(/em breve|assim que|aparece aqui em/i)).not.toBeInTheDocument();
+  });
+
+  it("sem vínculo ativo nenhum: aí sim afirma a ausência", async () => {
+    api.team = [];
+    api.activeLinks = 0;
+    renderProfile();
+
+    expect(await screen.findByText(NO_ACTIVE_LINK_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(LINKED_NAME_UNAVAILABLE_TITLE)).not.toBeInTheDocument();
+  });
+
+  // As duas ausências viram UMA só quando o app não sabe — e aí ele não afirma nenhuma.
+  it("não deu para saber (sem patients.id): volta ao texto neutro", async () => {
+    api.team = [];
+    api.activeLinks = null;
+    renderProfile();
+
+    expect(await screen.findByText(PROFESSIONAL_UNAVAILABLE_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(NO_ACTIVE_LINK_TITLE)).not.toBeInTheDocument();
+  });
+
+  it("falha ao ler os vínculos: neutro, nunca 'não há vínculo'", async () => {
+    api.team = [];
+    api.linksThrows = true;
+    renderProfile();
+
+    expect(await screen.findByText(PROFESSIONAL_UNAVAILABLE_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(NO_ACTIVE_LINK_TITLE)).not.toBeInTheDocument();
+  });
+
+  // Precedência: o nome do roster ganha de tudo. Sem isso, o Perfil poderia dizer "não há
+  // vínculo" enquanto o chat lista a pessoa e ela continua podendo escrever para essa pessoa.
+  it("quando há NOME, os textos de ausência não aparecem nem se os vínculos derem zero", async () => {
+    api.team = [prof("Bruno Salles")];
+    api.activeLinks = 0;
+    renderProfile();
+
+    expect(await screen.findByText("Bruno Salles")).toBeInTheDocument();
+    expect(screen.queryByText(NO_ACTIVE_LINK_TITLE)).not.toBeInTheDocument();
+    expect(screen.queryByText(LINKED_NAME_UNAVAILABLE_TITLE)).not.toBeInTheDocument();
   });
 });
 

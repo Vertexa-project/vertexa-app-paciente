@@ -152,6 +152,38 @@ describe("Home / sem snapshot de adesão (WP-APP-6 item 3.2)", () => {
   });
 });
 
+// WP-APP-7 item 2.2. `adherenceStateFromSnapshot` faz `prevScore === undefined ? 0 : delta`,
+// e a RPC só grava novo snapshot quando o score ou o nível MUDAM — então "+0" com seta de
+// ALTA em VERDE era o que toda paciente via na PRIMEIRA medição real dela.
+describe("Home / pílula de variação do VRI (WP-APP-7 item 2.2)", () => {
+  it("sem variação anterior (delta 0): nenhuma pílula, nem '+0'", async () => {
+    api.snapshot = { ...SNAPSHOT, lastScoreChange: 0 };
+    renderHome();
+    await screen.findByText("74%");
+
+    expect(screen.queryByText("+0")).not.toBeInTheDocument();
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("com alta real: pílula com '+N'", async () => {
+    api.snapshot = { ...SNAPSHOT, lastScoreChange: 5 };
+    renderHome();
+    await screen.findByText("74%");
+
+    expect(screen.getByText("+5")).toBeInTheDocument();
+  });
+
+  // A seta era TrendingUp inclusive para queda: vermelha, mas apontando para cima.
+  it("com queda real: mostra o número negativo, sem o '+'", async () => {
+    api.snapshot = { ...SNAPSHOT, lastScoreChange: -4 };
+    renderHome();
+    await screen.findByText("74%");
+
+    expect(screen.getByText("-4")).toBeInTheDocument();
+    expect(screen.queryByText("+-4")).not.toBeInTheDocument();
+  });
+});
+
 // Antes deste WP o ERRO caía no MESMO `??` do caso vazio e virava 95% "Alta adesão":
 // a falha se disfarçava de saúde, sem sinal nenhum.
 describe("Home / falha ao ler a adesão (WP-APP-6 item 3.2)", () => {

@@ -1,6 +1,7 @@
 // Public surface of the data layer. Screens import from "@/lib/api", never from "@/lib/supabase".
 export * from "./types";
 export { getPatient, getMyPatientId } from "./patient";
+export { countMyActiveProfessionalLinks } from "./professionalLinks";
 export {
   getMyChannel,
   getChannelMessages,
