@@ -2,7 +2,7 @@
 //
 // Tudo aqui é função pura sobre o que a RPC public.channel_professionals devolve
 // (profile_id, full_name, type, specialty, disciplines). Nada de embed, nada de mock.
-import type { ChannelProfessional, ProfessionalType } from "@/lib/api/types";
+import type { ChannelProfessional, ChatMessageView, ProfessionalType } from "@/lib/api/types";
 
 // Espelho de public.disciplines (code -> label), a mesma lista que o painel do profissional usa.
 // Código fora da lista NÃO desaparece da tela: vira rótulo legível a partir do próprio code.
@@ -55,6 +55,57 @@ export function professionalDisciplineLabel(
   if (type) return TYPE_LABELS[type] ?? null;
 
   return null;
+}
+
+/** Índice profile_id -> profissional, a partir do resultado da RPC. */
+export function professionalsByProfileId(
+  professionals: ChannelProfessional[]
+): Map<string, ChannelProfessional> {
+  const map = new Map<string, ChannelProfessional>();
+  for (const p of professionals) map.set(p.profileId, p);
+  return map;
+}
+
+/** Como o autor de uma mensagem aparece na tela. */
+export interface MessageAuthor {
+  name: string;
+  /** Disciplina/especialidade ao lado do nome. `null` quando não se sabe — e aí não se escreve nada. */
+  discipline: string | null;
+  /** Só para a cor e o ícone do avatar. `null` cai no estilo neutro. */
+  type: ProfessionalType | null;
+}
+
+/**
+ * O ÚNICO lugar que resolve autor de mensagem (WP-APP-5 item 2) — usado pela BOLHA e pela CITAÇÃO.
+ * Se fossem dois, a mesma pessoa apareceria com dois nomes na mesma tela.
+ *
+ * PRECEDÊNCIA DO NOME: `senderName` (o embed de `profiles`, que para a paciente FUNCIONA — há um
+ * ramo de `can_see_profile` para profissional com vínculo ativo a ela) > nome da RPC
+ * `channel_professionals` > "Profissional". A RPC é a rede de segurança para o caso em que o
+ * vínculo deixou de ser ativo depois que a mensagem foi enviada; ela não substitui o embed.
+ *
+ * DISCIPLINA E TIPO vêm SÓ da RPC: o embed `professionals(type, specialty)` que os trazia era
+ * bloqueado pela RLS e devolvia vazio em 100% das mensagens.
+ */
+export function messageAuthor(
+  msg: Pick<ChatMessageView, "isOwn" | "senderProfileId" | "senderName">,
+  byProfileId: ReadonlyMap<string, ChannelProfessional>
+): MessageAuthor {
+  if (msg.isOwn) return { name: "Você", discipline: null, type: null };
+
+  const prof = msg.senderProfileId ? byProfileId.get(msg.senderProfileId) ?? null : null;
+  const embedded = msg.senderName?.trim();
+
+  return {
+    name: embedded || prof?.name || "Profissional",
+    // DUAS ausências diferentes, e a distinção é o ponto:
+    //   pessoa NA RPC sem nenhuma das três  -> DISCIPLINE_NOT_INFORMED (a falta é o fato, igual
+    //                                          ao seletor de @);
+    //   pessoa FORA da RPC                  -> null, e a bolha não escreve nada — aqui não se
+    //                                          sabe, e afirmar "não informada" seria inventar.
+    discipline: prof ? professionalDisciplineLabel(prof) ?? DISCIPLINE_NOT_INFORMED : null,
+    type: prof?.type ?? null,
+  };
 }
 
 /**

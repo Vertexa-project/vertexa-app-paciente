@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Send, Paperclip, Camera, Image as ImageIcon, FileText,
   Lock, Users, AtSign, X, Check, Stethoscope, Apple, Dumbbell, Activity,
-  Shield, Loader2, AlertCircle,
+  Shield, Loader2, AlertCircle, CornerUpLeft,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -19,10 +19,13 @@ import { CHAT_ATTACHMENT_MIME, validateChatAttachment } from "@/lib/api/chatAtta
 import { mentionFailureMessage } from "@/lib/chatMention";
 import {
   DISCIPLINE_NOT_INFORMED,
+  messageAuthor,
   professionalDisciplineLabel,
+  professionalsByProfileId,
   teamReadsLabel,
 } from "@/lib/chatTeam";
-import { indexById, missingQuotedIds } from "@/lib/chatReply";
+import { indexById, missingQuotedIds, quotedPreview } from "@/lib/chatReply";
+import type { ChatMessageView } from "@/lib/api";
 import { captureException } from "@/lib/observability/sentry";
 import { ChatAttachmentView } from "@/components/ChatAttachmentView";
 import { ChatReplyQuote } from "@/components/ChatReplyQuote";
@@ -84,6 +87,8 @@ export default function TeamChat() {
   const [showTeamInfo, setShowTeamInfo] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
+  // Mensagem que está sendo respondida (item 1). Só o id vai para o banco.
+  const [replyTo, setReplyTo] = useState<ChatMessageView | null>(null);
   // Aviso da CORRIDA DA MENÇÃO. Não é toast: fica na tela até a paciente fechar ou até o próximo
   // envio — ela precisa ler que a mensagem foi, mas a marcação não.
   const [mentionNotice, setMentionNotice] = useState<string | null>(null);
@@ -106,7 +111,10 @@ export default function TeamChat() {
     queryFn: () => listChannelProfessionals(channelId as string),
     enabled: !!channelId,
   });
-  const professionals = professionalsQuery.data ?? [];
+  const professionals = useMemo(() => professionalsQuery.data ?? [], [professionalsQuery.data]);
+  // Índice da RPC que a tela JÁ carrega para o seletor de @. É daqui que sai a disciplina/tipo da
+  // bolha (o embed que os trazia era bloqueado por RLS) e o nome, quando o embed não alcança.
+  const byProfileId = useMemo(() => professionalsByProfileId(professionals), [professionals]);
 
   const messagesQuery = useChannelMessages(channelId);
   const messages = useMemo(() => messagesQuery.data ?? [], [messagesQuery.data]);
@@ -185,6 +193,9 @@ export default function TeamChat() {
         body: body || null,
         mentionedProfileId: mentioned?.profileId ?? null,
         file,
+        // CRU. A FK composta (reply_to_message_id, channel_id) já garante a mesma conversa; a
+        // interface NÃO revalida — seria duplicar uma garantia mais forte que a dela.
+        replyToMessageId: replyTo?.id ?? null,
       },
       {
         onSuccess: (result) => {
@@ -195,6 +206,7 @@ export default function TeamChat() {
           setShowMentions(false);
           setFile(null);
           setAttachError(null);
+          setReplyTo(null);
 
           if (!result.mentionFailed) {
             setMentionNotice(null);
@@ -232,6 +244,13 @@ export default function TeamChat() {
 
   const handleQuickSuggestion = (text: string) => {
     setInput(text + " ");
+    inputRef.current?.focus();
+  };
+
+  // Responder (item 1). A mesma ação se chama "Responder" no painel — a redação não pode divergir
+  // entre os dois lados da mesma conversa.
+  const handleReply = (msg: ChatMessageView) => {
+    setReplyTo(msg);
     inputRef.current?.focus();
   };
 
@@ -331,6 +350,9 @@ export default function TeamChat() {
           const isUser = msg.isOwn;
           const showSenderHeader =
             !isUser && (i === 0 || messages[i - 1].senderProfileId !== msg.senderProfileId);
+          // UM lugar só resolve autor — este. A citação abaixo usa a MESMA função.
+          const author = messageAuthor(msg, byProfileId);
+          const quoted = msg.replyToMessageId ? quotedById.get(msg.replyToMessageId) ?? null : null;
 
           return (
             <motion.div
@@ -342,12 +364,14 @@ export default function TeamChat() {
               <div className={`max-w-[80%] ${isUser ? "items-end" : "items-start"} flex flex-col`}>
                 {showSenderHeader && (
                   <div className="flex items-center gap-1.5 mb-1 px-1">
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold border ${typeColor(msg.type)}`}>
-                      {getInitials(msg.displayName)}
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold border ${typeColor(author.type)}`}>
+                      {getInitials(author.name)}
                     </div>
-                    <span className="text-[10px] font-medium text-foreground">{msg.displayName}</span>
-                    {msg.specialty && (
-                      <span className="text-[10px] text-muted-foreground">· {msg.specialty}</span>
+                    <span className="text-[10px] font-medium text-foreground">{author.name}</span>
+                    {/* Disciplina da RPC. Antes vinha de um embed bloqueado por RLS e NUNCA
+                        aparecia; sem a pessoa na RPC, continua sem escrever nada. */}
+                    {author.discipline && (
+                      <span className="text-[10px] text-muted-foreground">· {author.discipline}</span>
                     )}
                   </div>
                 )}
@@ -357,10 +381,11 @@ export default function TeamChat() {
                     ? "bg-primary text-primary-foreground rounded-br-md"
                     : "bg-card border border-border rounded-bl-md"
                 }`}>
-                  {/* Citação da mensagem respondida (item 4) — SÓ EXIBIÇÃO. */}
+                  {/* Citação da mensagem respondida. O autor vem da MESMA função da bolha. */}
                   {msg.replyToMessageId && (
                     <ChatReplyQuote
-                      quoted={quotedById.get(msg.replyToMessageId) ?? null}
+                      quoted={quoted}
+                      authorName={quoted ? messageAuthor(quoted, byProfileId).name : null}
                       pending={quotedPending}
                       isOwn={isUser}
                     />
@@ -390,6 +415,18 @@ export default function TeamChat() {
                     {isUser && <Check size={12} className="text-primary-foreground/70" />}
                   </div>
                 </div>
+
+                {/* Responder (item 1). Mesmo rótulo do painel: a mesma ação não pode ter dois
+                    nomes nos dois lados da conversa. */}
+                <button
+                  onClick={() => handleReply(msg)}
+                  disabled={!channelId || sendMutation.isPending}
+                  className={`mt-1 px-1 flex items-center gap-1 text-[10px] text-muted-foreground disabled:opacity-40 ${isUser ? "self-end" : "self-start"}`}
+                  aria-label={`Responder à mensagem de ${author.name}`}
+                >
+                  <CornerUpLeft size={10} />
+                  Responder
+                </button>
               </div>
             </motion.div>
           );
@@ -495,6 +532,24 @@ export default function TeamChat() {
 
       {/* Input */}
       <div className="p-3 border-t border-border bg-card/95 backdrop-blur-xl">
+        {/* Mensagem sendo respondida (item 1) — chip cancelável com prévia. Mensagem só-anexo é
+            citada pelo NOME DO ARQUIVO, o mesmo que `quotedPreview` já faz na exibição. */}
+        {replyTo && (
+          <div className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-1.5">
+            <CornerUpLeft size={13} className="text-muted-foreground flex-shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-[11px] text-foreground">
+              Respondendo a {messageAuthor(replyTo, byProfileId).name}: {quotedPreview(replyTo, 60)}
+            </span>
+            <button
+              onClick={() => setReplyTo(null)}
+              disabled={sendMutation.isPending}
+              aria-label="Cancelar resposta"
+            >
+              <X size={13} className="text-muted-foreground" />
+            </button>
+          </div>
+        )}
+
         {/* Anexo selecionado (chip com remover) */}
         {file && (
           <div className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-1.5">

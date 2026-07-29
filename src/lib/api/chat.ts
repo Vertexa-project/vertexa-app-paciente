@@ -54,21 +54,29 @@ interface RawMessageRow {
   attachment_mime: string | null;
   attachment_size: number | null;
   reply_to_message_id: string | null;
-  sender: {
-    id: string;
-    full_name: string;
-    professionals: { type: ProfessionalType | null; specialty: string | null }[] | null;
-  } | null;
+  sender: { id: string; full_name: string } | null;
 }
 
+/**
+ * SELECT da lista.
+ *
+ * ⚠️ O QUE SAIU DAQUI (WP-APP-5 item 2): o embed aninhado `professionals(type, specialty)`.
+ * `professionals_select` é `profile_id = current_profile_id() OR is_clinic_admin(clinic_id)` e a
+ * PACIENTE não é nenhum dos dois — o embed devolvia array VAZIO, sempre, sem erro. `specialty` e
+ * `type` da bolha nasciam nulos em 100% das mensagens: a especialidade ao lado do nome nunca
+ * aparecia e a cor/ícone da disciplina caía sempre em "outro". Era código morto que parecia vivo.
+ * Os dois campos passam a vir da RPC `channel_professionals`, que a tela já carrega.
+ *
+ * O QUE FICOU: `profiles(id, full_name)`. Esse NÃO é amputado para a paciente — `can_see_profile`
+ * tem um ramo exatamente para ela (profissional com vínculo ATIVO ao seu patients.id). Medido em
+ * produção: 9 de 9 participantes profissionais satisfazem esse ramo. Ver o retorno do WP-APP-5.
+ */
 const MESSAGE_SELECT =
   "id, channel_id, sender_profile_id, sender_role, body, created_at, " +
   "attachment_path, attachment_name, attachment_mime, attachment_size, reply_to_message_id, " +
-  "sender:profiles(id, full_name, professionals(type, specialty))";
+  "sender:profiles(id, full_name)";
 
 function toMessageView(row: RawMessageRow, myProfileId: string | null): ChatMessageView {
-  const prof = row.sender?.professionals?.[0] ?? null;
-  const isOwn = row.sender_profile_id === myProfileId;
   return {
     id: row.id,
     channelId: row.channel_id,
@@ -76,10 +84,9 @@ function toMessageView(row: RawMessageRow, myProfileId: string | null): ChatMess
     createdAt: row.created_at,
     senderProfileId: row.sender_profile_id,
     senderRole: row.sender_role,
-    isOwn,
-    displayName: isOwn ? "Você" : row.sender?.full_name ?? "Profissional",
-    specialty: prof?.specialty ?? null,
-    type: prof?.type ?? null,
+    isOwn: row.sender_profile_id === myProfileId,
+    // CRU, sem fallback: quem monta o rótulo é `messageAuthor`, num lugar só.
+    senderName: row.sender?.full_name ?? null,
     attachmentPath: row.attachment_path,
     attachmentName: row.attachment_name,
     attachmentMime: row.attachment_mime,
@@ -178,6 +185,12 @@ export interface SendPatientMessageInput {
   mentionedProfileId?: string | null;
   /** Anexo opcional (PDF/imagem). */
   file?: File | null;
+  /**
+   * Mensagem citada (WP-APP-5 item 1). Vai CRU para o INSERT: a FK COMPOSTA
+   * (reply_to_message_id, channel_id) -> (id, channel_id) já torna impossível responder mensagem
+   * de OUTRA conversa. A interface NÃO revalida isso — seria duplicar uma garantia mais forte.
+   */
+  replyToMessageId?: string | null;
 }
 
 export interface SendPatientMessageResult {
@@ -205,6 +218,7 @@ export async function sendPatientMessage({
   body,
   mentionedProfileId,
   file,
+  replyToMessageId,
 }: SendPatientMessageInput): Promise<SendPatientMessageResult> {
   const senderProfileId = getCurrentPatientProfileId();
   const text = body?.trim() ? body.trim() : null;
@@ -224,6 +238,7 @@ export async function sendPatientMessage({
           attachment_name: attachment?.name ?? null,
           attachment_mime: attachment?.mime ?? null,
           attachment_size: attachment?.size ?? null,
+          reply_to_message_id: replyToMessageId ?? null,
         })
         .select("id")
         .single();

@@ -65,10 +65,14 @@ export interface ChatMessageView {
   senderProfileId: string | null;
   senderRole: UserRole;
   isOwn: boolean; // true when sent by the current (demo) patient
-  displayName: string; // "Você" for own messages, professional full name otherwise
-  specialty: string | null;
-  type: ProfessionalType | null;
-  /** Resposta a outra mensagem do canal. O app APENAS RENDERIZA a citação; não cria (WP-APP-3). */
+  /**
+   * `profiles.full_name` CRU do remetente, ou null. NÃO é o rótulo da tela — quem monta o rótulo é
+   * `messageAuthor` (lib/chatTeam.ts), o ÚNICO lugar que resolve autor, para a bolha e a citação
+   * nunca discordarem sobre a mesma pessoa. Nulo aqui é informação: significa que a RLS não deixou
+   * ler aquele profile (ver WP-APP-5 no retorno), e o rótulo cai para a RPC e depois para o genérico.
+   */
+  senderName: string | null;
+  /** Resposta a outra mensagem do canal (WP-APP-5: o app agora EXIBE e CRIA). */
   replyToMessageId: string | null;
   // Anexo (1 por mensagem; bucket privado chat-attachments, caminho {channel_id}/{uuid}.{ext}).
   attachmentPath: string | null;
