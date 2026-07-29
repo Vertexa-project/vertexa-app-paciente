@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Send, Paperclip, Camera, Image as ImageIcon, FileText,
@@ -10,13 +10,22 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tracker } from "@/lib/eventTracker";
 import {
   getMyChannel,
+  getMessagesByIds,
   listChannelProfessionals,
   sendPatientMessage,
 } from "@/lib/api";
 import type { ChannelProfessional, ProfessionalType } from "@/lib/api";
 import { CHAT_ATTACHMENT_MIME, validateChatAttachment } from "@/lib/api/chatAttachment";
+import { mentionFailureMessage } from "@/lib/chatMention";
+import {
+  DISCIPLINE_NOT_INFORMED,
+  professionalDisciplineLabel,
+  teamReadsLabel,
+} from "@/lib/chatTeam";
+import { indexById, missingQuotedIds } from "@/lib/chatReply";
 import { captureException } from "@/lib/observability/sentry";
 import { ChatAttachmentView } from "@/components/ChatAttachmentView";
+import { ChatReplyQuote } from "@/components/ChatReplyQuote";
 import { useChannelMessages } from "@/hooks/useChannelMessages";
 
 const TYPE_STYLES: Record<string, string> = {
@@ -75,6 +84,9 @@ export default function TeamChat() {
   const [showTeamInfo, setShowTeamInfo] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [attachError, setAttachError] = useState<string | null>(null);
+  // Aviso da CORRIDA DA MENÇÃO. Não é toast: fica na tela até a paciente fechar ou até o próximo
+  // envio — ela precisa ler que a mensagem foi, mas a marcação não.
+  const [mentionNotice, setMentionNotice] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -97,7 +109,24 @@ export default function TeamChat() {
   const professionals = professionalsQuery.data ?? [];
 
   const messagesQuery = useChannelMessages(channelId);
-  const messages = messagesQuery.data ?? [];
+  const messages = useMemo(() => messagesQuery.data ?? [], [messagesQuery.data]);
+
+  // ── Citação (item 4): resolve a original na lista já carregada; só busca o que faltar ──
+  const missingQuoted = useMemo(() => missingQuotedIds(messages), [messages]);
+  const missingQuotedKey = useMemo(() => [...missingQuoted].sort().join(","), [missingQuoted]);
+
+  const quotedQuery = useQuery({
+    queryKey: ["chatQuotedMessages", channelId, missingQuotedKey],
+    queryFn: () => getMessagesByIds(channelId as string, missingQuoted),
+    enabled: !!channelId && missingQuoted.length > 0,
+  });
+
+  // Carregadas primeiro, buscadas por cima. O que não estiver aqui vira "indisponível" na bolha.
+  const quotedById = useMemo(
+    () => indexById(messages, quotedQuery.data ?? []),
+    [messages, quotedQuery.data],
+  );
+  const quotedPending = quotedQuery.isLoading;
 
   const sendMutation = useMutation({
     mutationFn: sendPatientMessage,
@@ -122,7 +151,10 @@ export default function TeamChat() {
   const handleInputChange = (val: string) => {
     setInput(val);
     const lastAt = val.lastIndexOf("@");
-    if (lastAt !== -1 && lastAt === val.length - 1 && professionals.length > 0) {
+    // Abre o seletor mesmo com a lista vazia: o painel precisa PODER dizer que falhou ou que não
+    // há ninguém. A condição `professionals.length > 0` daqui transformava erro da RPC em
+    // "o @ simplesmente não faz nada" — silêncio, que é justamente o que este WP tira do caminho.
+    if (lastAt !== -1 && lastAt === val.length - 1) {
       setShowMentions(true);
     } else if (showMentions && !val.includes("@")) {
       setShowMentions(false);
@@ -146,20 +178,38 @@ export default function TeamChat() {
   const handleSend = () => {
     const body = input.trim();
     if ((!body && !file) || !channelId || sendMutation.isPending) return;
+    const mentioned = selectedMention;
     sendMutation.mutate(
       {
         channelId,
         body: body || null,
-        mentionedProfileId: selectedMention?.profileId ?? null,
+        mentionedProfileId: mentioned?.profileId ?? null,
         file,
       },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
+          // A MENSAGEM ENTROU. O campo é limpo em qualquer caso — nada de reenvio, nada de
+          // apagar. A menção recusada é um fato SEPARADO, e é o único que vira aviso.
           setInput("");
           setSelectedMention(null);
           setShowMentions(false);
           setFile(null);
           setAttachError(null);
+
+          if (!result.mentionFailed) {
+            setMentionNotice(null);
+            return;
+          }
+
+          setMentionNotice(
+            mentionFailureMessage(
+              mentioned?.name ?? "o profissional",
+              result.mentionFailureReason ?? "unknown",
+            ),
+          );
+          // A lista que ela usou está velha — foi essa lista que ofereceu alguém que já saiu.
+          // Recarrega para que a próxima tentativa não repita o mesmo engano.
+          void professionalsQuery.refetch();
         },
       },
     );
@@ -184,6 +234,18 @@ export default function TeamChat() {
     setInput(text + " ");
     inputRef.current?.focus();
   };
+
+  // ── Rótulo da conversa (item 3) ──
+  // A conversa é com a EQUIPE e todos os vinculados leem. Isso vai no cabeçalho como DESCRIÇÃO do
+  // que o canal é, com os nomes reais da RPC — não como aviso de risco. Quando a lista não está
+  // disponível, o cabeçalho diz qual é o estado; nunca inventa nem cala.
+  const teamLabel = teamReadsLabel(professionals.map((p) => shortName(p.name)));
+  const teamSubtitle = teamLabel
+    ?? (professionalsQuery.isLoading
+      ? "Carregando quem lê esta conversa..."
+      : professionalsQuery.isError
+        ? "Não foi possível carregar quem lê esta conversa"
+        : "Nenhum profissional vinculado a esta conversa ainda");
 
   const isLoading =
     channelQuery.isLoading || (!!channelId && messagesQuery.isLoading);
@@ -213,11 +275,9 @@ export default function TeamChat() {
                 ))}
               </div>
             </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-semibold text-foreground">Equipe principal</p>
-              <p className="text-[10px] text-muted-foreground">
-                {professionals.length} profissionais
-              </p>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-sm font-semibold text-foreground">Conversa com a equipe</p>
+              <p className="text-[10px] text-muted-foreground leading-snug">{teamSubtitle}</p>
             </div>
           </button>
           <button onClick={() => setShowTeamInfo(true)}>
@@ -297,6 +357,14 @@ export default function TeamChat() {
                     ? "bg-primary text-primary-foreground rounded-br-md"
                     : "bg-card border border-border rounded-bl-md"
                 }`}>
+                  {/* Citação da mensagem respondida (item 4) — SÓ EXIBIÇÃO. */}
+                  {msg.replyToMessageId && (
+                    <ChatReplyQuote
+                      quoted={quotedById.get(msg.replyToMessageId) ?? null}
+                      pending={quotedPending}
+                      isOwn={isUser}
+                    />
+                  )}
                   {/* body é ANULÁVEL: mensagem só-anexo não tem texto. */}
                   {msg.body ? (
                     <p className={`text-sm leading-relaxed ${isUser ? "text-primary-foreground" : "text-foreground"}`}>
@@ -346,9 +414,11 @@ export default function TeamChat() {
         </div>
       )}
 
-      {/* Mention selector */}
+      {/* Mention selector — alimentado pela RPC channel_professionals (item 1).
+          Quatro estados EXPLÍCITOS. Nenhum deles é "não acontece nada": carregando, falha com
+          repetição, ninguém vinculado, e a lista. */}
       <AnimatePresence>
-        {showMentions && professionals.length > 0 && (
+        {showMentions && (
           <motion.div
             initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
             className="mx-4 mb-1 rounded-xl bg-card border border-border overflow-hidden"
@@ -356,22 +426,58 @@ export default function TeamChat() {
             <div className="px-3 py-2 border-b border-border">
               <p className="text-[10px] text-muted-foreground font-medium">Direcionar para a equipe:</p>
             </div>
-            {professionals.map(prof => (
-              <button
-                key={prof.profileId}
-                onClick={() => handleMention(prof)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/50 transition-colors"
-              >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border ${typeColor(prof.type)}`}>
-                  {getInitials(prof.name)}
+
+            {professionalsQuery.isLoading ? (
+              <div className="flex items-center gap-2 px-3 py-4">
+                <Loader2 size={14} className="text-primary animate-spin" />
+                <span className="text-[11px] text-muted-foreground">Carregando a equipe...</span>
+              </div>
+            ) : professionalsQuery.isError ? (
+              // ERRO VISÍVEL. Antes, uma falha aqui virava lista vazia calada.
+              <div className="flex flex-col gap-2 px-3 py-3" role="alert">
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={14} className="text-destructive flex-shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-foreground leading-snug">
+                    Não foi possível carregar a equipe, então não dá para direcionar agora.
+                    Sua mensagem ainda vai para todos.
+                  </p>
                 </div>
-                <div className="flex-1 text-left">
-                  <p className="text-sm text-foreground font-medium">{prof.name}</p>
-                  {prof.specialty && <p className="text-[10px] text-muted-foreground">{prof.specialty}</p>}
-                </div>
-                <div className="text-muted-foreground">{getRoleIcon(prof.type)}</div>
-              </button>
-            ))}
+                <button
+                  onClick={() => professionalsQuery.refetch()}
+                  className="self-start px-3 py-1.5 rounded-lg bg-secondary text-foreground text-[11px] font-medium"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            ) : professionals.length === 0 ? (
+              <p className="px-3 py-3 text-[11px] text-muted-foreground">
+                Nenhum profissional vinculado a esta conversa.
+              </p>
+            ) : (
+              professionals.map(prof => {
+                // Nome E disciplina. A disciplina vem da RPC (disciplines > specialty > type);
+                // quando nenhuma das três existe, dizemos isso — não deixamos a linha em branco.
+                const discipline = professionalDisciplineLabel(prof);
+                return (
+                  <button
+                    key={prof.profileId}
+                    onClick={() => handleMention(prof)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-secondary/50 transition-colors"
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold border ${typeColor(prof.type)}`}>
+                      {getInitials(prof.name)}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm text-foreground font-medium truncate">{prof.name}</p>
+                      <p className={`text-[10px] truncate ${discipline ? "text-muted-foreground" : "text-muted-foreground/70 italic"}`}>
+                        {discipline ?? DISCIPLINE_NOT_INFORMED}
+                      </p>
+                    </div>
+                    <div className="text-muted-foreground">{getRoleIcon(prof.type)}</div>
+                  </button>
+                );
+              })
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -401,6 +507,21 @@ export default function TeamChat() {
         )}
         {attachError && (
           <p className="mb-2 text-[11px] text-destructive" role="alert">{attachError}</p>
+        )}
+
+        {/* Aviso da CORRIDA DA MENÇÃO (item 2). A mensagem FOI enviada — por isso o tom não é de
+            erro de envio e não há botão de reenviar. Só a marcação não entrou. */}
+        {mentionNotice && (
+          <div
+            className="mb-2 flex items-start gap-2 rounded-xl border border-border bg-secondary/50 px-2.5 py-2"
+            role="status"
+          >
+            <AtSign size={13} className="text-muted-foreground flex-shrink-0 mt-0.5" />
+            <p className="flex-1 text-[11px] leading-snug text-foreground">{mentionNotice}</p>
+            <button onClick={() => setMentionNotice(null)} aria-label="Fechar aviso">
+              <X size={13} className="text-muted-foreground" />
+            </button>
+          </div>
         )}
 
         <div className="flex items-center gap-2">
@@ -515,28 +636,65 @@ export default function TeamChat() {
               <div className="p-5">
                 <div className="flex items-center gap-2 mb-1">
                   <Shield size={16} className="text-primary" />
-                  <h3 className="text-lg font-bold text-foreground">Equipe principal</h3>
+                  <h3 className="text-lg font-bold text-foreground">Conversa com a equipe</h3>
                 </div>
-                <p className="text-xs text-muted-foreground mb-5">Profissionais vinculados ao seu acompanhamento</p>
+                <p className="text-xs text-muted-foreground mb-5">
+                  Todos os profissionais vinculados ao seu acompanhamento leem esta conversa
+                </p>
+
+                {professionalsQuery.isLoading && (
+                  <div className="flex items-center gap-2 py-2">
+                    <Loader2 size={14} className="text-primary animate-spin" />
+                    <span className="text-xs text-muted-foreground">Carregando a equipe...</span>
+                  </div>
+                )}
+
+                {professionalsQuery.isError && (
+                  <div className="flex flex-col gap-2 p-3 rounded-xl border border-border bg-secondary/50" role="alert">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle size={14} className="text-destructive flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-foreground leading-snug">
+                        Não foi possível carregar quem lê esta conversa.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => professionalsQuery.refetch()}
+                      className="self-start px-3 py-1.5 rounded-lg bg-secondary text-foreground text-[11px] font-medium"
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                )}
+
+                {!professionalsQuery.isLoading && !professionalsQuery.isError && professionals.length === 0 && (
+                  <p className="text-xs text-muted-foreground py-2">
+                    Nenhum profissional vinculado a esta conversa ainda.
+                  </p>
+                )}
 
                 <div className="space-y-3">
-                  {professionals.map(prof => (
-                    <div key={prof.profileId} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border">
-                      <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold border ${typeColor(prof.type)}`}>
-                        {getInitials(prof.name)}
+                  {professionals.map(prof => {
+                    const discipline = professionalDisciplineLabel(prof);
+                    return (
+                      <div key={prof.profileId} className="flex items-center gap-3 p-3 rounded-xl bg-secondary/50 border border-border">
+                        <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold border ${typeColor(prof.type)}`}>
+                          {getInitials(prof.name)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground">{prof.name}</p>
+                          <p className={`text-xs ${discipline ? "text-muted-foreground" : "text-muted-foreground/70 italic"}`}>
+                            {discipline ?? DISCIPLINE_NOT_INFORMED}
+                          </p>
+                        </div>
+                        <div className="text-muted-foreground">{getRoleIcon(prof.type)}</div>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-foreground">{prof.name}</p>
-                        {prof.specialty && <p className="text-xs text-muted-foreground">{prof.specialty}</p>}
-                      </div>
-                      <div className="text-muted-foreground">{getRoleIcon(prof.type)}</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 <div className="mt-5 p-3 rounded-xl bg-primary/5 border border-primary/10">
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    <span className="text-foreground font-medium">Dica:</span> Use <span className="text-primary font-medium">@</span> para direcionar sua mensagem a um profissional específico. Todos da equipe veem o canal.
+                    <span className="text-foreground font-medium">Dica:</span> Use <span className="text-primary font-medium">@</span> para direcionar sua mensagem a um profissional específico. Direcionar não deixa a conversa privada — a equipe inteira continua lendo.
                   </p>
                 </div>
 

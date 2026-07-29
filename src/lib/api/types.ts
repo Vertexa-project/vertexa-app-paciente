@@ -45,11 +45,14 @@ export interface ChatChannel {
 }
 
 // A professional participant of a chat channel (source for the @ selector).
+// Vem da RPC public.channel_professionals — NÃO de embed. Ver listChannelProfessionals.
 export interface ChannelProfessional {
   profileId: string;
   name: string;
   specialty: string | null;
   type: ProfessionalType | null;
+  /** Códigos de public.disciplines (ex.: "medico", "nutricionista"). Pode vir vazio. */
+  disciplines: string[];
 }
 
 // A chat message with sender display already resolved for the UI.
@@ -65,6 +68,8 @@ export interface ChatMessageView {
   displayName: string; // "Você" for own messages, professional full name otherwise
   specialty: string | null;
   type: ProfessionalType | null;
+  /** Resposta a outra mensagem do canal. O app APENAS RENDERIZA a citação; não cria (WP-APP-3). */
+  replyToMessageId: string | null;
   // Anexo (1 por mensagem; bucket privado chat-attachments, caminho {channel_id}/{uuid}.{ext}).
   attachmentPath: string | null;
   attachmentName: string | null;

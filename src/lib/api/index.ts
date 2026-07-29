@@ -4,11 +4,16 @@ export { getPatient, getMyPatientId } from "./patient";
 export {
   getMyChannel,
   getChannelMessages,
+  getMessagesByIds,
   listChannelProfessionals,
   sendPatientMessage,
   subscribeToChannelMessages,
 } from "./chat";
-export type { SendPatientMessageInput, ChannelSubscriptionHandlers } from "./chat";
+export type {
+  SendPatientMessageInput,
+  SendPatientMessageResult,
+  ChannelSubscriptionHandlers,
+} from "./chat";
 export { logActivityEvent, getActivityEventsSince } from "./events";
 export type { LogActivityEventInput } from "./events";
 export { getMuscleRecovery } from "./recovery";
