@@ -312,3 +312,46 @@ describe("Perfil / 'Paciente desde' (WP-APP-4 item 2)", () => {
     expect(screen.queryByText(/paciente desde/i)).not.toBeInTheDocument();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// WP-FRONT-2bii-B item 3 — VERIFICAÇÃO (nada foi reimplementado aqui).
+//
+// A pergunta do WP: depois da cascata do WP-TEAM-2b-ii, QUAL das duas ausências a paciente vê, e
+// o texto continua verdadeiro? Os três cenários abaixo são os do banco, medidos em transação
+// antes de escrever teste nenhum:
+//   · TODOS os profissionais dela desativados → roster vazio E 0 vínculos ativos
+//   · UM de dois desativado                   → o colega continua no roster (ela vê o nome dele)
+//   · vínculo ativo fora do roster (externo)  → roster vazio, mas vínculos ativos > 0
+// A tela já distinguia os três desde o WP-APP-7. Estes testes FIXAM a distinção para o cenário
+// novo, que antes não existia — desativação de profissional.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe("Perfil / depois da desativação do profissional (WP-FRONT-2bii-B item 3)", () => {
+  it("TODOS desativados: cai em 'nenhum vínculo' — e agora isso é VERDADE (0 vínculos ativos)", async () => {
+    api.team = []; // a cascata tirou todo mundo do roster
+    api.activeLinks = 0; // e os vínculos viraram histórico de verdade
+    renderProfile();
+
+    expect(await screen.findByText(NO_ACTIVE_LINK_TITLE)).toBeInTheDocument();
+    // O texto neutro (que existe para quando o app NÃO sabe) não pode aparecer: aqui ele sabe.
+    expect(screen.queryByText(PROFESSIONAL_UNAVAILABLE_TITLE)).not.toBeInTheDocument();
+  });
+
+  it("UM de dois desativado: ela continua vendo o NOME do colega, sem nenhum texto de ausência", async () => {
+    api.team = [prof("Dr. Colega Fica")]; // o roster perdeu só quem saiu
+    api.activeLinks = 1;
+    renderProfile();
+
+    expect(await screen.findByText("Dr. Colega Fica")).toBeInTheDocument();
+    expect(screen.queryByText(NO_ACTIVE_LINK_TITLE)).not.toBeInTheDocument();
+    expect(screen.queryByText(LINKED_NAME_UNAVAILABLE_TITLE)).not.toBeInTheDocument();
+  });
+
+  it("vínculo ativo fora do roster: diz que TEM vínculo, e não afirma ausência", async () => {
+    api.team = []; // sem nome (ex.: só vínculo externo, excluído do roster de propósito)
+    api.activeLinks = 1;
+    renderProfile();
+
+    expect(await screen.findByText(LINKED_NAME_UNAVAILABLE_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(NO_ACTIVE_LINK_TITLE)).not.toBeInTheDocument();
+  });
+});

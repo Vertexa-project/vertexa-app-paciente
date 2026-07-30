@@ -106,15 +106,35 @@ export default function TeamChat() {
   const channelQuery = useQuery({ queryKey: ["myChannel"], queryFn: getMyChannel });
   const channelId = channelQuery.data?.id;
 
-  const professionalsQuery = useQuery({
-    queryKey: ["channelProfessionals", channelId],
-    queryFn: () => listChannelProfessionals(channelId as string),
+  // ⚠️ DUAS PERGUNTAS, DUAS CHAMADAS (WP-FRONT-2bii-B). Até aqui uma única query servia as duas,
+  // e isso não sobrevive à desativação de um profissional:
+  //   rosterQuery  (false) → QUEM PARTICIPA AGORA: seletor de @, rótulo do topo, avatares e a
+  //                          folha "Conversa com a equipe". Quem foi desativado sai do roster e
+  //                          não pode ser oferecido nem apresentado como equipe atual.
+  //   authorsQuery (true)  → QUEM ESCREVEU ISTO: roster ∪ autores. Sem ela, a mensagem antiga de
+  //                          quem saiu perde o nome (medido: o embed `sender:profiles` chega NULO
+  //                          para a paciente, porque o ramo R4 de can_see_profile exige vínculo
+  //                          ATIVO) e a bolha cai para o genérico "Profissional".
+  // O FLAG ENTRA NA CHAVE DE CACHE: com a mesma entrada, as duas telas dividiriam resposta e o
+  // resultado dependeria de quem chegasse primeiro.
+  const rosterQuery = useQuery({
+    queryKey: ["channelProfessionals", channelId, "roster"],
+    queryFn: () => listChannelProfessionals(channelId as string, false),
     enabled: !!channelId,
   });
-  const professionals = useMemo(() => professionalsQuery.data ?? [], [professionalsQuery.data]);
-  // Índice da RPC que a tela JÁ carrega para o seletor de @. É daqui que sai a disciplina/tipo da
-  // bolha (o embed que os trazia era bloqueado por RLS) e o nome, quando o embed não alcança.
-  const byProfileId = useMemo(() => professionalsByProfileId(professionals), [professionals]);
+  const authorsQuery = useQuery({
+    queryKey: ["channelProfessionals", channelId, "with-authors"],
+    queryFn: () => listChannelProfessionals(channelId as string, true),
+    enabled: !!channelId,
+  });
+  const professionals = useMemo(() => rosterQuery.data ?? [], [rosterQuery.data]);
+  // Índice que resolve AUTOR de mensagem — vem da lista COM autores, nunca do roster. É daqui que
+  // sai a disciplina/tipo da bolha (o embed que os trazia era bloqueado por RLS) e o nome, quando
+  // o embed não alcança — inclusive depois que a pessoa deixa a clínica.
+  const byProfileId = useMemo(
+    () => professionalsByProfileId(authorsQuery.data ?? []),
+    [authorsQuery.data],
+  );
 
   const messagesQuery = useChannelMessages(channelId);
   const messages = useMemo(() => messagesQuery.data ?? [], [messagesQuery.data]);
@@ -221,7 +241,7 @@ export default function TeamChat() {
           );
           // A lista que ela usou está velha — foi essa lista que ofereceu alguém que já saiu.
           // Recarrega para que a próxima tentativa não repita o mesmo engano.
-          void professionalsQuery.refetch();
+          void rosterQuery.refetch();
         },
       },
     );
@@ -260,9 +280,9 @@ export default function TeamChat() {
   // disponível, o cabeçalho diz qual é o estado; nunca inventa nem cala.
   const teamLabel = teamReadsLabel(professionals.map((p) => shortName(p.name)));
   const teamSubtitle = teamLabel
-    ?? (professionalsQuery.isLoading
+    ?? (rosterQuery.isLoading
       ? "Carregando quem lê esta conversa..."
-      : professionalsQuery.isError
+      : rosterQuery.isError
         ? "Não foi possível carregar quem lê esta conversa"
         : "Nenhum profissional vinculado a esta conversa ainda");
 
@@ -464,12 +484,12 @@ export default function TeamChat() {
               <p className="text-[10px] text-muted-foreground font-medium">Direcionar para a equipe:</p>
             </div>
 
-            {professionalsQuery.isLoading ? (
+            {rosterQuery.isLoading ? (
               <div className="flex items-center gap-2 px-3 py-4">
                 <Loader2 size={14} className="text-primary animate-spin" />
                 <span className="text-[11px] text-muted-foreground">Carregando a equipe...</span>
               </div>
-            ) : professionalsQuery.isError ? (
+            ) : rosterQuery.isError ? (
               // ERRO VISÍVEL. Antes, uma falha aqui virava lista vazia calada.
               <div className="flex flex-col gap-2 px-3 py-3" role="alert">
                 <div className="flex items-start gap-2">
@@ -480,7 +500,7 @@ export default function TeamChat() {
                   </p>
                 </div>
                 <button
-                  onClick={() => professionalsQuery.refetch()}
+                  onClick={() => rosterQuery.refetch()}
                   className="self-start px-3 py-1.5 rounded-lg bg-secondary text-foreground text-[11px] font-medium"
                 >
                   Tentar novamente
@@ -697,14 +717,14 @@ export default function TeamChat() {
                   Todos os profissionais vinculados ao seu acompanhamento leem esta conversa
                 </p>
 
-                {professionalsQuery.isLoading && (
+                {rosterQuery.isLoading && (
                   <div className="flex items-center gap-2 py-2">
                     <Loader2 size={14} className="text-primary animate-spin" />
                     <span className="text-xs text-muted-foreground">Carregando a equipe...</span>
                   </div>
                 )}
 
-                {professionalsQuery.isError && (
+                {rosterQuery.isError && (
                   <div className="flex flex-col gap-2 p-3 rounded-xl border border-border bg-secondary/50" role="alert">
                     <div className="flex items-start gap-2">
                       <AlertCircle size={14} className="text-destructive flex-shrink-0 mt-0.5" />
@@ -713,7 +733,7 @@ export default function TeamChat() {
                       </p>
                     </div>
                     <button
-                      onClick={() => professionalsQuery.refetch()}
+                      onClick={() => rosterQuery.refetch()}
                       className="self-start px-3 py-1.5 rounded-lg bg-secondary text-foreground text-[11px] font-medium"
                     >
                       Tentar novamente
@@ -721,7 +741,7 @@ export default function TeamChat() {
                   </div>
                 )}
 
-                {!professionalsQuery.isLoading && !professionalsQuery.isError && professionals.length === 0 && (
+                {!rosterQuery.isLoading && !rosterQuery.isError && professionals.length === 0 && (
                   <p className="text-xs text-muted-foreground py-2">
                     Nenhum profissional vinculado a esta conversa ainda.
                   </p>
