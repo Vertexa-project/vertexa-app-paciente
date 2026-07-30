@@ -125,6 +125,39 @@ describe("SOS / o texto dela chega a um humano (WP-APP-7 item 2.1)", () => {
   });
 });
 
+describe("SOS / nenhum juízo de adesão calculado no cliente (WP-METRIC-1b)", () => {
+  // A tela tinha `const state = getAdherenceState()` e, sob `state.level !== 'alta'`, um aviso
+  // "Percebemos uma queda na sua adesão". Como a chamada sem argumento caía no perfil de EXEMPLO
+  // do módulo (que dá sempre 'alta'), o aviso NUNCA renderizou — era código morto que, ao receber
+  // um config de verdade, passaria a julgar a adesão dela no cliente e a poder contradizer o
+  // painel. Este teste trava a ausência do aviso E de qualquer número de adesão na tela.
+  it("não afirma queda de adesão nem exibe índice/percentual", async () => {
+    renderSOS();
+    await screen.findByText("Dificuldade com dieta");
+
+    expect(screen.queryByText(/queda na sua adesão/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/percebemos uma queda/i)).not.toBeInTheDocument();
+    // Nenhum juízo de nível de adesão, em nenhuma das quatro faixas do VRI.
+    expect(screen.queryByText(/adesão (alta|moderada|baixa|em risco)/i)).not.toBeInTheDocument();
+    // E nenhum percentual solto na tela (o VRI é renderizado como "NN%" onde aparece).
+    expect(screen.queryByText(/^\d{1,3}%$/)).not.toBeInTheDocument();
+  });
+
+  it("não importa nada do motor de adesão", async () => {
+    // Guarda de DEPENDÊNCIA, e por isso lê a FONTE e não o runtime: um import reintroduzido
+    // carregaria o módulo sem necessariamente renderizar nada, passando despercebido pelos
+    // testes de tela acima. (Caminho a partir da raiz do projeto: sob jsdom o `import.meta.url`
+    // não é uma URL `file:`.)
+    const [fs, path] = await Promise.all([import("node:fs/promises"), import("node:path")]);
+    const fonte = await fs.readFile(path.join(process.cwd(), "src", "pages", "SOS.tsx"), "utf8");
+    // Comentários fora: a tela DOCUMENTA o que foi removido (e cita o nome da função ao fazê-lo).
+    // O guarda é sobre CÓDIGO — se olhasse a prosa, a própria explicação o faria falhar.
+    const codigo = fonte.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(codigo).not.toMatch(/from ["']@\/lib\/adherenceEngine["']/);
+    expect(codigo).not.toContain("getAdherenceState");
+  });
+});
+
 describe("SOS / sem canal não inventa sucesso (WP-APP-7 item 2.1)", () => {
   it("diz que não é possível enviar e orienta, sem tela de sucesso", async () => {
     api.channel = null;

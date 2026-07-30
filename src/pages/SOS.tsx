@@ -4,7 +4,6 @@ import { ArrowLeft, Send, Check, Loader2, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { sosCategories } from "@/data/mockData";
-import { getAdherenceState } from "@/lib/adherenceEngine";
 import { getMyChannel, sendPatientMessage } from "@/lib/api";
 import { buildSosMessageBody } from "@/lib/sosMessage";
 import { tracker } from "@/lib/eventTracker";
@@ -38,7 +37,6 @@ export default function SOS() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const state = getAdherenceState();
 
   // MESMA query key do TeamChat -> cache compartilhado, nenhuma leitura a mais quando ela
   // vem do chat. `getMyChannel` NÃO cria canal (quem cria é o profissional, ao abrir a
@@ -95,12 +93,13 @@ export default function SOS() {
                 com sua equipe.
               </p>
 
-              {state.level !== 'alta' && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-primary/10 border border-primary/20 rounded-xl p-3 mb-4">
-                  <p className="text-xs text-primary font-medium">💡 Percebemos uma queda na sua adesão. Pedir ajuda é o primeiro passo para retomar sua rotina.</p>
-                </motion.div>
-              )}
-
+              {/* WP-METRIC-1b — O QUE SAIU DAQUI: um aviso "Percebemos uma queda na sua adesão",
+                  renderizado sob `state.level !== 'alta'`, com `state = getAdherenceState()`.
+                  Sem argumento, essa chamada caía no DEFAULT_CONFIG (perfil de EXEMPLO do módulo)
+                  e devolvia SEMPRE level 'alta' — logo a condição era SEMPRE falsa e o aviso NUNCA
+                  apareceu para ninguém. Era código morto que, se um dia recebesse um config de
+                  verdade, passaria a afirmar uma queda de adesão calculada no cliente, podendo
+                  contradizer o painel na mesma sessão. O julgamento de adesão é do servidor. */}
               <div className="grid grid-cols-2 gap-3 mb-5">
                 {sosCategories.map((c) => (
                   <button key={c.id} onClick={() => setSelected(c.id)}

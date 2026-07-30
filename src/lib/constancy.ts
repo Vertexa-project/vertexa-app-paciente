@@ -19,6 +19,14 @@ export interface Constancy {
  * Dias ativos = dias LOCAIS distintos com >=1 activity_event na janela [hoje-(windowDays-1) .. hoje].
  * Qualquer tipo de evento conta (hidratação, treino, refeição-marcador, etc.). O grid tem exatamente
  * windowDays células (mais antiga -> mais recente), cada uma ativa/inativa. Determinístico.
+ *
+ * ISTO NÃO É ADESÃO, e não virou espelho do servidor no WP-METRIC-1b (que removeu o cálculo local
+ * de VRI). São coisas diferentes, e o catálogo `activity_event_types` do servidor deixou a
+ * diferença explícita ao separar DUAS grandezas: `counts_as_adherence` ("cuidou de si") e
+ * `counts_as_interaction` ("deu sinal de vida"). "Dia ATIVO" é interação — e como os 10 tipos do
+ * catálogo têm `counts_as_interaction = true`, "qualquer tipo conta" é exatamente a regra do
+ * servidor para essa grandeza, não a regra antiga sobrevivendo. Não há número equivalente em
+ * `adherence_snapshots` para ler no lugar: este bloco é do app.
  */
 export function deriveConstancy(
   events: { created_at: string }[],

@@ -169,7 +169,12 @@ export default function Records() {
     }
     tracker.track("workout_checked", { workoutId: todayWorkout.id, action: "completed" });
     setWorkoutDone(true);
-    flashSaved("Treino concluído! Recuperação e VRI atualizados ✨");
+    // WP-METRIC-1b: a frase antiga era "Treino concluído! Recuperação e VRI atualizados ✨".
+    // Ela AFIRMAVA duas coisas que esta tela não tem como saber no momento em que fala: que o
+    // insert em activity_events entrou e que o servidor já recomputou recuperação e VRI. As duas
+    // acontecem depois, em cadeia assíncrona no eventSync. Se o insert falhar, quem avisa é o
+    // eventSync (toast) — aqui a tela só afirma o que ela de fato observou: o toque dela.
+    flashSaved("Treino concluído!");
   };
 
   // ── Water ──
