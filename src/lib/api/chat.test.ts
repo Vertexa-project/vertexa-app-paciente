@@ -8,6 +8,9 @@ const db = vi.hoisted(() => ({
   mentionRows: [] as Record<string, unknown>[],
   rpc: { data: null as unknown, error: null as unknown },
   rpcCalls: [] as { fn: string; args: unknown }[],
+  // Para getMyChannel (cadeia patients -> chat_channels), que listMyCareTeam usa.
+  patient: { data: null as { id: string } | null, error: null as unknown },
+  channel: { data: null as { id: string } | null, error: null as unknown },
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -21,6 +24,11 @@ vi.mock("@/lib/supabase", () => ({
         db.mentionRows.push(row);
         return Promise.resolve(db.mentionInsert);
       },
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => (table === "patients" ? db.patient : db.channel),
+        }),
+      }),
     }),
     rpc: async (fn: string, args: unknown) => {
       db.rpcCalls.push({ fn, args });
@@ -33,7 +41,7 @@ vi.mock("@/lib/currentPatient", () => ({
   getCurrentPatientProfileId: () => "patient-profile-1",
 }));
 
-const { listChannelProfessionals, sendPatientMessage } = await import("./chat");
+const { listChannelProfessionals, listMyCareTeam, sendPatientMessage } = await import("./chat");
 
 const CHANNEL = "c8000000-0000-0000-0000-0000000000a1";
 const PROF = "aa000000-0000-0000-0000-0000000000b2";
@@ -45,13 +53,32 @@ beforeEach(() => {
   db.mentionRows = [];
   db.rpc = { data: null, error: null };
   db.rpcCalls = [];
+  db.patient = { data: null, error: null };
+  db.channel = { data: null, error: null };
 });
 
 describe("listChannelProfessionals — RPC channel_professionals, não embed", () => {
-  it("chama a RPC com p_channel_id", async () => {
+  // WP-FRONT-2bii-B: o parâmetro é o que separa "quem cuida de mim" de "quem escreveu isto".
+  it("chama a RPC com p_channel_id e, por PADRÃO, sem os autores", async () => {
     db.rpc = { data: [], error: null };
     await listChannelProfessionals(CHANNEL);
-    expect(db.rpcCalls).toEqual([{ fn: "channel_professionals", args: { p_channel_id: CHANNEL } }]);
+    expect(db.rpcCalls).toEqual([
+      {
+        fn: "channel_professionals",
+        args: { p_channel_id: CHANNEL, p_include_message_authors: false },
+      },
+    ]);
+  });
+
+  it("com true, pede os AUTORES junto (resolução de nome no histórico)", async () => {
+    db.rpc = { data: [], error: null };
+    await listChannelProfessionals(CHANNEL, true);
+    expect(db.rpcCalls).toEqual([
+      {
+        fn: "channel_professionals",
+        args: { p_channel_id: CHANNEL, p_include_message_authors: true },
+      },
+    ]);
   });
 
   it("mapeia profile_id/full_name/type/specialty/disciplines", async () => {
@@ -196,5 +223,35 @@ describe("sendPatientMessage — CRIAR RESPOSTA (WP-APP-5 item 1)", () => {
     expect(result.mentionFailed).toBe(false);
     expect(db.messageRows[0].reply_to_message_id).toBe(ORIGINAL);
     expect(db.mentionRows).toEqual([{ message_id: "msg-1", mentioned_profile_id: PROF }]);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// WP-FRONT-2bii-B — O TIME DE CUIDADO NUNCA PEDE OS AUTORES.
+// "Quem cuida de mim" é o roster de HOJE. Se esta chamada passasse `true`, o Perfil voltaria a
+// apresentar como responsável atual quem a clínica desativou — a UI mentindo com dado correto.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+describe("listMyCareTeam — sempre FALSE (é o time de HOJE, não a autoria do histórico)", () => {
+  it("pede a RPC com p_include_message_authors = false", async () => {
+    db.patient = { data: { id: "pat-1" }, error: null };
+    db.channel = { data: { id: CHANNEL }, error: null };
+    db.rpc = { data: [], error: null };
+
+    await listMyCareTeam();
+
+    expect(db.rpcCalls).toEqual([
+      {
+        fn: "channel_professionals",
+        args: { p_channel_id: CHANNEL, p_include_message_authors: false },
+      },
+    ]);
+  });
+
+  it("sem canal, nem chama a RPC (ler o perfil não cria canal)", async () => {
+    db.patient = { data: { id: "pat-1" }, error: null };
+    db.channel = { data: null, error: null };
+
+    expect(await listMyCareTeam()).toEqual([]);
+    expect(db.rpcCalls).toEqual([]);
   });
 });

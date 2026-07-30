@@ -147,7 +147,7 @@ interface RawChannelProfessionalRow {
 }
 
 /**
- * The professional participants of a channel — source for the @ selector.
+ * The professional participants of a channel.
  *
  * WP-APP-3 item 1: vem da RPC public.channel_professionals, NÃO de embed. O embed anterior era
  * `chat_participants -> profiles -> professionals(type, specialty)`, e a RLS de `professionals`
@@ -157,13 +157,26 @@ interface RawChannelProfessionalRow {
  * a RPC. A RPC é SECURITY DEFINER com portão em can_read_channel (fail-closed) e ainda traz
  * `disciplines`, que o embed nem alcançava.
  *
+ * ⚠️ DUAS PERGUNTAS DIFERENTES, E É O `includeMessageAuthors` QUE AS SEPARA (WP-FRONT-2bii-B):
+ *   · `false` (default) = **"quem cuida de mim / quem posso marcar"** — só o ROSTER do canal.
+ *     Quando a clínica desativa um profissional, a cascata do WP-TEAM-2b-ii o tira do roster, e
+ *     ele NÃO pode mais aparecer como time atual nem ser oferecido para marcação.
+ *   · `true` = **"quem escreveu isto"** — roster ∪ AUTORES das mensagens. Medido: depois da
+ *     desativação o embed `sender:profiles(full_name)` da mensagem antiga chega NULO para a
+ *     paciente (o ramo R4 de `can_see_profile` exige VÍNCULO ATIVO), e sem esta lista a bolha
+ *     cairia para o genérico "Profissional" — a mensagem continuaria lá, sem autor.
+ * Nenhum dos dois filtra `status`: identidade não se apaga com a desativação. O que muda é a
+ * PERGUNTA, não o direito de ver o nome.
+ *
  * Erro NÃO é engolido: propaga para a tela mostrar falha visível em vez de lista vazia.
  */
 export async function listChannelProfessionals(
-  channelId: string
+  channelId: string,
+  includeMessageAuthors = false
 ): Promise<ChannelProfessional[]> {
   const { data, error } = await supabase.rpc("channel_professionals", {
     p_channel_id: channelId,
+    p_include_message_authors: includeMessageAuthors,
   });
 
   if (error) throw error;
@@ -204,7 +217,12 @@ export async function listChannelProfessionals(
 export async function listMyCareTeam(): Promise<ChannelProfessional[]> {
   const channel = await getMyChannel();
   if (!channel) return [];
-  return listChannelProfessionals(channel.id);
+  // FALSE, EXPLÍCITO E OBRIGATÓRIO (WP-FRONT-2bii-B): a pergunta aqui é "quem cuida de mim
+  // HOJE". Incluir autores traria de volta quem a clínica desativou, e o Perfil passaria a
+  // apresentar como responsável atual alguém que não atende mais — exatamente a UI que mente
+  // que estes WPs vêm apagando. O default já é false; escrever mesmo assim é para que a
+  // mudança dessa decisão tenha de ser deliberada.
+  return listChannelProfessionals(channel.id, false);
 }
 
 export interface SendPatientMessageInput {
