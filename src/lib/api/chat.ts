@@ -249,7 +249,7 @@ export interface SendPatientMessageResult {
 
 /**
  * Inserts a patient message into chat_messages (sender_role='patient',
- * sender_profile_id = demo patient), com anexo OPCIONAL. Se houver arquivo: valida → sobe →
+ * sender_profile_id = paciente autenticado), com anexo OPCIONAL. Se houver arquivo: valida → sobe →
  * insere; se o insert falhar, o objeto órfão é removido (sendWithOrphanCleanup). Exige body OU
  * anexo (espelha o CHECK do banco). Se houver menção, insere chat_mentions referenciando a mensagem.
  *

@@ -1,27 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { AUTH_MODE, isRealAuth } from "@/lib/auth/authMode";
 import { resolvePatientIdentity, type ResolvedPatientIdentity } from "@/lib/auth/identity";
 import { getPatientByAuthUserId } from "@/lib/api/patient";
-import { DEMO_PATIENT_PROFILE_ID, setActivePatientProfileId } from "@/lib/currentPatient";
+import { setActivePatientProfileId } from "@/lib/currentPatient";
 import { captureException } from "@/lib/observability/sentry";
 import { useAuth } from "@/providers/auth-context";
 
 /**
- * Fonte ÚNICA da identidade do paciente atuante (real OU demo). Orquestra as buscas e delega a
- * decisão à função pura `resolvePatientIdentity`.
+ * Fonte única da identidade do paciente atuante.
+ * auth.uid() → getPatientByAuthUserId → patient. Sessão sem patient = pending.
  *
- * - demo: identidade = pin de env (comportamento de hoje). Nenhuma query dispara.
- * - real: auth.uid() → getPatientByAuthUserId → patient. Sessão sem patient = pending.
- *
- * Efeito colateral (modo real): empurra o profile resolvido para o seam SÍNCRONO
- * `currentPatient` para que os consumidores de api/ resolvam o paciente autenticado sem tocar
- * em cada call site. Falhas de resolução vão ao Sentry com source:"auth" (sem PII).
+ * Efeito colateral: empurra o profile resolvido para o seam síncrono `currentPatient`
+ * DURANTE o render (não em efeito), para as queries das telas protegidas lerem o id no
+ * mesmo commit. Sem sessão, grava null — nunca um UUID fixo.
  */
 export function useIdentity(): ResolvedPatientIdentity {
   const { session, loading: authLoading } = useAuth();
-
-  const authUserId = isRealAuth ? session?.user.id ?? null : null;
+  const authUserId = session?.user.id ?? null;
 
   const patientQuery = useQuery({
     queryKey: ["identity", "patientByAuthUser", authUserId ?? "none"],
@@ -33,32 +28,19 @@ export function useIdentity(): ResolvedPatientIdentity {
         throw err;
       }
     },
-    enabled: isRealAuth && Boolean(authUserId),
+    enabled: Boolean(authUserId),
     staleTime: Infinity,
   });
 
-  const loading =
-    authLoading || (isRealAuth && Boolean(authUserId) && patientQuery.isLoading);
+  const loading = authLoading || (Boolean(authUserId) && patientQuery.isLoading);
 
   const resolved = resolvePatientIdentity({
-    mode: AUTH_MODE,
     loading,
-    demoProfileId: DEMO_PATIENT_PROFILE_ID,
-    session:
-      isRealAuth && session
-        ? { userId: session.user.id, email: session.user.email ?? null }
-        : null,
+    session: session ? { userId: session.user.id, email: session.user.email ?? null } : null,
     patient: patientQuery.data ?? null,
   });
 
-  // Bridge (só modo real): sincroniza o seam SÍNCRONO `currentPatient` com o profile resolvido
-  // DURANTE o render (não em efeito). `useIdentity` só é chamado pelo `RequireAuth` (pai das
-  // rotas protegidas), então isto roda ANTES de as telas protegidas — e suas queries — montarem
-  // no MESMO commit. Um efeito do pai rodaria DEPOIS dos efeitos/fetch do filho (tarde demais):
-  // `getMyPatientId` leria o holder vazio e o react-query cachearia null sob `staleTime:Infinity`
-  // (chave estática `['myPatientId']`), quebrando notificações/conquistas/jornada/mapa a sessão
-  // inteira. A escrita é idempotente e determinística (mesmo valor a cada render).
-  if (isRealAuth) setActivePatientProfileId(resolved.patientProfileId);
+  setActivePatientProfileId(resolved.patientProfileId);
 
   return resolved;
 }

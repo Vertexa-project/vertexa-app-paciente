@@ -111,7 +111,7 @@ async function mirror(type: EventType, payload?: Record<string, unknown>): Promi
   try {
     const patientId = await getMyPatientId();
     // Sem paciente resolvido não há o que gravar e não há falha a reportar: é o caminho de
-    // sessão sem identidade (demo / pré-login), não uma recusa do banco. Avisar aqui encheria
+    // sessão sem identidade (pré-login), não uma recusa do banco. Avisar aqui encheria
     // a tela de erro a cada toque. Silêncio proposital, e SÓ aqui.
     if (!patientId) return false;
     await logActivityEvent({ patientId, type, payload: payload ?? null });

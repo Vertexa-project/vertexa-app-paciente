@@ -3,7 +3,7 @@ import { getCurrentPatientProfileId } from "@/lib/currentPatient";
 import type { PatientWithProfile } from "./types";
 
 /**
- * Returns the current patient (demo: Mariana; real: the authenticated patient) joined with
+ * Returns the current authenticated patient joined with its profile.
  * its profile. Resolves by profiles.id via the patients.profile_id FK.
  */
 export async function getPatient(): Promise<PatientWithProfile | null> {
@@ -57,7 +57,7 @@ export async function getPatientByAuthUserId(
   return { profileId: row.id, patientId: patient.id, displayName: row.full_name ?? null };
 }
 
-// Memo de patients.id da sessão, CHAVEADO pelo profile atuante. Em demo o profile é constante
+// Memo de patients.id da sessão, CHAVEADO pelo profile atuante. Ao trocar de identidade
 // (o pin) → resolve uma vez, igual a antes. Em real, ao trocar de identidade (login/logout) o
 // profile muda → re-resolve automaticamente (não serve o patientId de outra identidade).
 let patientIdCache: { profileId: string; promise: Promise<string | null> } | null = null;

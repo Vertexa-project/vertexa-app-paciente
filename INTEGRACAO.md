@@ -6,12 +6,12 @@ Sentry (browser) DSN-gated — sem `VITE_SENTRY_DSN` é no-op absoluto (o app ro
 Não altera o contrato de dados: o app segue só consumindo o mesmo Supabase. Detalhes,
 garantias de scrubbing (LGPD/saúde) e como validar um evento de teste em `docs/OBSERVABILITY.md`.
 
-## Autenticação (AUTH-02, app paciente)
+## Autenticação (AUTH-02 / WP-04B, app paciente)
 
-Login real com Google atrás de `VITE_AUTH_MODE` (default `demo` → app IDÊNTICO a hoje; `real` →
-login Google). **Nenhuma migration/RLS é criada aqui** — a autoridade do banco é o web (AUTH-01/
-AUTH-02: trigger `handle_new_user` surface-aware fail-closed + `profiles.auth_user_id`). O app só
-consome.
+O app usa **somente** autenticação Supabase/Google. Não há modo demonstração.
+`VITE_AUTH_MODE` é legado: ausente / vazio / `"real"` sobe; `"demo"` ou qualquer outro valor
+**falha no boot** (`assertAuthMode`). A variável na Vercel pode permanecer `real` (inócua).
+**Nenhuma migration/RLS é criada aqui** — a autoridade do banco é o web.
 
 **Contrato de identidade do paciente** (resolver PURO em `src/lib/auth/identity.ts`):
 
@@ -19,16 +19,15 @@ consome.
 auth.uid() → profiles.auth_user_id → profiles.id → patients.profile_id → patient
 ```
 
-Estados: `loading | anonymous | demo | active | pending`. `active` só quando existe um `patients`
-ligado ao profile do uid. Resolução real em `src/hooks/useIdentity.ts`
-(`getPatientByAuthUserId`); o modo demo usa o pin `VITE_DEMO_PATIENT_PROFILE_ID` (ramo demo
-IGNORADO em modo real).
+Estados: `loading | anonymous | active | pending`. `active` só quando existe um `patients`
+ligado ao profile do uid. Resolução em `src/hooks/useIdentity.ts` (`getPatientByAuthUserId`).
+Sem sessão não há paciente. Não há pin de env.
 
-**FAIL-CLOSED (`src/app/RequireAuth.tsx`):** em modo real, sessão sem identidade resolvida
+**FAIL-CLOSED (`src/app/RequireAuth.tsx`):** sessão sem identidade resolvida
 (`pending`/não resolvida) → `PendingAccessScreen` (tela neutra "peça à sua clínica para te
-cadastrar"), **nunca** o app. Sem sessão → `/login`. Em modo demo o guard é pass-through.
+cadastrar"), **nunca** o app. Sem sessão → `/login`.
 
-**Google-first (DÍVIDA-AUTH-3):** em `real`, a tela de login expõe SOMENTE "Entrar com Google"
+**Google-first (DÍVIDA-AUTH-3):** a tela de login expõe SOMENTE "Entrar com Google"
 (sem e-mail/senha, sem Apple) — coerente com o gate do trigger (só o provider Google associa/
 verifica o e-mail). O `signInWithOAuth` marca `signup_surface='patient_app'` (via `queryParams`).
 

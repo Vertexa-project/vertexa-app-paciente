@@ -36,14 +36,13 @@ const App = () => (
         <BrowserRouter>
           <FloatingChatButton />
           <Routes>
-            {/* Públicas: entrada + retorno do OAuth. Em demo, tudo se comporta como hoje. */}
+            {/* Públicas: entrada + retorno do OAuth. */}
             <Route path="/" element={<Splash />} />
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/login" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
 
-            {/* Protegidas (modo real): exigem sessão + identidade 'active'. Em demo, RequireAuth
-                é pass-through → app IDÊNTICO a hoje. */}
+            {/* Protegidas: exigem sessão + identidade 'active'. */}
             <Route element={<RequireAuth><Outlet /></RequireAuth>}>
               <Route path="/home" element={<HomePage />} />
               <Route path="/progress" element={<Progress />} />
