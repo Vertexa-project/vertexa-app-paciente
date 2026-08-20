@@ -5,11 +5,14 @@ import { startEventSync } from "@/lib/eventSync";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { ErrorBoundary } from "@/app/ErrorBoundary";
 import { initObservability } from "@/lib/observability/sentry";
+import { assertAuthMode } from "@/lib/auth/authMode";
 
 // Observabilidade primeiro: liga o Sentry ANTES do render para capturar erros de boot,
 // independentemente do branch abaixo (app real ou tela de configuração). Sem
 // VITE_SENTRY_DSN é um no-op absoluto — o app roda idêntico com e sem observabilidade.
 initObservability();
+// Fail-closed: VITE_AUTH_MODE=demo (ou qualquer valor que não seja real/vazio) não sobe o app.
+assertAuthMode();
 
 const root = createRoot(document.getElementById("root")!);
 

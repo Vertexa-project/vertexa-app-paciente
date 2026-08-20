@@ -1,10 +1,10 @@
 // TEMPORARY dev-only smoke check for Etapa 4a.
-// Confirms the app can read the demo patient (Mariana) and her chat channel from Supabase.
+// Confirms the app can read the authenticated patient and her chat channel from Supabase.
 // Remove once a real screen consumes the api/ layer.
 import { getPatient, getMyChannel } from "@/lib/api";
 
 export async function runSupabaseSmokeCheck(): Promise<void> {
-  console.log("[VERTEXA Supabase] smoke check: reading demo patient + channel...");
+  console.log("[VERTEXA Supabase] smoke check: reading current patient + channel...");
   try {
     const [patient, channel] = await Promise.all([getPatient(), getMyChannel()]);
     console.log("[VERTEXA Supabase] patient:", patient?.profile?.full_name ?? "(none)", patient);

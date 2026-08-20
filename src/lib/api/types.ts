@@ -64,7 +64,7 @@ export interface ChatMessageView {
   createdAt: string | null;
   senderProfileId: string | null;
   senderRole: UserRole;
-  isOwn: boolean; // true when sent by the current (demo) patient
+  isOwn: boolean; // true when sent by the current patient
   /**
    * `profiles.full_name` CRU do remetente, ou null. NÃO é o rótulo da tela — quem monta o rótulo é
    * `messageAuthor` (lib/chatTeam.ts), o ÚNICO lugar que resolve autor, para a bolha e a citação

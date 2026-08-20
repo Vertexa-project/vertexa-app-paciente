@@ -54,7 +54,7 @@ function adapt(p: PatientWithProfile): Identity {
 }
 
 /**
- * Real patient identity (demo: Mariana) via getPatient(). Only identity fields
+ * Identidade do paciente autenticado via getPatient(). Only identity fields
  * (name, goal, weights, avatar); the rest of the screens stay on mock for now (4c-3a).
  */
 export function useMe() {

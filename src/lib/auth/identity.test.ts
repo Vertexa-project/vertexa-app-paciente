@@ -3,26 +3,22 @@ import { describe, expect, it } from "vitest";
 import { resolvePatientIdentity, type PatientRecord } from "./identity";
 
 /**
- * Prova PURA do resolver de identidade do paciente. Cobre TODOS os estados e, em especial, os
- * dois invariantes de segurança do WP:
- *   1) modo real IGNORA o pin/currentPatient demo;
- *   2) sessão real SEM patient → 'pending' (FAIL-CLOSED), nunca 'active'/app.
+ * Prova PURA do resolver. Sem sessão não há paciente. Sessão sem patient → pending.
+ * Nenhum UUID de env entra na identidade.
  */
 
-const DEMO_PIN = "00000000-0000-0000-0000-0000000000b1";
-const SESSION = { userId: "auth-uid-123", email: "mariana@example.com" };
+const SESSION = { userId: "auth-uid-123", email: "paciente@clinica.com" };
 const PATIENT: PatientRecord = {
   profileId: "11111111-1111-1111-1111-111111111111",
   patientId: "22222222-2222-2222-2222-222222222222",
-  displayName: "Mariana",
+  displayName: "Helena Braga",
 };
+const FIXED_PIN = "00000000-0000-0000-0000-0000000000b1";
 
-describe("resolvePatientIdentity — estados", () => {
+describe("resolvePatientIdentity — estados (nunca demo)", () => {
   it("loading → status 'loading' e nada resolvido", () => {
     const r = resolvePatientIdentity({
-      mode: "real",
       loading: true,
-      demoProfileId: DEMO_PIN,
       session: SESSION,
       patient: PATIENT,
     });
@@ -31,104 +27,50 @@ describe("resolvePatientIdentity — estados", () => {
     expect(r.patientId).toBeNull();
   });
 
-  it("demo → status 'demo', patientProfileId = pin", () => {
+  it("sem sessão → 'anonymous', nenhum profile/paciente", () => {
     const r = resolvePatientIdentity({
-      mode: "demo",
       loading: false,
-      demoProfileId: DEMO_PIN,
       session: null,
       patient: null,
     });
-    expect(r.status).toBe("demo");
-    expect(r.patientProfileId).toBe(DEMO_PIN);
-    expect(r.email).toBeNull();
+    expect(r.status).toBe("anonymous");
+    expect(r.patientProfileId).toBeNull();
+    expect(r.patientId).toBeNull();
+    expect(r.patientProfileId).not.toBe(FIXED_PIN);
   });
 
-  it("real + sessão + patient → 'active' com profile/patient/displayName", () => {
+  it("sessão + patient → 'active' com profile/patient do registro real", () => {
     const r = resolvePatientIdentity({
-      mode: "real",
       loading: false,
-      demoProfileId: DEMO_PIN,
       session: SESSION,
       patient: PATIENT,
     });
     expect(r.status).toBe("active");
     expect(r.patientProfileId).toBe(PATIENT.profileId);
     expect(r.patientId).toBe(PATIENT.patientId);
-    expect(r.displayName).toBe("Mariana");
+    expect(r.displayName).toBe("Helena Braga");
     expect(r.email).toBe(SESSION.email);
+    expect(r.patientProfileId).not.toBe(FIXED_PIN);
   });
 
-  it("real + sessão SEM patient → 'pending' (FAIL-CLOSED), nunca 'active'", () => {
+  it("sessão SEM patient → 'pending' (FAIL-CLOSED), nunca 'active' nem UUID fixo", () => {
     const r = resolvePatientIdentity({
-      mode: "real",
       loading: false,
-      demoProfileId: DEMO_PIN,
       session: SESSION,
       patient: null,
     });
     expect(r.status).toBe("pending");
-    expect(r.patientProfileId).toBeNull(); // não expõe nenhum patient
-    expect(r.patientId).toBeNull();
-  });
-
-  it("real SEM sessão → 'anonymous'", () => {
-    const r = resolvePatientIdentity({
-      mode: "real",
-      loading: false,
-      demoProfileId: DEMO_PIN,
-      session: null,
-      patient: null,
-    });
-    expect(r.status).toBe("anonymous");
     expect(r.patientProfileId).toBeNull();
+    expect(r.patientId).toBeNull();
+    expect(r.patientProfileId).not.toBe(FIXED_PIN);
   });
 
   it("displayName cai para o e-mail quando o patient não tem nome", () => {
     const r = resolvePatientIdentity({
-      mode: "real",
       loading: false,
-      demoProfileId: DEMO_PIN,
       session: SESSION,
       patient: { ...PATIENT, displayName: null },
     });
     expect(r.displayName).toBe(SESSION.email);
-  });
-});
-
-describe("resolvePatientIdentity — invariante: modo real IGNORA o pin de demo", () => {
-  it("real SEM sessão não vaza o pin (patientProfileId null, não o DEMO_PIN)", () => {
-    const r = resolvePatientIdentity({
-      mode: "real",
-      loading: false,
-      demoProfileId: DEMO_PIN,
-      session: null,
-      patient: null,
-    });
-    expect(r.patientProfileId).not.toBe(DEMO_PIN);
-    expect(r.patientProfileId).toBeNull();
-  });
-
-  it("real + patient usa o profile do patient, NUNCA o pin de demo", () => {
-    const r = resolvePatientIdentity({
-      mode: "real",
-      loading: false,
-      demoProfileId: DEMO_PIN,
-      session: SESSION,
-      patient: PATIENT,
-    });
-    expect(r.patientProfileId).toBe(PATIENT.profileId);
-    expect(r.patientProfileId).not.toBe(DEMO_PIN);
-  });
-
-  it("real 'pending' não cai para o pin de demo", () => {
-    const r = resolvePatientIdentity({
-      mode: "real",
-      loading: false,
-      demoProfileId: DEMO_PIN,
-      session: SESSION,
-      patient: null,
-    });
-    expect(r.patientProfileId).not.toBe(DEMO_PIN);
   });
 });
