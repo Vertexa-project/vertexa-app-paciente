@@ -2,14 +2,11 @@ import { supabase } from "@/lib/supabase";
 import { getMyPatientId } from "./patient";
 
 /**
- * Quantos vínculos ATIVOS a paciente tem no próprio cadastro (WP-APP-7 item 2.4).
- *
- * PARA QUE SERVE: separar duas ausências que o Perfil vinha misturando numa só. O NOME do
- * profissional sai da RPC `channel_professionals`, que depende de existir `chat_channels` —
- * criado por `get_or_create_channel`, que o app do PACIENTE nunca chama (quem chama é o
- * painel, ao abrir a conversa). Então "sem nome" hoje pode ser duas coisas muito diferentes:
- * ela TEM profissional e ninguém abriu a conversa, ou ela não tem vínculo nenhum. A segunda
- * é uma afirmação séria, e o app só pode fazê-la se souber.
+ * ⚠️ WP-09B2: o Perfil NÃO usa mais esta função. A equipe clínica passa a vir de
+ * `getMyCareTeam` (RPC get_my_care_team), que já resolve nome sem canal. Este contador
+ * existia para separar "tem vínculo mas o nome não chegou (sem chat)" de "não tem vínculo".
+ * Essa compensação deixa de fazer sentido. A função permanece exportada caso outro
+ * consumidor legítimo apareça — não apagar globalmente sem inventário.
  *
  * ELA PODE LER ISSO, e a policy é explícita: `ppl_select` tem o ramo
  * `private.is_self_patient(patient_id)`, que é

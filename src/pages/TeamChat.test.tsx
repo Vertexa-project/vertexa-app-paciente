@@ -53,6 +53,9 @@ const api = vi.hoisted(() => ({
 
 vi.mock("@/lib/api", () => ({
   getMyChannel: vi.fn(async () => ({ id: CHANNEL, patient_id: "pat-1" })),
+  getMyCareTeam: vi.fn(async () => {
+    throw new Error("TeamChat must not call getMyCareTeam");
+  }),
   getMessagesByIds: vi.fn(async () => []),
   listChannelProfessionals: vi.fn(async (channelId: string, includeAuthors = false) => {
     api.calls.push({ channelId, includeAuthors });
@@ -186,5 +189,27 @@ describe("SENTIDO 2 — quem cuida de mim: a desativada NÃO é oferecida", () =
   it("o rótulo do topo (quem lê esta conversa) também só cita quem ficou", async () => {
     renderChat();
     expect(await screen.findByText("Colega lê esta conversa")).toBeInTheDocument();
+  });
+});
+
+describe("WP-09B2 — TeamChat continua roster-based, não Care Team", () => {
+  it("T17/T19: monta o roster só com channel_professionals, nunca get_my_care_team", async () => {
+    const { getMyCareTeam, listChannelProfessionals } = await import("@/lib/api");
+    renderChat();
+    await waitFor(() => expect(api.calls.length).toBeGreaterThanOrEqual(2));
+    expect(listChannelProfessionals).toHaveBeenCalled();
+    expect(getMyCareTeam).not.toHaveBeenCalled();
+    expect(api.calls.every((c) => c.channelId === CHANNEL)).toBe(true);
+  });
+
+  it("T18: o seletor de menção continua no roster do canal", async () => {
+    renderChat();
+    await screen.findByText("Dra. Alvo Silva");
+    const input = screen.getByPlaceholderText(/mensagem/i);
+    fireEvent.change(input, { target: { value: "@" } });
+    const seletor = await screen.findByText("Direcionar para a equipe:");
+    const menu = seletor.closest("div")?.parentElement as HTMLElement;
+    expect(within(menu).getByText("Dr. Colega Fica")).toBeInTheDocument();
+    expect(within(menu).queryByText("Dra. Alvo Silva")).not.toBeInTheDocument();
   });
 });

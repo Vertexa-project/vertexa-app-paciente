@@ -7,15 +7,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/providers/auth-context";
 import { useMe } from "@/hooks/useMe";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getLatestAdherenceState, listMyCareTeam, countMyActiveProfessionalLinks } from "@/lib/api";
-import { careTeamLabel } from "@/lib/careTeam";
+import { getLatestAdherenceState, getMyCareTeam } from "@/lib/api";
+import { careTeamDisplayName, careTeamInitials } from "@/lib/careTeam";
+import { DISCIPLINE_NOT_INFORMED, professionalDisciplineLabel } from "@/lib/chatTeam";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import NoPrescriptionYet, {
-  PROFESSIONAL_UNAVAILABLE_TITLE,
-  PROFESSIONAL_UNAVAILABLE_MESSAGE,
-  LINKED_NAME_UNAVAILABLE_TITLE,
-  LINKED_NAME_UNAVAILABLE_MESSAGE,
   NO_ACTIVE_LINK_TITLE,
   NO_ACTIVE_LINK_MESSAGE,
 } from "@/components/NoPrescriptionYet";
@@ -51,23 +49,9 @@ export default function Profile() {
   const adherenceQuery = useQuery({ queryKey: ["adherence"], queryFn: getLatestAdherenceState });
   const state = adherenceQuery.data ?? null;
 
-  // Equipe responsável REAL (WP-APP-4 item 2) — ver listMyCareTeam (lib/api/chat.ts) para por que
-  // o caminho é o roster do canal e não o join direto (a RLS de `professionals` fecha para ela).
-  const careTeamQuery = useQuery({ queryKey: ["careTeam"], queryFn: listMyCareTeam });
-  const professionalLabel = careTeamQuery.data ? careTeamLabel(careTeamQuery.data) : null;
-
-  // WP-APP-7 item 2.4 — só entra em cena quando NÃO HÁ NOME. Serve para dizer QUAL das duas
-  // ausências é: "tem vínculo e o nome não chegou" ou "não há vínculo". `enabled` evita a
-  // leitura no caso comum (nome resolvido), que é a maioria em produção.
-  // `null` do queryFn = não deu para saber (sem patients.id); erro propaga. Nos dois casos
-  // caímos no texto neutro de antes, que não afirma nem uma coisa nem outra.
-  const noName = !careTeamQuery.isPending && !careTeamQuery.isError && !professionalLabel;
-  const linksQuery = useQuery({
-    queryKey: ["myProfessionalLinks"],
-    queryFn: countMyActiveProfessionalLinks,
-    enabled: noName,
-  });
-  const activeLinks = linksQuery.data ?? null;
+  // Equipe clínica REAL (WP-09B2) — RPC get_my_care_team, independente de chat/canal.
+  const careTeamQuery = useQuery({ queryKey: ["careTeam"], queryFn: getMyCareTeam });
+  const careTeam = careTeamQuery.data ?? [];
 
   useEffect(() => { tracker.track('profile_viewed'); }, []);
 
@@ -199,77 +183,59 @@ export default function Profile() {
             </div>
           )}
 
-          {/* PROFISSIONAL RESPONSÁVEL — nome REAL (WP-APP-4 item 2).
-              Substituiu "Dra. Camila Rocha" (mockData.ts:6), que não é ninguém: uma profissional
-              inventada, apresentada à paciente como a pessoa que cuida dela. E o app já se
-              contradizia sozinho — a tela de compartilhar exibia "Dra. Juliana Santiago" para o
-              MESMO campo. Três estados, como no resto do app:
-                · carregando -> skeleton (nunca afirmar ausência antes de a leitura resolver);
-                · falhou     -> diz que falhou e oferece tentar de novo (falha ≠ "não tem");
-                · resolveu sem ninguém -> "ainda não disponível", NUNCA "não tem profissional":
-                  o canal de onde o nome sai é criado pelo PROFISSIONAL, não por ela, então
-                  paciente nova com vínculo real cai aqui. Ver PROFESSIONAL_UNAVAILABLE_*. */}
+          {/* MINHA EQUIPE — RPC get_my_care_team (WP-09B2).
+              Independente de canal. Multiprofissional: 0 / 1 / N membros, todos visíveis.
+              countMyActiveProfessionalLinks saiu daqui: era workaround de "tem vínculo mas
+              o nome depende do chat". A RPC já devolve a equipe clínica. */}
           {careTeamQuery.isPending ? (
             <div className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border">
               <Stethoscope size={18} className="text-primary" />
-              <span className="text-sm text-foreground flex-1 text-left">Profissional responsável</span>
+              <span className="text-sm text-foreground flex-1 text-left">Minha equipe</span>
               <Skeleton className="h-3 w-24 rounded" />
             </div>
           ) : careTeamQuery.isError ? (
             <div className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border">
               <Stethoscope size={18} className="text-muted-foreground" />
-              <span className="text-xs text-red-400 flex-1 text-left">Não foi possível carregar seu profissional.</span>
+              <span className="text-xs text-red-400 flex-1 text-left">Não foi possível carregar sua equipe.</span>
               <button onClick={() => careTeamQuery.refetch()} className="text-[11px] font-semibold text-primary whitespace-nowrap">
                 Tentar novamente
               </button>
             </div>
-          ) : professionalLabel ? (
-            // <div>, não <button> (WP-APP-6 item 3.3). Eu mesmo introduzi este botão com seta e
-            // sem onClick no WP-APP-4 — é o mesmo defeito dos outros itens deste card, e os dois
-            // estados irmãos logo acima já eram <div>. Não há tela de profissional para onde ir.
-            <div className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border">
-              <Stethoscope size={18} className="text-primary" />
-              <span className="text-sm text-foreground flex-1 text-left">Profissional responsável</span>
-              <span className="text-xs text-muted-foreground max-w-[140px] truncate">{professionalLabel}</span>
+          ) : careTeam.length > 0 ? (
+            <div className="border-b border-border">
+              <div className="w-full flex items-center gap-3 px-4 pt-3.5 pb-2">
+                <Stethoscope size={18} className="text-primary" />
+                <span className="text-sm text-foreground flex-1 text-left">Minha equipe</span>
+              </div>
+              <ul className="px-4 pb-3.5 space-y-3">
+                {careTeam.map((pro) => {
+                  const name = careTeamDisplayName(pro);
+                  const qualification = professionalDisciplineLabel(pro) ?? DISCIPLINE_NOT_INFORMED;
+                  return (
+                    <li key={pro.professionalId} className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        {pro.avatarUrl ? <AvatarImage src={pro.avatarUrl} alt={name} /> : null}
+                        <AvatarFallback className="text-[11px] font-semibold text-muted-foreground">
+                          {careTeamInitials(pro)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-foreground truncate">{name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{qualification}</p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           ) : (
-            /* SEM NOME — e agora a tela diz QUAL das duas ausências é (WP-APP-7 item 2.4).
-               Precedência: o NOME do roster sempre ganha (ramo acima). Estes ramos só existem
-               quando não há nome, e a pergunta que eles respondem é sobre o CADASTRO dela.
-                 · lendo os vínculos        -> skeleton (não afirmar antes de saber)
-                 · vínculos ativos > 0      -> "tem vínculo, o nome não aparece aqui"
-                 · vínculos ativos == 0     -> "não há vínculo" (única vez em que dá para
-                                               afirmar ausência: o app leu o cadastro)
-                 · não deu para saber/erro  -> o texto neutro de antes, que não afirma nada */
             <div className="p-3 border-b border-border">
-              {linksQuery.isPending ? (
-                <div className="flex items-center gap-3 px-1 py-2">
-                  <Stethoscope size={18} className="text-muted-foreground/60" />
-                  <span className="text-sm text-muted-foreground flex-1">Profissional responsável</span>
-                  <Skeleton className="h-3 w-24 rounded" />
-                </div>
-              ) : activeLinks === null ? (
-                <NoPrescriptionYet
-                  title={PROFESSIONAL_UNAVAILABLE_TITLE}
-                  message={PROFESSIONAL_UNAVAILABLE_MESSAGE}
-                  icon={Stethoscope}
-                  variant="row"
-                />
-              ) : activeLinks > 0 ? (
-                <NoPrescriptionYet
-                  title={LINKED_NAME_UNAVAILABLE_TITLE}
-                  message={LINKED_NAME_UNAVAILABLE_MESSAGE}
-                  icon={Stethoscope}
-                  variant="row"
-                />
-              ) : (
-                <NoPrescriptionYet
-                  title={NO_ACTIVE_LINK_TITLE}
-                  message={NO_ACTIVE_LINK_MESSAGE}
-                  icon={Stethoscope}
-                  variant="row"
-                />
-              )}
+              <NoPrescriptionYet
+                title={NO_ACTIVE_LINK_TITLE}
+                message={NO_ACTIVE_LINK_MESSAGE}
+                icon={Stethoscope}
+                variant="row"
+              />
             </div>
           )}
 
