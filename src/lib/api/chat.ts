@@ -192,38 +192,10 @@ export async function listChannelProfessionals(
 }
 
 /**
- * A EQUIPE RESPONSÁVEL pela paciente — os profissionais com vínculo ATIVO e NÃO-EXTERNO.
- *
- * POR QUE PASSA PELO CANAL (WP-APP-4 item 2), e não pelo caminho óbvio: o caminho óbvio NÃO
- * EXISTE para a paciente. `professional_patient_links` ela LÊ (`ppl_select` tem o ramo
- * `private.is_self_patient(patient_id)`), mas a linha só traz `professional_id` — e resolver
- * isso em nome exige `professionals`, cuja RLS é `profile_id = current_profile_id() OR
- * is_clinic_admin(clinic_id)`: ela não é nenhum dos dois. Pedir o embed devolveria array VAZIO
- * SEM ERRO (o bug silencioso de sempre) e o nome cairia para nulo como se ninguém a atendesse.
- * O NOME em si ela pode ver — `profiles_select` é `can_see_profile`, cujo 4º ramo é exatamente
- * "profissional com vínculo ativo à paciente que sou eu". O que falta é a ponte até ele.
- *
- * `channel_professionals` é essa ponte, e já existe: SECURITY DEFINER, portão fail-closed em
- * `can_read_channel`, e é a MESMA RPC que o seletor de @ do chat usa. O roster que ela lê não é
- * um subconjunto arbitrário: `get_or_create_channel` o reconcilia a cada chamada contra
- * `professional_patient_links` com `status='active' AND is_external=false` — inserindo quem
- * entrou e DELETANDO quem perdeu o vínculo. É a mesma definição de "equipe responsável",
- * derivada da mesma tabela.
- *
- * Sem canal (paciente sem equipe vinculada) → lista VAZIA, e a tela mostra o estado vazio
- * honesto. NÃO chama `get_or_create_channel`: ler o perfil não pode CRIAR canal como efeito
- * colateral. Erro propaga — quem chama distingue "falhou" de "não tem".
+ * Care Team clínico (quem acompanha a paciente) NÃO mora neste módulo.
+ * Fonte: public.get_my_care_team — ver src/lib/api/careTeam.ts.
+ * Aqui só o roster do CANAL (channel_professionals): participantes da conversa.
  */
-export async function listMyCareTeam(): Promise<ChannelProfessional[]> {
-  const channel = await getMyChannel();
-  if (!channel) return [];
-  // FALSE, EXPLÍCITO E OBRIGATÓRIO (WP-FRONT-2bii-B): a pergunta aqui é "quem cuida de mim
-  // HOJE". Incluir autores traria de volta quem a clínica desativou, e o Perfil passaria a
-  // apresentar como responsável atual alguém que não atende mais — exatamente a UI que mente
-  // que estes WPs vêm apagando. O default já é false; escrever mesmo assim é para que a
-  // mudança dessa decisão tenha de ser deliberada.
-  return listChannelProfessionals(channel.id, false);
-}
 
 export interface SendPatientMessageInput {
   channelId: string;

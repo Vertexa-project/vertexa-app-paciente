@@ -2,12 +2,12 @@
 export * from "./types";
 export { getPatient, getMyPatientId } from "./patient";
 export { countMyActiveProfessionalLinks } from "./professionalLinks";
+export { getMyCareTeam } from "./careTeam";
 export {
   getMyChannel,
   getChannelMessages,
   getMessagesByIds,
   listChannelProfessionals,
-  listMyCareTeam,
   sendPatientMessage,
   subscribeToChannelMessages,
 } from "./chat";

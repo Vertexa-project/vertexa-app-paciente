@@ -55,6 +55,24 @@ export interface ChannelProfessional {
   disciplines: string[];
 }
 
+/**
+ * Membro da equipe clínica ATIVA da paciente (WP-09B2).
+ *
+ * Fonte: RPC public.get_my_care_team() — NÃO é o roster do chat.
+ * CARE TEAM  = professional_patient_links ativos + internos + professional ativo.
+ * CHAT ROSTER = channel_professionals (ChannelProfessional).
+ */
+export interface CareTeamMember {
+  professionalId: string;
+  profileId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  type: ProfessionalType | null;
+  specialty: string | null;
+  /** Códigos de public.disciplines. Pode vir vazio. */
+  disciplines: string[];
+}
+
 // A chat message with sender display already resolved for the UI.
 export interface ChatMessageView {
   id: string;
