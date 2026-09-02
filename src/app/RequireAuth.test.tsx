@@ -19,6 +19,21 @@ vi.mock("@/hooks/useIdentity", () => ({
 vi.mock("@/pages/PendingAccessScreen", () => ({
   PendingAccessScreen: () => <div data-testid="tela-pendente" />,
 }));
+vi.mock("@/pages/ClinicSuspendedScreen", () => ({
+  ClinicSuspendedScreen: () => <div data-testid="tela-suspensa" />,
+}));
+
+const clinicState = vi.hoisted(() => ({
+  data: { accessState: "operational", clinicStatus: "active" } as
+    | { accessState: string; clinicStatus: string | null }
+    | undefined,
+  isLoading: false,
+  isError: false,
+}));
+
+vi.mock("@/hooks/useClinicAccessState", () => ({
+  useClinicAccessState: () => clinicState,
+}));
 
 const { RequireAuth } = await import("./RequireAuth");
 
@@ -36,6 +51,9 @@ beforeEach(() => {
   state.authLoading = false;
   state.session = { user: { id: "auth-1" } };
   state.identity = { status: "active" } as unknown as ResolvedPatientIdentity;
+  clinicState.data = { accessState: "operational", clinicStatus: "active" };
+  clinicState.isLoading = false;
+  clinicState.isError = false;
 });
 
 describe("RequireAuth — sem identidade demo (WP-04B)", () => {
@@ -57,5 +75,13 @@ describe("RequireAuth — sem identidade demo (WP-04B)", () => {
     renderGuard();
     expect(screen.getByTestId("tela-pendente")).toBeInTheDocument();
     expect(screen.queryByTestId("app")).not.toBeInTheDocument();
+  });
+
+  it("S30 — active + clínica suspensa mostra ClinicSuspended e não monta o app", () => {
+    clinicState.data = { accessState: "clinic_suspended", clinicStatus: "suspended" };
+    renderGuard();
+    expect(screen.getByTestId("tela-suspensa")).toBeInTheDocument();
+    expect(screen.queryByTestId("app")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tela-pendente")).not.toBeInTheDocument();
   });
 });
