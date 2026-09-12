@@ -1,18 +1,19 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 // Settings e Shield saíram junto com os itens "Configurações" e "Privacidade" (WP-APP-6 3.3).
-import { ArrowLeft, ChevronRight, User, Target, Stethoscope, Bell as BellIcon, LogOut, Camera, Zap, Route } from "lucide-react";
+import { ArrowLeft, ChevronRight, Target, Stethoscope, Bell as BellIcon, LogOut, Zap, Route } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/providers/auth-context";
 import { useMe } from "@/hooks/useMe";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getLatestAdherenceState, getMyCareTeam } from "@/lib/api";
-import { careTeamDisplayName, careTeamInitials } from "@/lib/careTeam";
+import { careTeamDisplayName } from "@/lib/careTeam";
 import { DISCIPLINE_NOT_INFORMED, professionalDisciplineLabel } from "@/lib/chatTeam";
 import { tracker } from "@/lib/eventTracker";
+import { OwnAvatarControl } from "@/components/avatar/OwnAvatarControl";
+import { ProfilePhoto } from "@/components/avatar/ProfilePhoto";
 import BottomNav from "@/components/BottomNav";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import NoPrescriptionYet, {
   NO_ACTIVE_LINK_TITLE,
   NO_ACTIVE_LINK_MESSAGE,
@@ -96,14 +97,18 @@ export default function Profile() {
 
         {/* Avatar */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center mb-6">
-          <div className="relative mb-3">
-            <div className="w-24 h-24 rounded-full bg-card flex items-center justify-center border-2 border-primary">
-              <User size={40} className="text-muted-foreground" />
+          {me.profileId ? (
+            <OwnAvatarControl
+              profileId={me.profileId}
+              name={me.fullName}
+              avatarPath={me.avatarPath ?? null}
+              legacyUrl={me.avatar || null}
+            />
+          ) : (
+            <div className="mb-3">
+              <ProfilePhoto name={me.fullName} className="h-24 w-24 border-2 border-primary text-lg" />
             </div>
-            <button className="absolute bottom-0 right-0 w-8 h-8 rounded-full gradient-orange flex items-center justify-center shadow-orange">
-              <Camera size={14} className="text-primary-foreground" />
-            </button>
-          </div>
+          )}
           <h2 className="text-lg font-display font-bold text-foreground">{meLoading ? <Skeleton className="h-6 w-44 rounded" /> : me.fullName}</h2>
           {/* "Paciente desde": `patients.start_date` REAL. Antes vinha de `patient.startDate`
               (mockData.ts:8 — 2025-01-15), a mesma data de início para toda paciente do app.
@@ -213,12 +218,13 @@ export default function Profile() {
                   const qualification = professionalDisciplineLabel(pro) ?? DISCIPLINE_NOT_INFORMED;
                   return (
                     <li key={pro.professionalId} className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        {pro.avatarUrl ? <AvatarImage src={pro.avatarUrl} alt={name} /> : null}
-                        <AvatarFallback className="text-[11px] font-semibold text-muted-foreground">
-                          {careTeamInitials(pro)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <ProfilePhoto
+                        name={name}
+                        avatarPath={pro.avatarPath}
+                        legacyUrl={pro.avatarUrl}
+                        className="h-9 w-9"
+                        alt={name}
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-foreground truncate">{name}</p>
                         <p className="text-xs text-muted-foreground truncate">{qualification}</p>

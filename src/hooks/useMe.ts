@@ -7,7 +7,9 @@ import type { PatientWithProfile } from "@/lib/api";
 export interface Identity {
   name: string; // first name, e.g. "Mariana"
   fullName: string; // "Mariana Albuquerque"
-  avatar: string; // avatar_url or ""
+  avatar: string; // avatar_url legado or ""
+  avatarPath?: string | null;
+  profileId?: string | null;
   goal: string;
   currentWeight: number | null;
   startWeight: number | null;
@@ -44,6 +46,8 @@ function adapt(p: PatientWithProfile): Identity {
     name: fullName.split(/\s+/)[0] || "Paciente",
     fullName: fullName || "Paciente",
     avatar: p.profile?.avatar_url ?? "",
+    avatarPath: p.profile?.avatar_path ?? null,
+    profileId: p.profile?.id ?? p.profile_id ?? null,
     goal: p.goal ?? "",
     currentWeight: toNumber(p.current_weight),
     startWeight: toNumber(p.start_weight),
