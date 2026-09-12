@@ -83,6 +83,7 @@ describe("getMyCareTeam — RPC get_my_care_team, sem canal", () => {
         profileId: PROFILE_A,
         displayName: "Ana Prado",
         avatarUrl: "https://cdn.example/ana.png",
+        avatarPath: null,
         type: "nutritionist",
         specialty: "Nutrição clínica",
         disciplines: ["nutricionista"],

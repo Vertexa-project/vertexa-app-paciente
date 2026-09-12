@@ -17,6 +17,7 @@ export interface Profile {
   full_name: string;
   email: string | null;
   avatar_url: string | null;
+  avatar_path?: string | null;
   created_at: string | null;
 }
 
@@ -67,6 +68,7 @@ export interface CareTeamMember {
   profileId: string;
   displayName: string | null;
   avatarUrl: string | null;
+  avatarPath?: string | null;
   type: ProfessionalType | null;
   specialty: string | null;
   /** Códigos de public.disciplines. Pode vir vazio. */

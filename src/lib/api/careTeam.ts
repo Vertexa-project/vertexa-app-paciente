@@ -23,6 +23,7 @@ interface RawCareTeamRow {
   profile_id: string;
   display_name: string | null;
   avatar_url: string | null;
+  avatar_path: string | null;
   type: ProfessionalType | null;
   specialty: string | null;
   disciplines: string[] | null;
@@ -35,6 +36,7 @@ function mapCareTeamMember(row: RawCareTeamRow): CareTeamMember {
     profileId: row.profile_id,
     displayName,
     avatarUrl: row.avatar_url ?? null,
+    avatarPath: row.avatar_path ?? null,
     type: row.type,
     specialty: row.specialty,
     disciplines: row.disciplines ?? [],
