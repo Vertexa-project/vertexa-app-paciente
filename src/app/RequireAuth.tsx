@@ -26,7 +26,7 @@ function Loading() {
  *   QUALQUER outra identidade → PendingAccessScreen. NUNCA o app. Nunca paciente fake.
  */
 export function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, isPasswordRecovery } = useAuth();
   const identity = useIdentity();
   const askClinic = identity.status === "active";
   const clinicQuery = useClinicAccessState(askClinic);
@@ -44,6 +44,10 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (isPasswordRecovery) {
+    return <Navigate to="/auth/update-password" replace />;
   }
 
   if (identity.status === "active") {

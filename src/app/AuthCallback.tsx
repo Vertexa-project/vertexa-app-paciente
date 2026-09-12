@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, Loader2 } from "lucide-react";
 
+import { isPasswordRecoveryEvent, PASSWORD_RESET_PATH } from "@/lib/auth/passwordRecovery";
 import { captureException } from "@/lib/observability/sentry";
 import { supabase } from "@/lib/supabase";
 
 /**
- * Rota de retorno do OAuth (Google). O client Supabase (detectSessionInUrl = default true) troca
- * o `?code=` por sessão automaticamente; aqui só confirmamos e redirecionamos para /home. Erros
- * do provedor (`?error=`) e falhas de sessão vão ao Sentry (source:"auth", sem PII).
+ * Retorno único de Auth: OAuth Google e confirmação de e-mail.
+ * O client (detectSessionInUrl = default true) troca `?code=` por sessão; daí /home.
+ * AuthProvider chama ensure_my_profile() ao receber a sessão — sem callback paralelo.
+ * Recovery (`PASSWORD_RECOVERY`) vai para /auth/update-password. Sem PII no Sentry.
  */
 export function AuthCallback() {
   const navigate = useNavigate();
@@ -16,11 +18,11 @@ export function AuthCallback() {
 
   useEffect(() => {
     let active = true;
+    let recovery = false;
 
     const params = new URLSearchParams(window.location.search);
     const providerError = params.get("error_description") || params.get("error");
     if (providerError) {
-      // Não logar o e-mail/estado — só a razão do provedor.
       captureException(new Error(`OAuth callback error: ${params.get("error") ?? "unknown"}`), {
         source: "auth",
         scope: "callback",
@@ -29,18 +31,24 @@ export function AuthCallback() {
       return;
     }
 
-    supabase.auth.getSession().then(({ data, error }) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
       if (!active) return;
+      if (isPasswordRecoveryEvent(event)) {
+        recovery = true;
+        navigate(PASSWORD_RESET_PATH, { replace: true });
+        return;
+      }
+      if (next && !recovery) navigate("/home", { replace: true });
+    });
+
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!active || recovery) return;
       if (error) {
         captureException(error, { source: "auth", scope: "callback" });
         setFailed(true);
         return;
       }
       navigate(data.session ? "/home" : "/login", { replace: true });
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      if (next && active) navigate("/home", { replace: true });
     });
 
     return () => {

@@ -1,9 +1,21 @@
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
+
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AUTH_RATE_LIMIT_MESSAGE,
+  LOGIN_INVALID_CREDENTIALS_MESSAGE,
+  isAuthRateLimitedError,
+} from "@/lib/auth/authClientErrors";
+import { AUTH_ACTIVATE_PATH } from "@/lib/auth/activation";
+import { PASSWORD_FORGOT_PATH } from "@/lib/auth/passwordRecovery";
 import { useAuth } from "@/providers/auth-context";
 import logoWordmark from "@/assets/logo/logo_2.png";
+
+import { PasswordField } from "./auth/PasswordField";
 
 /** Logo "G" do Google (inline, sem asset externo). */
 function GoogleGlyph() {
@@ -18,16 +30,39 @@ function GoogleGlyph() {
 }
 
 /**
- * Entrada Google-first (DÍVIDA-AUTH-3). Só "Entrar com Google" — sem e-mail/senha, sem Apple,
- * sem modo demonstração. Se já autenticado, vai direto pro app.
+ * Login e-mail/senha + Google. Sem cadastro clínico aberto.
+ * Sessão recovery vai para update-password; sessão normal para /home (RequireAuth decide pending).
  */
 export default function Login() {
-  const { isAuthenticated, signInWithGoogle } = useAuth();
+  const navigate = useNavigate();
+  const { isAuthenticated, isPasswordRecovery, signIn, signInWithGoogle } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  if (isPasswordRecovery) {
+    return <Navigate to="/auth/update-password" replace />;
+  }
+
   if (isAuthenticated) {
     return <Navigate to="/home" replace />;
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await signIn(email, password);
+      navigate("/home", { replace: true });
+    } catch (cause) {
+      setError(isAuthRateLimitedError(cause) ? AUTH_RATE_LIMIT_MESSAGE : LOGIN_INVALID_CREDENTIALS_MESSAGE);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function handleGoogle() {
@@ -42,33 +77,88 @@ export default function Login() {
   }
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col px-8 pt-16 pb-8">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex-1 flex flex-col">
-        <div className="flex items-center mb-2">
+    <div className="fixed inset-0 overflow-y-auto bg-background px-8 pt-16 pb-8">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mx-auto flex min-h-full w-full max-w-sm flex-col">
+        <div className="mb-2 flex items-center">
           <img src={logoWordmark} alt="VERTEXA" className="h-8 w-auto select-none" draggable={false} />
         </div>
-        <p className="text-muted-foreground text-sm mb-10">Entre para acessar seu acompanhamento</p>
+        <p className="mb-8 text-sm text-muted-foreground">Entre para acessar seu acompanhamento</p>
+
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+          <div className="space-y-2">
+            <Label htmlFor="login-email">E-mail</Label>
+            <Input
+              id="login-email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="h-12 rounded-xl"
+              required
+            />
+          </div>
+
+          <PasswordField
+            id="login-password"
+            label="Senha"
+            value={password}
+            onChange={setPassword}
+            autoComplete="current-password"
+            visible={showPassword}
+            onToggleVisible={() => setShowPassword((value) => !value)}
+          />
+
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-xl text-base font-semibold text-primary-foreground gradient-orange shadow-orange transition-transform active:scale-[0.98] disabled:opacity-60"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+            {submitting ? "Entrando…" : "Entrar"}
+          </button>
+        </form>
+
+        <p className="mt-3 text-center">
+          <button
+            type="button"
+            onClick={() => navigate(PASSWORD_FORGOT_PATH)}
+            className="rounded text-sm font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Esqueci minha senha
+          </button>
+        </p>
+
+        <div className="my-6 flex items-center gap-3">
+          <span className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted-foreground">ou</span>
+          <span className="h-px flex-1 bg-border" />
+        </div>
 
         <button
           type="button"
-          onClick={handleGoogle}
+          onClick={() => void handleGoogle()}
           disabled={submitting}
-          className="h-14 rounded-xl bg-card border border-border flex items-center justify-center gap-2.5 text-foreground text-base font-semibold active:scale-[0.98] transition-transform disabled:opacity-60"
+          className="flex h-14 items-center justify-center gap-2.5 rounded-xl border border-border bg-card text-base font-semibold text-foreground transition-transform active:scale-[0.98] disabled:opacity-60"
         >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleGlyph />}
-          {submitting ? "Abrindo o Google…" : "Entrar com Google"}
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <GoogleGlyph />}
+          Continuar com Google
         </button>
 
-        {error ? (
-          <p className="mt-4 text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="mt-auto pt-6 text-center">
-          <p className="text-muted-foreground text-xs max-w-xs mx-auto">
-            Primeiro acesso? Peça à sua clínica para te cadastrar com o mesmo e-mail do seu Google.
-          </p>
+        <div className="mt-8 pb-4 text-center">
+          <p className="text-sm text-muted-foreground">Ainda não ativou seu acesso?</p>
+          <button
+            type="button"
+            onClick={() => navigate(AUTH_ACTIVATE_PATH)}
+            className="mt-2 rounded text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Ativar minha conta
+          </button>
         </div>
       </motion.div>
     </div>

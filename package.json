@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:local-auth": "vite --mode authemail03 --port 8080",
+    "env:local-auth": "node scripts/use-local-authemail-env.mjs",
+    "qa:local-auth": "node scripts/auth-email-03-local-qa.mjs",
     "build": "tsc -p tsconfig.app.json --noEmit && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
