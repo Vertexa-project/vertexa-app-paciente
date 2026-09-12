@@ -14,6 +14,7 @@ import { tracker } from "@/lib/eventTracker";
 import { OwnAvatarControl } from "@/components/avatar/OwnAvatarControl";
 import { ProfilePhoto } from "@/components/avatar/ProfilePhoto";
 import BottomNav from "@/components/BottomNav";
+import { AccountAccessSection } from "@/pages/account/AccountAccessSection";
 import NoPrescriptionYet, {
   NO_ACTIVE_LINK_TITLE,
   NO_ACTIVE_LINK_MESSAGE,
@@ -39,7 +40,7 @@ function formatMonthYear(isoDate: string): string | null {
 export default function Profile() {
   const navigate = useNavigate();
   const { me, isLoading: meLoading } = useMe();
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
 
   // VRI/sequência/fase: MESMA fonte e MESMA query key da Home (["adherence"] -> último snapshot
   // persistido, escrito pelo servidor). Antes esta tela chamava `getAdherenceState()` SEM ARGUMENTO,
@@ -260,6 +261,8 @@ export default function Profile() {
             </button>
           ))}
         </motion.div>
+
+        {session?.user ? <AccountAccessSection user={session.user} /> : null}
 
         <button onClick={handleSignOut} className="w-full flex items-center justify-center gap-2 py-3 text-destructive text-sm font-medium">
           <LogOut size={16} />
