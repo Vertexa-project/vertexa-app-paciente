@@ -31,3 +31,10 @@ dist-ssr
 # Local artifacts (not source)
 .playwright-mcp/
 repomix-*.xml
+
+# AUTH-EMAIL-05 local QA / Playwright
+.tmp/
+playwright/.auth/
+test-results/
+playwright-report/
+blob-report/
