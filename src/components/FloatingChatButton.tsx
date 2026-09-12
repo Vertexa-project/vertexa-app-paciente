@@ -4,7 +4,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 
 const VISIBLE_ROUTES = ["/home", "/plan", "/habits", "/progress", "/journey", "/workout-guide", "/records", "/challenges", "/achievements"];
-const HIDDEN_ROUTES = ["/", "/onboarding", "/login", "/team-chat", "/sos"];
+const HIDDEN_ROUTES = [
+  "/",
+  "/onboarding",
+  "/login",
+  "/auth/callback",
+  "/auth/activate",
+  "/auth/forgot-password",
+  "/auth/update-password",
+  "/team-chat",
+  "/sos",
+];
 
 const contextLabels: Record<string, string> = {
   "/workout-guide": "Dúvida no treino?",

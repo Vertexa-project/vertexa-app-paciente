@@ -4,10 +4,9 @@ import { Clock } from "lucide-react";
 import { useAuth } from "@/providers/auth-context";
 
 /**
- * Acesso pendente (modo real): a sessão Google é válida, mas o usuário ainda NÃO está vinculado
- * a um paciente cadastrado (1º login sem match por e-mail → o trigger criou um profile 'pending'
- * sem `patients`). Tela NEUTRA — não mostra dado de ninguém (nem o próprio e-mail). Onboarding de
- * paciente novo é escopo de outro WP; aqui só orientamos a pedir o cadastro + sair.
+ * Acesso pendente: a sessão é válida (Google, e-mail/senha ou futuro Apple), mas o usuário
+ * ainda NÃO está vinculado a um paciente cadastrado. Tela NEUTRA e provider-agnostic —
+ * não mostra dado de ninguém (nem o próprio e-mail) e não manda "entrar com Google".
  */
 export function PendingAccessScreen() {
   const navigate = useNavigate();

@@ -1,17 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import type { ResolvedPatientIdentity } from "@/lib/auth/identity";
 
 const state = vi.hoisted(() => ({
   authLoading: false,
+  isPasswordRecovery: false,
   session: { user: { id: "auth-1" } } as { user: { id: string } } | null,
   identity: { status: "active" } as unknown as ResolvedPatientIdentity,
 }));
 
 vi.mock("@/providers/auth-context", () => ({
-  useAuth: () => ({ session: state.session, loading: state.authLoading }),
+  useAuth: () => ({
+    session: state.session,
+    loading: state.authLoading,
+    isPasswordRecovery: state.isPasswordRecovery,
+  }),
 }));
 vi.mock("@/hooks/useIdentity", () => ({
   useIdentity: () => state.identity,
@@ -39,16 +44,26 @@ const { RequireAuth } = await import("./RequireAuth");
 
 function renderGuard() {
   return render(
-    <MemoryRouter>
-      <RequireAuth>
-        <div data-testid="app">app</div>
-      </RequireAuth>
+    <MemoryRouter initialEntries={["/home"]}>
+      <Routes>
+        <Route
+          path="/home"
+          element={
+            <RequireAuth>
+              <div data-testid="app">app</div>
+            </RequireAuth>
+          }
+        />
+        <Route path="/auth/update-password" element={<div data-testid="update-password" />} />
+        <Route path="/login" element={<div data-testid="login" />} />
+      </Routes>
     </MemoryRouter>,
   );
 }
 
 beforeEach(() => {
   state.authLoading = false;
+  state.isPasswordRecovery = false;
   state.session = { user: { id: "auth-1" } };
   state.identity = { status: "active" } as unknown as ResolvedPatientIdentity;
   clinicState.data = { accessState: "operational", clinicStatus: "active" };
@@ -83,5 +98,21 @@ describe("RequireAuth — sem identidade demo (WP-04B)", () => {
     expect(screen.getByTestId("tela-suspensa")).toBeInTheDocument();
     expect(screen.queryByTestId("app")).not.toBeInTheDocument();
     expect(screen.queryByTestId("tela-pendente")).not.toBeInTheDocument();
+  });
+
+  it("auth ainda bootstrapping (ensure) não decide pending cedo", () => {
+    state.authLoading = true;
+    state.identity = { status: "pending" } as unknown as ResolvedPatientIdentity;
+    renderGuard();
+    expect(screen.getByLabelText(/carregando/i)).toBeInTheDocument();
+    expect(screen.queryByTestId("tela-pendente")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("app")).not.toBeInTheDocument();
+  });
+
+  it("sessão de recovery não monta o app clínico", () => {
+    state.isPasswordRecovery = true;
+    renderGuard();
+    expect(screen.getByTestId("update-password")).toBeInTheDocument();
+    expect(screen.queryByTestId("app")).not.toBeInTheDocument();
   });
 });

@@ -10,6 +10,9 @@ import FloatingChatButton from "@/components/FloatingChatButton";
 import Splash from "./pages/Splash";
 import Onboarding from "./pages/Onboarding";
 import Login from "./pages/Login";
+import { ActivateAccessPage } from "./pages/ActivateAccessPage";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { UpdatePasswordPage } from "./pages/UpdatePasswordPage";
 import HomePage from "./pages/HomePage";
 import Progress from "./pages/Progress";
 import Plan from "./pages/Plan";
@@ -41,6 +44,9 @@ const App = () => (
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/login" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/auth/activate" element={<ActivateAccessPage />} />
+            <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/auth/update-password" element={<UpdatePasswordPage />} />
 
             {/* Protegidas: exigem sessão + identidade 'active'. */}
             <Route element={<RequireAuth><Outlet /></RequireAuth>}>
