@@ -29,7 +29,13 @@ const identity = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/useMe", () => ({ useMe: () => ({ me: identity.me, isLoading: false, isError: false }) }));
-vi.mock("@/providers/auth-context", () => ({ useAuth: () => ({ signOut: vi.fn() }) }));
+const auth = vi.hoisted(() => ({
+  signOut: vi.fn(),
+  session: null as { user: { app_metadata?: { providers?: string[] }; identities?: Array<{ provider: string }> } } | null,
+}));
+vi.mock("@/providers/auth-context", () => ({
+  useAuth: () => ({ signOut: auth.signOut, session: auth.session }),
+}));
 
 const navigate = vi.hoisted(() => vi.fn());
 vi.mock("react-router-dom", async (importOriginal) => ({
@@ -84,6 +90,8 @@ beforeEach(() => {
   api.teamThrows = false;
   api.hang = false;
   identity.me = { ...MARIANA };
+  auth.session = null;
+  auth.signOut.mockClear();
   navigate.mockClear();
 });
 
@@ -286,6 +294,29 @@ describe("Perfil / itens de menu (WP-APP-6 item 3.3)", () => {
     await screen.findByText("Bruno Salles");
 
     expect(screen.getByText("Minha equipe").closest("button")).toBeNull();
+  });
+});
+
+describe("Perfil / Segurança da conta (AUTH-EMAIL-04)", () => {
+  it("coloca o bloco acima de Sair sem redesenhar o perfil clínico", async () => {
+    auth.session = {
+      user: { app_metadata: { providers: ["google"] }, identities: [{ provider: "google" }] },
+    };
+    renderProfile();
+    await screen.findByText(NO_ACTIVE_LINK_TITLE);
+
+    expect(screen.getByText("Segurança da conta")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /definir senha/i })).toBeInTheDocument();
+    expect(screen.getByText("Sair")).toBeInTheDocument();
+    expect(screen.getByText(NO_ACTIVE_LINK_TITLE)).toBeInTheDocument();
+    expect(screen.getByText("Notificações")).toBeInTheDocument();
+    expect(screen.getByText("Mariana Lopes")).toBeInTheDocument();
+  });
+
+  it("sem sessão autenticada não mostra o bloco (mock legado do perfil)", async () => {
+    renderProfile();
+    await screen.findByText(NO_ACTIVE_LINK_TITLE);
+    expect(screen.queryByText("Segurança da conta")).not.toBeInTheDocument();
   });
 });
 
