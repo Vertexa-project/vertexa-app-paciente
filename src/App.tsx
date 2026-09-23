@@ -4,11 +4,11 @@ import { queryClient } from "@/lib/queryClient";
 import { AuthProvider } from "@/providers/auth-provider";
 import { RequireAuth } from "@/app/RequireAuth";
 import { AuthCallback } from "@/app/AuthCallback";
+import { OnboardingEntry } from "@/app/OnboardingEntry";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import Splash from "./pages/Splash";
-import Onboarding from "./pages/Onboarding";
 import Login from "./pages/Login";
 import HomePage from "./pages/HomePage";
 import Progress from "./pages/Progress";
@@ -38,7 +38,7 @@ const App = () => (
           <Routes>
             {/* Públicas: entrada + retorno do OAuth. */}
             <Route path="/" element={<Splash />} />
-            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/onboarding" element={<OnboardingEntry />} />
             <Route path="/login" element={<Login />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import type { ResolvedPatientIdentity } from "@/lib/auth/identity";
 
@@ -39,10 +39,18 @@ const { RequireAuth } = await import("./RequireAuth");
 
 function renderGuard() {
   return render(
-    <MemoryRouter>
-      <RequireAuth>
-        <div data-testid="app">app</div>
-      </RequireAuth>
+    <MemoryRouter initialEntries={["/home"]}>
+      <Routes>
+        <Route
+          path="/home"
+          element={
+            <RequireAuth>
+              <div data-testid="app">app</div>
+            </RequireAuth>
+          }
+        />
+        <Route path="/login" element={<div data-testid="login">login</div>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -63,11 +71,47 @@ describe("RequireAuth — sem identidade demo (WP-04B)", () => {
     renderGuard();
     expect(screen.queryByTestId("app")).not.toBeInTheDocument();
     expect(screen.queryByTestId("tela-pendente")).not.toBeInTheDocument();
+    expect(screen.getByTestId("login")).toBeInTheDocument();
+  });
+
+  it("logout após sessão válida retorna a login sem expor o app", () => {
+    const view = renderGuard();
+    expect(screen.getByTestId("app")).toBeInTheDocument();
+
+    state.session = null;
+    state.identity = { status: "anonymous" } as unknown as ResolvedPatientIdentity;
+    view.rerender(
+      <MemoryRouter initialEntries={["/home"]}>
+        <Routes>
+          <Route
+            path="/home"
+            element={
+              <RequireAuth>
+                <div data-testid="app">app</div>
+              </RequireAuth>
+            }
+          />
+          <Route path="/login" element={<div data-testid="login">login</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("login")).toBeInTheDocument();
+    expect(screen.queryByTestId("app")).not.toBeInTheDocument();
   });
 
   it("sessão + active monta o app", () => {
     renderGuard();
     expect(screen.getByTestId("app")).toBeInTheDocument();
+  });
+
+  it("sessão com identidade ainda carregando espera sem expor app ou pending", () => {
+    state.identity = { status: "loading" } as unknown as ResolvedPatientIdentity;
+    renderGuard();
+
+    expect(screen.getByLabelText("Carregando")).toBeInTheDocument();
+    expect(screen.queryByTestId("app")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tela-pendente")).not.toBeInTheDocument();
   });
 
   it("sessão + pending mostra PendingAccess e não inventa paciente", () => {
