@@ -52,7 +52,7 @@ describe("Notificações / estado vazio (WP-APP-7 item 2.3)", () => {
   it("diz a causa e NEGA a leitura errada", () => {
     renderNotifications();
 
-    expect(screen.getByText(/ainda não recebe avisos automáticos/i)).toBeInTheDocument();
+    expect(screen.getByText(/aparecem os avisos que a sua clínica enviar/i)).toBeInTheDocument();
     expect(screen.getByText(/não quer dizer que esteja tudo em dia/i)).toBeInTheDocument();
   });
 

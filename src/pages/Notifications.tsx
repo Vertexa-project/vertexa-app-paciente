@@ -79,7 +79,7 @@ export default function Notifications() {
             <Bell size={22} className="text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">Nenhuma notificação por aqui</p>
             <p className="text-[11px] text-muted-foreground/70 max-w-[280px] leading-relaxed">
-              Esta lista ainda não recebe avisos automáticos. A lista vazia não quer dizer que
+              Aqui aparecem os avisos que a sua clínica enviar. A lista vazia não quer dizer que
               esteja tudo em dia — suas pendências continuam na tela inicial.
             </p>
           </div>
