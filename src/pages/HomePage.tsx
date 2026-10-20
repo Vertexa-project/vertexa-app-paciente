@@ -16,6 +16,7 @@ import NoPrescriptionYet, {
 import { getAutoActions } from "@/lib/adherenceEngine";
 import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getRecentSleep, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
 import { localYmd, SLEEP_GOAL_HOURS } from "@/lib/sleep";
+import ClinicBadge from "@/components/ClinicBadge";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
 import BottomNav from "@/components/BottomNav";
@@ -226,6 +227,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="max-w-[430px] mx-auto px-5 pt-14">
+        <ClinicBadge className="mb-4" />
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-5">
           <div>

@@ -58,6 +58,8 @@ export type { JourneyData } from "./journey";
 export { getMyWorkoutPlan } from "./workouts";
 export { logWeight, getRecentWeightLogs } from "./weight";
 export type { LogWeightInput, WeightLogRow } from "./weight";
+export { getMyClinicBrand } from "./clinicBrand";
+export type { MyClinicBrand } from "./clinicBrand";
 export { logSleep, getRecentSleep } from "./sleep";
 export type { SleepLogRow, LogSleepInput } from "./sleep";
 export { logHydration, getHydrationTodayLiters } from "./hydration";

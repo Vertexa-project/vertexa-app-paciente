@@ -8,19 +8,12 @@ import {
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ComingSoonBadge } from "@/components/ComingSoonLock";
+import ClinicBadge from "@/components/ClinicBadge";
+import { useClinicBrand } from "@/hooks/useClinicBrand";
 
 type TemplateType = 'workout' | 'evolution' | 'challenge' | 'achievement';
 type FormatType = 'story' | 'feed' | 'whatsapp';
 
-interface ClinicData {
-  name: string;
-  professional: string;
-}
-
-const clinic: ClinicData = {
-  name: 'Clínica Juliana Santiago',
-  professional: 'Dra. Juliana Santiago',
-};
 
 const templates: { type: TemplateType; label: string; icon: React.ReactNode; desc: string }[] = [
   { type: 'workout', label: 'Treino concluído', icon: <Dumbbell size={20} />, desc: 'Compartilhe que finalizou o treino do dia' },
@@ -30,6 +23,7 @@ const templates: { type: TemplateType; label: string; icon: React.ReactNode; des
 ];
 
 export default function ShareStory() {
+  const { data: brand } = useClinicBrand();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialType = (searchParams.get('type') as TemplateType) || null;
@@ -62,8 +56,7 @@ export default function ShareStory() {
         {/* Top: clinic branding */}
         <div>
           <p className="text-[10px] font-medium text-primary/80 uppercase tracking-widest mb-1">Acompanhamento profissional</p>
-          <p className="text-sm font-bold text-foreground">{clinic.name}</p>
-          <p className="text-[11px] text-muted-foreground">{clinic.professional}</p>
+          <ClinicBadge showSignature={false} className="mt-1" />
         </div>
 
         {/* Center: main content */}
@@ -121,7 +114,7 @@ export default function ShareStory() {
       <div className="relative h-full flex flex-col justify-between p-6">
         <div>
           <p className="text-[10px] font-medium text-primary/80 uppercase tracking-widest mb-1">Acompanhamento profissional</p>
-          <p className="text-sm font-bold text-foreground">{clinic.name}</p>
+          <ClinicBadge showSignature={false} className="mt-1" />
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center gap-5 py-6">
@@ -161,7 +154,7 @@ export default function ShareStory() {
         </div>
 
         <div className="flex items-end justify-between">
-          <p className="text-[10px] text-muted-foreground">{clinic.professional}</p>
+          
           <div className="text-right">
             <p className="text-[9px] text-muted-foreground/60 tracking-wide">via</p>
             <p className="text-[10px] font-semibold text-muted-foreground/50 tracking-wider">VERTEXA</p>
@@ -179,7 +172,7 @@ export default function ShareStory() {
       <div className="relative h-full flex flex-col justify-between p-6">
         <div>
           <p className="text-[10px] font-medium text-primary/80 uppercase tracking-widest mb-1">Acompanhamento profissional</p>
-          <p className="text-sm font-bold text-foreground">{clinic.name}</p>
+          <ClinicBadge showSignature={false} className="mt-1" />
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center gap-4 py-6">
@@ -239,8 +232,7 @@ export default function ShareStory() {
       <div className="relative h-full flex flex-col justify-between p-6">
         <div>
           <p className="text-[10px] font-medium text-primary/80 uppercase tracking-widest mb-1">Acompanhamento profissional</p>
-          <p className="text-sm font-bold text-foreground">{clinic.name}</p>
-          <p className="text-[11px] text-muted-foreground">{clinic.professional}</p>
+          <ClinicBadge showSignature={false} className="mt-1" />
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
@@ -417,7 +409,7 @@ export default function ShareStory() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] font-medium text-foreground">Branding da clínica aplicado</p>
-              <p className="text-[10px] text-muted-foreground">{clinic.name} · Vertexa como assinatura</p>
+              <p className="text-[10px] text-muted-foreground">{brand?.name ?? "Sua clínica"} · Vertexa como assinatura</p>
             </div>
           </div>
 

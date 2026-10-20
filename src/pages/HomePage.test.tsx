@@ -31,6 +31,7 @@ vi.mock("@/lib/api", () => ({
   }),
   getPendingSummary: vi.fn(async () => null),
   getHydrationTodayLiters: vi.fn(async () => 0),
+  getMyClinicBrand: vi.fn(async () => null),
   getMyWorkoutPlan: vi.fn(async () => []),
   getRecentWeightLogs: vi.fn(async () => []),
   getMealAdherenceToday: vi.fn(async () => null),
