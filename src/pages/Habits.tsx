@@ -8,6 +8,7 @@ import { logHydration, getHydrationTodayLiters, getRecentSleep } from "@/lib/api
 import { formatSleepHours, SLEEP_QUALITY_LABEL } from "@/lib/sleep";
 import { WATER_GOAL_LITERS, WATER_INCREMENT_LITERS } from "@/lib/hydrationMath";
 import BottomNav from "@/components/BottomNav";
+import RestDayCard from "@/components/RestDayCard";
 import ComingSoonLock, { STEPS_LOCK_REASON } from "@/components/ComingSoonLock";
 
 export default function Habits() {
@@ -107,6 +108,8 @@ export default function Habits() {
             </motion.p>
           )}
         </motion.div>
+
+        <RestDayCard />
 
         {/* Sono: última noite registrada pela paciente em sleep_logs (Registros → Sono). */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-card rounded-2xl p-5 shadow-card mb-4">
