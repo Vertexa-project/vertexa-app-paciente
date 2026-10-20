@@ -21,6 +21,12 @@ export interface SupplementRow {
   time_label: string | null;
   order_index: number;
   created_at: string;
+  /** 'supplement' (padrão) | 'medication' (migration 20261024090000). Linhas antigas vêm como 'supplement'. */
+  kind: "supplement" | "medication";
+  brand: string | null;
+  notes: string | null;
+  /** hora do lembrete ("HH:MM:SS") ou null. */
+  reminder_time: string | null;
 }
 
 /**

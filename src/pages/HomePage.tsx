@@ -17,6 +17,7 @@ import { getAutoActions } from "@/lib/adherenceEngine";
 import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getRecentSleep, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
 import { localYmd, SLEEP_GOAL_HOURS } from "@/lib/sleep";
 import ClinicBadge from "@/components/ClinicBadge";
+import SupplementReminders from "@/components/SupplementReminders";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
 import BottomNav from "@/components/BottomNav";
@@ -266,6 +267,8 @@ export default function HomePage() {
             Ver jornada <ChevronRight size={12} />
           </button>
         </motion.div>
+
+        <SupplementReminders />
 
         {/* Pending Actions */}
         {pendingItems.length > 0 && (

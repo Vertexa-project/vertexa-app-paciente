@@ -13,6 +13,7 @@ import {
   getMyWorkoutPlan,
 } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
+import { reminderLabel } from "@/lib/supplementReminders";
 import { localDateKey } from "@/lib/pendingLogic";
 import BottomNav from "@/components/BottomNav";
 import NoPrescriptionYet, {
@@ -349,33 +350,47 @@ export default function Plan() {
               ) : supplementList.length === 0 ? (
                 <div className="bg-card rounded-xl p-5 flex flex-col items-center gap-2 text-center border border-dashed border-border">
                   <Pill size={18} className="text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">Nenhum suplemento cadastrado ainda.</p>
+                  <p className="text-xs text-muted-foreground">Nenhum suplemento ou medicamento cadastrado ainda.</p>
                   <p className="text-[10px] text-muted-foreground">Seu profissional publica a lista aqui.</p>
                 </div>
               ) : (
-                supplementList.map((s) => {
-                  const isTaken = supplementsTaken?.has(s.id) ?? false;
+                (["supplement", "medication"] as const).map((kind) => {
+                  const items = supplementList.filter((x) => (x.kind ?? "supplement") === kind);
+                  if (items.length === 0) return null;
                   return (
-                    <div key={s.id} className={`bg-card rounded-xl p-4 flex items-center gap-3 ${isTaken ? "border border-success/20" : ""}`}>
-                      <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-lg">{supplementIcon(s.name)}</div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">{s.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {[s.dose, s.time_label].filter(Boolean).join(" • ")}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleToggleSupplement(s.id, isTaken)}
-                        disabled={toggleSupplement.isPending}
-                        aria-pressed={isTaken}
-                        aria-label={isTaken ? `Desmarcar ${s.name}` : `Marcar ${s.name} como tomado`}
-                        className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all disabled:opacity-60 ${
-                          isTaken ? "bg-success border-success" : "border-muted-foreground/40 hover:border-success/60"
-                        }`}
-                      >
-                        {isTaken && <Check size={12} className="text-success-foreground" />}
-                      </button>
-                    </div>
+                    <section key={kind} aria-label={kind === "medication" ? "Medicamentos" : "Suplementos"} className="flex flex-col gap-3">
+                      {supplementList.some((x) => x.kind === "medication") && (
+                        <h3 className="text-xs font-semibold text-muted-foreground mt-1">{kind === "medication" ? "Medicamentos" : "Suplementos"}</h3>
+                      )}
+                      {items.map((s) => {
+                        const isTaken = supplementsTaken?.has(s.id) ?? false;
+                        const reminder = reminderLabel(s.reminder_time);
+                        return (
+                          <div key={s.id} className={`bg-card rounded-xl p-4 flex items-center gap-3 ${isTaken ? "border border-success/20" : ""}`}>
+                            <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-lg">{kind === "medication" ? "💊" : supplementIcon(s.name)}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground">{s.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {[s.dose, s.time_label, reminder && `lembrete ${reminder}`].filter(Boolean).join(" • ")}
+                              </p>
+                              {s.brand && <p className="text-[11px] text-muted-foreground">Marca indicada: {s.brand}</p>}
+                              {s.notes && <p className="text-[11px] text-muted-foreground mt-0.5">{s.notes}</p>}
+                            </div>
+                            <button
+                              onClick={() => handleToggleSupplement(s.id, isTaken)}
+                              disabled={toggleSupplement.isPending}
+                              aria-pressed={isTaken}
+                              aria-label={isTaken ? `Desmarcar ${s.name}` : `Marcar ${s.name} como tomado`}
+                              className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all disabled:opacity-60 ${
+                                isTaken ? "bg-success border-success" : "border-muted-foreground/40 hover:border-success/60"
+                              }`}
+                            >
+                              {isTaken && <Check size={12} className="text-success-foreground" />}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </section>
                   );
                 })
               )}
