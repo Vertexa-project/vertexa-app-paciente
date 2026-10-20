@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Calendar, Image, TrendingDown, TrendingUp, Zap, Activity, X, ArrowRight, Plus, Watch, Trophy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { comparablePoses, dayLabel, groupByPose, POSE_LABEL, poseKey, type PoseKey } from "@/lib/photoPose";
 import {
   getActivitySessionsSince,
   getActivityEventsSince,
@@ -57,6 +58,9 @@ export default function Progress() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>("7d");
   const [showCompare, setShowCompare] = useState(false);
+  const [cmpPose, setCmpPose] = useState<PoseKey | null>(null);
+  const [cmpBeforeId, setCmpBeforeId] = useState<string | null>(null);
+  const [cmpAfterId, setCmpAfterId] = useState<string | null>(null);
   const now = new Date();
   const windowDays = periodDays[period];
   // Conquistas recentes (S5): destravadas mais recentes, via motor (patient_achievements). Só leitura.
@@ -128,9 +132,14 @@ export default function Progress() {
     staleTime: 5 * 60 * 1000,
     gcTime: 5 * 60 * 1000,
   });
-  const canCompare = photos.length >= 2;
-  const firstPhoto = photos[0] ?? null;
-  const lastPhoto = photos[photos.length - 1] ?? null;
+  // Comparação SEMPRE entre fotos da mesma posição (frente × frente...). Padrão: a mais antiga × a mais recente.
+  const comparable = comparablePoses(photos);
+  const canCompare = comparable.length > 0;
+  const photoGroups = groupByPose(photos);
+  const cmpKey: PoseKey = cmpPose && comparable.includes(cmpPose) ? cmpPose : (comparable[0] ?? "none");
+  const cmpList = photoGroups[cmpKey];
+  const firstPhoto = cmpList.find((p) => p.id === cmpBeforeId) ?? cmpList[0] ?? null;
+  const lastPhoto = cmpList.find((p) => p.id === cmpAfterId) ?? cmpList[cmpList.length - 1] ?? null;
 
   const anim = (delay: number) => ({ initial: { opacity: 0, y: 20 } as const, animate: { opacity: 1, y: 0 } as const, transition: { delay } });
 
@@ -431,14 +440,17 @@ export default function Progress() {
                 {photos.map((p) => (
                   <div key={p.id} className="aspect-[3/4] rounded-xl bg-muted overflow-hidden relative">
                     {p.display_url ? (
-                      <img src={p.display_url} alt={`Foto ${photoLabel(p.taken_at)}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                      <img src={p.display_url} alt={`Foto ${photoLabel(p.taken_at)}`} className="absolute inset-0 w-full h-full object-contain" loading="lazy" />
                     ) : null}
                     <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-background/70 backdrop-blur-sm text-[9px] text-foreground">{photoLabel(p.taken_at)}</span>
+                    {poseKey(p) !== "none" && (
+                      <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-background/70 backdrop-blur-sm text-[9px] font-semibold text-primary">{POSE_LABEL[poseKey(p)]}</span>
+                    )}
                   </div>
                 ))}
               </div>
               <p className="text-[10px] text-muted-foreground mt-3 text-center">
-                {canCompare ? 'Toque em "Comparar" para ver antes e depois' : "Envie mais fotos para comparar sua evolução"}
+                {canCompare ? 'Toque em "Comparar" para ver antes e depois' : "Envie mais fotos na mesma posição (ex.: duas de frente) para comparar"}
               </p>
             </>
           ) : (
@@ -519,7 +531,46 @@ export default function Progress() {
               <div className="px-5 pb-8">
                 <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 to-transparent border border-primary/10 mb-5">
                   <p className="text-sm font-semibold text-foreground mb-1">Veja o quanto você evoluiu</p>
-                  <p className="text-[11px] text-muted-foreground">Comparação da sua primeira e mais recente foto de evolução.</p>
+                  <p className="text-[11px] text-muted-foreground">Compare fotos da mesma posição. Por padrão, a primeira e a mais recente.</p>
+                </div>
+
+                {comparable.length > 1 && (
+                  <div className="flex gap-2 mb-4" role="tablist" aria-label="Posição">
+                    {comparable.map((k) => (
+                      <button
+                        key={k}
+                        role="tab"
+                        aria-selected={k === cmpKey}
+                        onClick={() => { setCmpPose(k); setCmpBeforeId(null); setCmpAfterId(null); }}
+                        className={`flex-1 h-9 rounded-xl border text-xs font-semibold ${k === cmpKey ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground"}`}
+                      >
+                        {POSE_LABEL[k]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <label className="text-[10px] font-semibold text-muted-foreground">
+                    Antes
+                    <select
+                      value={firstPhoto.id}
+                      onChange={(e) => setCmpBeforeId(e.target.value)}
+                      className="mt-1 w-full h-9 rounded-lg bg-muted border border-border px-2 text-xs text-foreground"
+                    >
+                      {cmpList.map((p) => <option key={p.id} value={p.id}>{dayLabel(p.taken_at)}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-[10px] font-semibold text-muted-foreground">
+                    Depois
+                    <select
+                      value={lastPhoto.id}
+                      onChange={(e) => setCmpAfterId(e.target.value)}
+                      className="mt-1 w-full h-9 rounded-lg bg-muted border border-border px-2 text-xs text-foreground"
+                    >
+                      {cmpList.map((p) => <option key={p.id} value={p.id}>{dayLabel(p.taken_at)}</option>)}
+                    </select>
+                  </label>
                 </div>
 
                 <div className="flex items-stretch gap-3 mb-4">
@@ -527,13 +578,13 @@ export default function Progress() {
                     <div key={idx} className="flex-1">
                       <div className={`aspect-[3/4] rounded-2xl overflow-hidden relative border ${accent ? "border-primary/15" : "border-border"}`}>
                         {p.display_url ? (
-                          <img src={p.display_url} alt={`Foto ${tag}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                          <img src={p.display_url} alt={`Foto ${tag}`} className="absolute inset-0 w-full h-full object-contain bg-muted" loading="lazy" />
                         ) : null}
                         <div className={`absolute top-2 left-2 px-2 py-1 rounded-full backdrop-blur-sm ${accent ? "bg-primary/20" : "bg-background/70"}`}>
                           <span className={`text-[9px] font-bold ${accent ? "text-primary" : "text-muted-foreground"}`}>{tag}</span>
                         </div>
                       </div>
-                      <p className="text-xs font-semibold text-foreground text-center mt-2">{photoLabel(p.taken_at)}</p>
+                      <p className="text-xs font-semibold text-foreground text-center mt-2">{dayLabel(p.taken_at)}</p>
                     </div>
                   ))}
                   <div className="flex items-center"><ArrowRight size={16} className="text-primary/50" /></div>
@@ -541,9 +592,9 @@ export default function Progress() {
 
                 <div className="flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-muted/50 border border-border mb-5">
                   <Calendar size={14} className="text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{photoLabel(firstPhoto.taken_at)}</span>
+                  <span className="text-xs text-muted-foreground">{dayLabel(firstPhoto.taken_at)}</span>
                   <ArrowRight size={12} className="text-primary/50" />
-                  <span className="text-xs text-muted-foreground">{photoLabel(lastPhoto.taken_at)}</span>
+                  <span className="text-xs text-muted-foreground">{dayLabel(lastPhoto.taken_at)}</span>
                 </div>
 
                 {/* Único número: Δpeso REAL de weight_logs (sem métricas fabricadas) */}

@@ -14,6 +14,7 @@ import {
   validateProgressPhotoFile,
   ProgressPhotoValidationError,
 } from "@/lib/api";
+import { PHOTO_POSES, POSE_LABEL, type PhotoPose } from "@/lib/photoPose";
 import BottomNav from "@/components/BottomNav";
 import ComingSoonLock, { SLEEP_LOCK_REASON, NOTES_LOCK_REASON } from "@/components/ComingSoonLock";
 import NoPrescriptionYet, { NO_WORKOUT_PLAN_TITLE, NO_WORKOUT_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
@@ -107,6 +108,7 @@ export default function Records() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoPose, setPhotoPose] = useState<PhotoPose | null>(null);
   const latestPhoto = useQuery({ queryKey: ["latestPhoto"], queryFn: getLatestProgressPhoto });
 
   useEffect(() => {
@@ -136,11 +138,12 @@ export default function Records() {
     if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoFile(null);
     setPhotoPreview(null);
+    setPhotoPose(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const photoMutation = useMutation({
-    mutationFn: (file: File) => uploadProgressPhoto(file),
+    mutationFn: ({ file, pose }: { file: File; pose: PhotoPose }) => uploadProgressPhoto(file, pose),
     onSuccess: () => {
       tracker.track("progress_photo_uploaded", { source: "app" }); // MARCADOR de Timeline
       qc.invalidateQueries({ queryKey: ["latestPhoto"] });
@@ -155,7 +158,11 @@ export default function Records() {
       flashError("Escolha uma foto (câmera ou galeria).");
       return;
     }
-    photoMutation.mutate(photoFile);
+    if (!photoPose) {
+      flashError("Escolha a posição da foto: frente, lado ou costas.");
+      return;
+    }
+    photoMutation.mutate({ file: photoFile, pose: photoPose });
   };
 
   // ── Workout (objetivo #5: carrega o workoutId real -> recuperação + VRI via eventSync) ──
@@ -289,8 +296,23 @@ export default function Records() {
                   </button>
                 </div>
               )}
-              <p className="text-[10px] text-center text-muted-foreground mt-2">Fotos de acompanhamento ajudam a visualizar sua evolução</p>
-              <button onClick={handleSendPhoto} disabled={photoMutation.isPending || !photoFile}
+              <p className="text-xs font-medium text-foreground mt-4 mb-2">Posição da foto</p>
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Posição da foto">
+                {PHOTO_POSES.map((pz) => (
+                  <button
+                    key={pz}
+                    type="button"
+                    role="radio"
+                    aria-checked={photoPose === pz}
+                    onClick={() => setPhotoPose(pz)}
+                    className={`h-10 rounded-xl border text-xs font-semibold transition-colors ${photoPose === pz ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground"}`}
+                  >
+                    {POSE_LABEL[pz]}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-center text-muted-foreground mt-2">Use sempre a mesma posição para comparar sua evolução</p>
+              <button onClick={handleSendPhoto} disabled={photoMutation.isPending || !photoFile || !photoPose}
                 className="w-full h-12 rounded-xl gradient-orange text-primary-foreground font-semibold text-sm shadow-orange active:scale-[0.98] transition-transform mt-4 disabled:opacity-60 flex items-center justify-center gap-2">
                 {photoMutation.isPending && <Loader2 size={16} className="animate-spin" />}
                 {photoMutation.isPending ? "Enviando..." : "Enviar foto"}

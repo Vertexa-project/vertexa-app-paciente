@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { captureException } from "@/lib/observability/sentry";
 import { getMyPatientId } from "./patient";
+import type { PhotoPose } from "@/lib/photoPose";
 
 // Bucket PRIVADO desde WP-STORAGE P1 (public=false). Leitura = createSignedUrl(storage_path).
 const BUCKET = "progress-photos";
@@ -27,6 +28,8 @@ export interface ProgressPhotoRow {
   storage_path: string | null;
   captured_in_app: boolean | null;
   taken_at: string | null;
+  /** WP-PHOTOS-A: 'front' | 'side' | 'back' | null (sem posição — fotos antigas). */
+  pose?: "front" | "side" | "back" | null;
 }
 
 /** Foto já resolvida p/ exibição: `display_url` = signed URL, fallback legado ou null. */
@@ -108,7 +111,7 @@ export async function resolveProgressPhotoDisplayUrl(
  * WP-HARDENING B2 (depende de A5 tornar photo_url nullable): o app NÃO grava mais photo_url — o
  * fallback legado de LEITURA (resolveProgressPhotoDisplayUrl) permanece para linhas antigas.
  */
-export async function uploadProgressPhoto(file: File): Promise<UploadProgressPhotoResult> {
+export async function uploadProgressPhoto(file: File, pose: PhotoPose | null = null): Promise<UploadProgressPhotoResult> {
   validateProgressPhotoFile(file); // MIME + tamanho, fail-closed antes de qualquer upload.
 
   const patientId = await getMyPatientId();
@@ -130,7 +133,7 @@ export async function uploadProgressPhoto(file: File): Promise<UploadProgressPho
 
   const { data, error } = await supabase
     .from("progress_photos")
-    .insert({ patient_id: patientId, storage_path: path, captured_in_app: true })
+    .insert({ patient_id: patientId, storage_path: path, captured_in_app: true, pose })
     .select("*")
     .single();
   if (error) throw error;
