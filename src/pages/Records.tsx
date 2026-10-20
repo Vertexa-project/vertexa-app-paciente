@@ -8,6 +8,8 @@ import {
   logWeight,
   getRecentWeightLogs,
   logHydration,
+  logSleep,
+  getRecentSleep,
   uploadProgressPhoto,
   getLatestProgressPhoto,
   getMyWorkoutPlan,
@@ -15,8 +17,9 @@ import {
   ProgressPhotoValidationError,
 } from "@/lib/api";
 import { PHOTO_POSES, POSE_LABEL, type PhotoPose } from "@/lib/photoPose";
+import { formatSleepHours, localYmd, parseSleepHours, SLEEP_QUALITY_LABEL } from "@/lib/sleep";
 import BottomNav from "@/components/BottomNav";
-import ComingSoonLock, { SLEEP_LOCK_REASON, NOTES_LOCK_REASON } from "@/components/ComingSoonLock";
+import ComingSoonLock, { NOTES_LOCK_REASON } from "@/components/ComingSoonLock";
 import NoPrescriptionYet, { NO_WORKOUT_PLAN_TITLE, NO_WORKOUT_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
 
 const recordTypes = [
@@ -203,13 +206,32 @@ export default function Records() {
     waterMutation.mutate(liters);
   };
 
-  // ── Sono: BLOQUEADO (WP-APP-4 item 5) ──
-  // O handler saiu junto com o formulário. O que ele fazia: disparava `sleep_logged` com payload
-  // {source:"app"} e respondia "Sono registrado!" — sem NUNCA ler o campo de horas (o input era
-  // não-controlado, `defaultValue="7.5"` e nenhum estado). O número que a paciente digitava era
-  // descartado no caminho, e ela recebia a confirmação assim mesmo. Não existe tabela de sono:
-  // o evento era um marcador vazio. É o mesmo caso já cadeado na Home e em Hábitos (WP-APP-2 2.2),
-  // e faltava só esta terceira porta.
+  // ── Sono: registro real em sleep_logs (1 por dia; reenviar o mesmo dia corrige) ──
+  const [sleepHours, setSleepHours] = useState("7.5");
+  const [sleepQuality, setSleepQuality] = useState<number | null>(null);
+  const [sleepDay, setSleepDay] = useState(localYmd());
+  const recentSleep = useQuery({ queryKey: ["recentSleep"], queryFn: () => getRecentSleep(5) });
+  const sleepMutation = useMutation({
+    mutationFn: (v: { hours: number; quality: number | null; day: string }) => logSleep(v),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["recentSleep"] });
+      qc.invalidateQueries({ queryKey: ["sleepToday"] });
+      flashSaved("Sono registrado!");
+    },
+    onError: () => flashError("Não foi possível registrar o sono."),
+  });
+  const handleSaveSleep = () => {
+    const hours = parseSleepHours(sleepHours);
+    if (hours == null) {
+      flashError("Informe as horas dormidas (entre 0,5 e 24).");
+      return;
+    }
+    if (!sleepDay || sleepDay > localYmd()) {
+      flashError("Escolha o dia em que você acordou (hoje ou antes).");
+      return;
+    }
+    sleepMutation.mutate({ hours, quality: sleepQuality, day: sleepDay });
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -397,14 +419,73 @@ export default function Records() {
           )}
 
           {activeRecord === "sleep" && (
-            /* CADEADO (WP-APP-4 item 5) — MESMO componente e MESMO texto da Home e de Hábitos.
-               Aqui era pior que nos outros dois: lá o sono só EXIBIA mock, aqui ele ACEITAVA o
-               registro da paciente, jogava fora e respondia "Sono registrado!". Ela saía achando
-               que a equipe passaria a ver as horas dela.
-               O formulário não foi substituído por outro: enquanto não houver integração, não há
-               o que salvar. Ver o handler removido em `handleSaveSleep` acima. */
-            <motion.div key="sleep" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <ComingSoonLock title="Sono" reason={SLEEP_LOCK_REASON} icon={Moon} />
+            <motion.div key="sleep" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-card rounded-2xl p-5 shadow-card">
+              <h3 className="text-sm font-semibold text-foreground mb-4">Registrar sono</h3>
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <input
+                  aria-label="Horas dormidas"
+                  type="text"
+                  inputMode="decimal"
+                  value={sleepHours}
+                  onChange={(e) => setSleepHours(e.target.value)}
+                  className="text-4xl font-display font-bold text-foreground bg-transparent text-center w-24 focus:outline-none"
+                />
+                <span className="text-lg text-muted-foreground">h</span>
+              </div>
+              <p className="text-[10px] text-center text-muted-foreground mb-4">Quanto você dormiu na noite passada. Ex.: 7,5 = 7h30.</p>
+
+              <label className="text-xs text-muted-foreground block mb-1.5" htmlFor="sleep-day">Dia em que você acordou</label>
+              <input
+                id="sleep-day"
+                type="date"
+                value={sleepDay}
+                max={localYmd()}
+                onChange={(e) => setSleepDay(e.target.value)}
+                className="w-full h-10 rounded-lg bg-muted border border-border px-3 text-sm text-foreground mb-4"
+              />
+
+              <p className="text-xs text-muted-foreground mb-1.5">Como foi a qualidade do sono? (opcional)</p>
+              <div className="grid grid-cols-5 gap-1.5 mb-4" role="radiogroup" aria-label="Qualidade do sono">
+                {[1, 2, 3, 4, 5].map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    role="radio"
+                    aria-checked={sleepQuality === q}
+                    aria-label={SLEEP_QUALITY_LABEL[q]}
+                    onClick={() => setSleepQuality(sleepQuality === q ? null : q)}
+                    className={`h-10 rounded-xl border text-sm font-semibold transition-colors ${sleepQuality === q ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground"}`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-center text-muted-foreground -mt-2 mb-4">
+                {sleepQuality ? SLEEP_QUALITY_LABEL[sleepQuality] : "1 = muito ruim · 5 = ótima"}
+              </p>
+
+              <button onClick={handleSaveSleep} disabled={sleepMutation.isPending}
+                className="w-full h-12 rounded-xl gradient-orange text-primary-foreground font-semibold text-sm shadow-orange active:scale-[0.98] transition-transform disabled:opacity-60 flex items-center justify-center gap-2">
+                {sleepMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+                {sleepMutation.isPending ? "Salvando..." : "Salvar"}
+              </button>
+
+              {(recentSleep.data?.length ?? 0) > 0 && (
+                <div className="mt-5">
+                  <p className="text-xs font-semibold text-foreground mb-2">Últimas noites</p>
+                  <ul className="space-y-1.5">
+                    {recentSleep.data!.map((r) => (
+                      <li key={r.id} className="flex justify-between text-xs text-muted-foreground">
+                        <span>{r.slept_on.split("-").reverse().join("/")}</span>
+                        <span className="text-foreground font-medium">
+                          {formatSleepHours(r.hours)}
+                          {r.quality ? ` · ${SLEEP_QUALITY_LABEL[r.quality]}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </motion.div>
           )}
 

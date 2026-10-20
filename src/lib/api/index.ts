@@ -58,6 +58,8 @@ export type { JourneyData } from "./journey";
 export { getMyWorkoutPlan } from "./workouts";
 export { logWeight, getRecentWeightLogs } from "./weight";
 export type { LogWeightInput, WeightLogRow } from "./weight";
+export { logSleep, getRecentSleep } from "./sleep";
+export type { SleepLogRow, LogSleepInput } from "./sleep";
 export { logHydration, getHydrationTodayLiters } from "./hydration";
 export type { LogHydrationInput } from "./hydration";
 export {

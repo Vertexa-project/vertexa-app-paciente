@@ -7,14 +7,15 @@ import { dailyGoals } from "@/data/mockData";
 import { useMe } from "@/hooks/useMe";
 import { useUnreadNotificationCount } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
-import ComingSoonLock, { STEPS_LOCK_REASON, SLEEP_LOCK_REASON } from "@/components/ComingSoonLock";
+import ComingSoonLock, { STEPS_LOCK_REASON } from "@/components/ComingSoonLock";
 import NoPrescriptionYet, {
   NO_MEAL_PLAN_MESSAGE,
   VRI_NOT_AVAILABLE_TITLE,
   VRI_NOT_AVAILABLE_MESSAGE,
 } from "@/components/NoPrescriptionYet";
 import { getAutoActions } from "@/lib/adherenceEngine";
-import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
+import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getRecentSleep, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
+import { localYmd, SLEEP_GOAL_HOURS } from "@/lib/sleep";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
 import BottomNav from "@/components/BottomNav";
@@ -117,6 +118,9 @@ export default function HomePage() {
 
   // Água de hoje (soma do dia) para a meta de hidratação — dado real.
   const hydrationToday = useQuery({ queryKey: ["hydrationToday"], queryFn: getHydrationTodayLiters });
+  const recentSleep = useQuery({ queryKey: ["recentSleep"], queryFn: () => getRecentSleep(1) });
+  // Sono de hoje = registro cujo dia (em que acordou) é hoje; sem registro, 0 (a meta ainda não foi cumprida).
+  const sleepTodayHours = recentSleep.data?.find((r) => r.slept_on === localYmd())?.hours ?? 0;
 
   // Peso "atual" exibido vem do último weight_log (auto-reporte do app) quando existir, senão
   // do patients.current_weight (avaliação clínica). Reflete na Home o peso recém-registrado.
@@ -148,6 +152,7 @@ export default function HomePage() {
   // Metas do dia: água, treino e refeições refletem dados reais. Sono e passos estão bloqueados.
   const goals = dailyGoals.map((g) => {
     if (g.id === "water") return { ...g, current: hydrationToday.data ?? g.current };
+    if (g.id === "sleep") return { ...g, current: sleepTodayHours, target: SLEEP_GOAL_HOURS };
     if (g.id === "workout") return { ...g, current: pending && !pending.workoutPending ? 1 : 0 };
     // Refeições: current=done, target=total do plano ativo. Sem plano real NÃO cai mais no mock
     // (3/5 refeições que ninguém prescreveu) — a linha vira estado vazio honesto na renderização.
@@ -157,8 +162,7 @@ export default function HomePage() {
 
   // Metas BLOQUEADAS — exibidas com cadeado e fora do contador de "concluídas".
   //  · steps (WP-APP-1): 6.420/8.000 fixo em mockData, sem origem real.
-  //  · sleep (WP-APP-2 2.2): 7h/8h fixo em mockData, mesma ausência de integração.
-  const LOCKED_GOAL_IDS = new Set(["steps", "sleep"]);
+  const LOCKED_GOAL_IDS = new Set(["steps"]);
   // Refeições sem plano publicado também sai do denominador: não é meta que a paciente possa
   // cumprir hoje, e contá-la deixaria "X/5" permanentemente incompleto por culpa do sistema.
   const countableGoals = goals.filter(
@@ -467,18 +471,6 @@ export default function HomePage() {
                     {/* Ícone passado direto (e não por `goalIcons`, que é Record<string,
                         React.ElementType>) para o componente manter o tipo LucideIcon. */}
                     <ComingSoonLock title={goal.label} reason={STEPS_LOCK_REASON} icon={Footprints} variant="row" />
-                  </motion.div>
-                );
-              }
-              // Sono BLOQUEADO (WP-APP-2 2.2): `dailyGoals` traz 7h/8h fixo de mockData — mesmo
-              // caso dos passos, não vem de aparelho nem de tabela. Cadeado na MESMA posição.
-              if (goal.id === "sleep") {
-                return (
-                  <motion.div
-                    key={goal.id}
-                    initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.25 + i * 0.05 }}
-                  >
-                    <ComingSoonLock title={goal.label} reason={SLEEP_LOCK_REASON} icon={Moon} variant="row" />
                   </motion.div>
                 );
               }

@@ -1,13 +1,14 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Droplets, Moon, Footprints, Smile, Plus, Check, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tracker } from "@/lib/eventTracker";
-import { logHydration, getHydrationTodayLiters } from "@/lib/api";
+import { logHydration, getHydrationTodayLiters, getRecentSleep } from "@/lib/api";
+import { formatSleepHours, SLEEP_QUALITY_LABEL } from "@/lib/sleep";
 import { WATER_GOAL_LITERS, WATER_INCREMENT_LITERS } from "@/lib/hydrationMath";
 import BottomNav from "@/components/BottomNav";
-import ComingSoonLock, { STEPS_LOCK_REASON, SLEEP_LOCK_REASON } from "@/components/ComingSoonLock";
+import ComingSoonLock, { STEPS_LOCK_REASON } from "@/components/ComingSoonLock";
 
 export default function Habits() {
   const navigate = useNavigate();
@@ -28,6 +29,8 @@ export default function Habits() {
 
   // "Água de hoje" = soma dos eventos hydration_logged do dia (payload.liters) — fonte: banco.
   const hydrationToday = useQuery({ queryKey: ["hydrationToday"], queryFn: getHydrationTodayLiters });
+  const recentSleep = useQuery({ queryKey: ["recentSleep"], queryFn: () => getRecentSleep(1) });
+  const lastSleep = recentSleep.data?.[0] ?? null;
   const water = hydrationToday.data ?? 0;
   const goalReached = water >= WATER_GOAL_LITERS;
 
@@ -105,38 +108,32 @@ export default function Habits() {
           )}
         </motion.div>
 
-        {/* Sono — BLOQUEADO (WP-APP-2 2.2).
-            O card abaixo mostrava `habitTracking.sleep` (7 horas, qualidade "boa", 23:00 → 06:30),
-            que é MOCK fixo em src/data/mockData.ts: não vem de aparelho, de relógio nem de tabela
-            — nunca muda. Mesmo tratamento dado aos passos no WP-APP-1: cadeado no lugar do número.
-            O código do card ativo está preservado logo abaixo, comentado, para voltar inteiro
-            quando existir a integração; ele só precisa trocar `habitTracking.sleep` pela fonte
-            real. NÃO apagar.
-            ⚠️ O import de `habitTracking` saiu deste arquivo no WP-APP-4 (item 6): o último uso
-            VIVO era o humor inicial. Ao reativar qualquer card abaixo, troque `habitTracking.X`
-            pela fonte real — não reponha o import do mock. */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="mb-4">
-          <ComingSoonLock title="Sono" reason={SLEEP_LOCK_REASON} icon={Moon} />
-        </motion.div>
-
-        {/* DESATIVADO ATRÁS DO CADEADO — não apagar (ver comentário acima):
+        {/* Sono: última noite registrada pela paciente em sleep_logs (Registros → Sono). */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-card rounded-2xl p-5 shadow-card mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Moon size={20} className="text-primary" />
             <h3 className="text-sm font-semibold text-foreground">Sono</h3>
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-3xl font-display font-bold text-foreground">{habitTracking.sleep.hours}</span>
-              <span className="text-sm text-muted-foreground ml-1">horas</span>
+          {lastSleep ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-3xl font-display font-bold text-foreground">{formatSleepHours(lastSleep.hours)}</span>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Noite de {lastSleep.slept_on.split("-").reverse().join("/")}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">
+                  Qualidade: <span className="text-foreground font-medium">{lastSleep.quality ? SLEEP_QUALITY_LABEL[lastSleep.quality] : "não informada"}</span>
+                </p>
+                <Link to="/records" className="text-[11px] font-semibold text-primary">Registrar sono</Link>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Qualidade: <span className="text-success font-medium">{habitTracking.sleep.quality}</span></p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{habitTracking.sleep.bedtime} → {habitTracking.sleep.wakeup}</p>
+          ) : (
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">Você ainda não registrou seu sono.</p>
+              <Link to="/records" className="text-[11px] font-semibold text-primary">Registrar sono</Link>
             </div>
-          </div>
+          )}
         </motion.div>
-        */}
 
         {/* Steps — BLOQUEADO (WP-APP-1).
             O card abaixo mostrava `habitTracking.steps` (6.420 / 8.000), que é MOCK fixo em
