@@ -371,7 +371,7 @@ export default function Progress() {
         </motion.div>
 
         {/* ═══ VRI (REAL — último snapshot de adherence_snapshots) ═══ */}
-        <motion.div {...anim(0.5)} className="bg-card rounded-2xl p-4 shadow-card mb-5 flex items-center gap-4">
+        <motion.div {...anim(0.5)} onClick={() => vri && navigate("/vri")} role={vri ? "button" : undefined} aria-label={vri ? "Ver detalhes do índice VRI" : undefined} className={`bg-card rounded-2xl p-4 shadow-card mb-5 flex items-center gap-4 ${vri ? "cursor-pointer" : ""}`}>
           {adherenceQuery.isLoading ? (
             <div className="flex items-center gap-4 w-full">
               <div className="w-14 h-14 rounded-2xl bg-muted animate-pulse shrink-0" />

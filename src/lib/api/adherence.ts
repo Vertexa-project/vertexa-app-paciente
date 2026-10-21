@@ -49,3 +49,19 @@ export async function getLatestAdherenceState(): Promise<AdherenceState | null> 
     prevScore
   );
 }
+
+/** Histórico do VRI (snapshots, só leitura), do mais novo ao mais antigo. O servidor só grava quando o score/nível muda. */
+export async function getAdherenceHistory(limit = 60): Promise<{ score: number; at: string }[]> {
+  const patientId = await getMyPatientId();
+  if (!patientId) return [];
+  const { data, error } = await supabase
+    .from("adherence_snapshots")
+    .select("score, calculated_at")
+    .eq("patient_id", patientId)
+    .order("calculated_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return ((data ?? []) as { score: number; calculated_at: string | null }[])
+    .filter((r) => r.calculated_at)
+    .map((r) => ({ score: r.score, at: r.calculated_at as string }));
+}

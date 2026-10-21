@@ -33,7 +33,7 @@ export {
   getSupplementIntakesWeek,
 } from "./supplements";
 export type { SupplementRow, ToggleSupplementTakenInput, SupplementAdherence } from "./supplements";
-export { getLatestAdherenceState } from "./adherence";
+export { getLatestAdherenceState, getAdherenceHistory } from "./adherence";
 export {
   getAchievementsCatalog,
   getPatientAchievements,

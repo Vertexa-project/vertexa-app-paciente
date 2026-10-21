@@ -271,3 +271,10 @@ describe("Home / sino abre painel (PDF do Ernâni, tela 02)", () => {
     expect(await screen.findByText("Nenhuma notificação por aqui")).toBeInTheDocument();
   });
 });
+
+describe("Home / VRI abre a tela de detalhe (PDF do Ernâni, tela 14)", () => {
+  it("o card do VRI é um botão para o detalhe", async () => {
+    renderHome();
+    expect(await screen.findByRole("button", { name: "Ver detalhes do índice VRI" })).toBeInTheDocument();
+  });
+});

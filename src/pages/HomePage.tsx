@@ -309,7 +309,8 @@ export default function HomePage() {
         ) : (
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-          className="bg-card rounded-2xl p-6 shadow-card mb-5"
+          onClick={() => navigate("/vri")} role="button" aria-label="Ver detalhes do índice VRI"
+          className="bg-card rounded-2xl p-6 shadow-card mb-5 cursor-pointer"
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
