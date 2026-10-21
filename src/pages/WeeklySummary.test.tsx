@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import type { WeeklySummary as S } from "@/lib/weeklySummary";
 
+const api = vi.hoisted(() => ({ note: null as string | null }));
+const card = vi.hoisted(() => ({ draw: vi.fn(async () => new Blob(["x"])), share: vi.fn(async () => "shared" as string) }));
 const hook = vi.hoisted(() => ({ state: { summary: null as unknown, isLoading: false, isError: false, refetch: vi.fn() } }));
 vi.mock("@/hooks/useWeeklySummary", () => ({ useWeeklySummary: () => hook.state }));
-vi.mock("@/lib/api", () => ({ getMyClinicBrand: vi.fn(async () => null) }));
+vi.mock("@/lib/api", () => ({ getMyClinicBrand: vi.fn(async () => null), getMyWeeklyNote: vi.fn(async () => api.note) }));
+vi.mock("@/lib/weeklyCard", () => ({ drawWeeklyCard: card.draw, shareOrDownload: card.share }));
 
 const { default: WeeklySummary } = await import("./WeeklySummary");
 
@@ -15,8 +19,8 @@ const SUMMARY: S = {
   workoutsDone: 3, workoutsPlanned: 5, streak: 9, vriDelta: 6, score: 84, mealsPct: 86,
 };
 
-const renderIt = () => render(<MemoryRouter><WeeklySummary /></MemoryRouter>);
-beforeEach(() => { hook.state = { summary: SUMMARY, isLoading: false, isError: false, refetch: vi.fn() }; });
+const renderIt = () => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter><WeeklySummary /></MemoryRouter></QueryClientProvider>);
+beforeEach(() => { api.note = null; card.draw.mockClear(); card.share.mockClear(); hook.state = { summary: SUMMARY, isLoading: false, isError: false, refetch: vi.fn() }; });
 
 describe("Resumo da semana (PDF do Ernâni, tela 17)", () => {
   it("mostra total, variação, média e o período", () => {
@@ -66,5 +70,34 @@ describe("Resumo da semana (PDF do Ernâni, tela 17)", () => {
   it("avisa que é estimativa, não gasto medido", () => {
     renderIt();
     expect(screen.getByText(/Não é gasto medido/)).toBeInTheDocument();
+  });
+
+  it("sem recado da equipe: mostra o automático, rotulado como automático", async () => {
+    renderIt();
+    const n = screen.getByTestId("weekly-note");
+    expect(n).toHaveTextContent("Recado automático");
+    expect(n).not.toHaveTextContent("da sua equipe");
+  });
+  it("com recado da equipe: mostra o texto dela, rotulado como da equipe", async () => {
+    api.note = "Subimos a carga do treino B.";
+    renderIt();
+    await waitFor(() => expect(screen.getByTestId("weekly-note")).toHaveTextContent("Recado da sua equipe"));
+    expect(screen.getByTestId("weekly-note")).toHaveTextContent("Subimos a carga do treino B.");
+  });
+  it("compartilhar gera a imagem com o recado vigente e entrega ao sistema", async () => {
+    api.note = "Subimos a carga.";
+    renderIt();
+    await waitFor(() => expect(screen.getByTestId("weekly-note")).toHaveTextContent("Subimos a carga."));
+    fireEvent.click(screen.getByText("Compartilhar resumo"));
+    await waitFor(() => expect(card.share).toHaveBeenCalled());
+    expect((card.draw.mock.calls[0] as unknown[])[1]).toEqual({ text: "Subimos a carga.", source: "team" });
+    expect(await screen.findByRole("status")).toHaveTextContent("Resumo compartilhado.");
+  });
+  it("sem suporte a canvas: avisa em vez de dizer que compartilhou", async () => {
+    card.draw.mockResolvedValueOnce(null as unknown as Blob);
+    renderIt();
+    fireEvent.click(screen.getByText("Compartilhar resumo"));
+    expect(await screen.findByRole("status")).toHaveTextContent("Não foi possível gerar a imagem");
+    expect(card.share).not.toHaveBeenCalled();
   });
 });

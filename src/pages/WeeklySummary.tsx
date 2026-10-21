@@ -1,9 +1,14 @@
-import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Share2, MessageSquareText } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import KcalBars from "@/components/KcalBars";
 import { useWeeklySummary } from "@/hooks/useWeeklySummary";
 import { rangeLabel } from "@/lib/weeklySummary";
+import { getMyWeeklyNote } from "@/lib/api";
+import { weeklyNote } from "@/lib/weeklyNote";
+import { drawWeeklyCard, shareOrDownload } from "@/lib/weeklyCard";
 
 const nf = (n: number) => n.toLocaleString("pt-BR");
 
@@ -11,6 +16,17 @@ export default function WeeklySummary() {
   const navigate = useNavigate();
   const { summary: s, isLoading, isError, refetch } = useWeeklySummary();
   const todayIndex = (new Date().getDay() + 6) % 7;
+  const teamNote = useQuery({ queryKey: ["weeklyTeamNote", s?.rangeStart], queryFn: () => getMyWeeklyNote(s!.rangeStart), enabled: !!s });
+  const [shareMsg, setShareMsg] = useState<string | null>(null);
+
+  const onShare = async () => {
+    if (!s) return;
+    setShareMsg(null);
+    const blob = await drawWeeklyCard(s, weeklyNote(s, teamNote.data ?? null, todayIndex + 1));
+    if (!blob) { setShareMsg("Não foi possível gerar a imagem neste aparelho."); return; }
+    const r = await shareOrDownload(blob, `resumo-semana-${s.rangeStart}.png`);
+    setShareMsg(r === "shared" ? "Resumo compartilhado." : r === "downloaded" ? "Imagem salva no seu aparelho." : null);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -70,6 +86,24 @@ export default function WeeklySummary() {
                 <p className="text-[11px] text-muted-foreground">{s.mealsPct === null ? "sem plano alimentar" : "refeições registradas"}</p>
               </div>
             </div>
+
+            {(() => {
+              const note = weeklyNote(s, teamNote.data ?? null, todayIndex + 1);
+              return (
+                <div className="bg-card rounded-2xl p-4 mb-4" data-testid="weekly-note">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageSquareText size={14} className="text-primary" />
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">{note.source === "team" ? "Recado da sua equipe" : "Recado automático"}</p>
+                  </div>
+                  <p className="text-sm text-foreground leading-relaxed">{note.text}</p>
+                </div>
+              );
+            })()}
+
+            <button onClick={onShare} className="w-full py-3 rounded-xl bg-muted/60 text-sm font-semibold text-foreground flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+              <Share2 size={16} className="text-primary" /> Compartilhar resumo
+            </button>
+            {shareMsg && <p className="text-[11px] text-muted-foreground text-center mt-2" role="status">{shareMsg}</p>}
           </>
         )}
       </div>

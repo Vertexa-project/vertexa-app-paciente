@@ -19,7 +19,7 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - [x] Trava de peso >2 kg/dia com confirmação (tela 03); valor confirmado fora da curva não emite o marcador do VRI. Equipe aprova/recusa no web (aba Antropometria); até lá o valor fica fora do gráfico e do VRI, e o paciente vê "em análise da equipe"
 - [x] Esforço percebido 1–10 ao concluir o treino (tela 23; evento workout_effort, aparece na timeline do web). Recado ao educador: publicado (vira mensagem no chat marcando o educador)
 - [ ] Preparação corporal opcional e miniatura sem quadrado branco (telas 21–22)
-- [x] Kcal estimadas da semana em barras na Evolução (tela 13) e Resumo da semana (tela 17; kcal = treino concluído + atividades, rotulado como estimativa). Pendente da tela 17: recado da equipe e compartilhar
+- [x] Kcal estimadas da semana em barras na Evolução (tela 13) e Resumo da semana (tela 17; kcal = treino concluído + atividades, rotulado como estimativa). Tela 17 completa: recado da equipe (ou automático, rotulado) e compartilhar como imagem
 - [x] Tela do VRI: número do servidor, curva dos snapshots, 4 componentes com dado real, dica do mais fraco (tela 14). A dica não promete pontos (o servidor decide)
 - [x] Guia de pose da foto: check por pose na semana, próxima sugerida, dicas e privacidade (tela 05); "Para:" com chips, já preenchido pela aba (tela 26)
 
@@ -79,3 +79,6 @@ Valem como ponto de partida até Ernâni/Juliana responderem; o que diverge entr
 - Previstas no dia: refeições do plano atual + suplementos cadastrados + treino da ficha cujo dia da semana é o do dia. Hidratação fora (sem meta no banco). Cumprido = concluídas ×2 ≥ previstas. Sem nada previsto (sem plano, ou dia anterior à criação do plano/suplemento): qualquer registro, como antes.
 - Sem retroativo: dias até 21/10 seguem a regra antiga. Na simulação com a regra valendo desde sempre, 2 de 23 pacientes (1 real, com 20 dias) zerariam; com a data de corte, 0 diferentes.
 - Servidor: `private.streak_walk`, `private.planned_rule_start()`, `my_streak_summary()` (agora devolve também os dias cumpridos). App: a semana da tela da Sequência segue o servidor.
+
+## Resumo semanal: recado e compartilhar (21/10)
+- Banco: `weekly_team_notes` (1 por paciente e semana) e RPC `set_weekly_note` (só a equipe grava; texto vazio apaga). Web: cartão "Recado da semana" na Visão geral do paciente. App: recado da equipe, ou automático por faixa (forte ≥80%, boa 50–79%, leve <50% da média treino+refeições; antes do 4º dia da semana aberta, "em andamento"), sempre rotulado. Compartilhar = imagem PNG desenhada no aparelho (sistema de compartilhar, senão baixa); sem nome, foto ou peso.
