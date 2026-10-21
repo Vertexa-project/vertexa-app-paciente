@@ -43,3 +43,19 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 ## Feito depois
 - Opções de refeição (tela 19): `meals.options` (até 5 alternativas, gravadas pelo editor do plano no web) e `meal_logs.option_index` (qual opção o paciente usou). "Usar opção" marca a refeição como feita com aquela opção.
 - Body map oficial (pacote do Ernâni): `src/components/officialMuscles.ts` (gerado do SVG oficial, 41 músculos); serrátil/oblíquos→abdômen, adutores→quadríceps, tibial→panturrilha, infraespinhal→dorsais no estado de recuperação.
+
+## Decisões aprovadas pelo Djeimyson (21/10) — seguir as recomendações do Hefesto
+Valem como ponto de partida até Ernâni/Juliana responderem; o que diverge entra como ajuste.
+- Sequência: 1 falha perdoada por semana; recorde = maior sequência de todos os tempos.
+- Desafio: pontos por dia com teto de 100 (treino 40, refeições 30, água 10, suplemento 10, peso/foto 10). Ligas Bronze→Platina (5): sobe quem fecha a semana nos 30% melhores, desce quem fica nos 20% piores; reinício mensal.
+- Ranking: só entra quem aceitar; aparece só com iniciais; por clínica como padrão; feed sem peso/foto de terceiros. Desafio padrão da Vertexa + desafios criados por cada clínica. Sem prêmio real (só selo e posição).
+- Dispositivos (passos/sono): só aviso "em breve".
+- Resumo semanal: recado automático por faixa de desempenho, que o profissional pode trocar; compartilhar = imagem.
+- LGPD: exportar dados e apagar conta, prazo de 15 dias (clínica avisada antes; guarda do histórico clínico a confirmar com a clínica).
+- Relatório em lote: um PDF por paciente, baixados num único arquivo.
+- Convidados: começar com 2 por clínica, só leitura, sem cobrança extra (a confirmar com a Juliana). Retenção financeira: 5 anos (a confirmar com a contadora).
+### Ainda SEM resposta (não construir antes)
+- Nomes das 5 fases da Jornada (só o Ernâni define; critério por dias sugerido: 0–14, 15–30, 31–60, 61–90, 90+).
+- Quais tarefas entram na regra "dia cumprido = 80%" (hoje: qualquer registro).
+- Significado de "Geral" no ranking (sugestão: só a própria clínica).
+- Valor e limite de convidados (decisão comercial).
