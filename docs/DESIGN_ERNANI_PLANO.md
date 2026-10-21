@@ -74,3 +74,8 @@ Valem como ponto de partida até Ernâni/Juliana responderem; o que diverge entr
 - 394 dias-paciente com algo previsto: 60 tiveram algum registro (regra atual); só 1 chegou a 80% do previsto. Aplicar a regra zeraria quase todas as sequências.
 - Hidratação não entra: não existe meta de água por paciente no banco.
 - Decisão pendente: manter "qualquer registro" ou usar limite mais baixo (ex.: 1 de cada 2 atividades previstas) ou só treino+refeição.
+
+## Dia cumprido = metade do previsto (aprovado e publicado 21/10, vale a partir de 22/10)
+- Previstas no dia: refeições do plano atual + suplementos cadastrados + treino da ficha cujo dia da semana é o do dia. Hidratação fora (sem meta no banco). Cumprido = concluídas ×2 ≥ previstas. Sem nada previsto (sem plano, ou dia anterior à criação do plano/suplemento): qualquer registro, como antes.
+- Sem retroativo: dias até 21/10 seguem a regra antiga. Na simulação com a regra valendo desde sempre, 2 de 23 pacientes (1 real, com 20 dias) zerariam; com a data de corte, 0 diferentes.
+- Servidor: `private.streak_walk`, `private.planned_rule_start()`, `my_streak_summary()` (agora devolve também os dias cumpridos). App: a semana da tela da Sequência segue o servidor.

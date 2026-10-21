@@ -4,10 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { localDateKey } from "@/lib/pendingLogic";
 
-const api = vi.hoisted(() => ({ streak: 3 as number | null, best: 3 as number, prot: [] as string[], events: [] as unknown[], rest: [] as string[], throws: false }));
+const api = vi.hoisted(() => ({ streak: 3 as number | null, best: 3 as number, prot: [] as string[], ful: undefined as string[] | undefined, events: [] as unknown[], rest: [] as string[], throws: false }));
 
 vi.mock("@/lib/api", () => ({
-  getStreakSummary: vi.fn(async () => { if (api.throws) throw new Error("x"); return api.streak === null ? null : { streak: api.streak, best: api.best, protected: api.prot }; }),
+  getStreakSummary: vi.fn(async () => { if (api.throws) throw new Error("x"); return api.streak === null ? null : { streak: api.streak, best: api.best, protected: api.prot, fulfilled: api.ful }; }),
   getActivityEventsSince: vi.fn(async () => api.events),
   getRestDays: vi.fn(async () => api.rest),
   markRestDay: vi.fn(), undoRestDay: vi.fn(), getMyClinicBrand: vi.fn(async () => null),
@@ -19,7 +19,7 @@ function renderIt() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={qc}><MemoryRouter><Streak /></MemoryRouter></QueryClientProvider>);
 }
-beforeEach(() => { api.streak = 3; api.best = 3; api.prot = []; api.events = []; api.rest = []; api.throws = false; });
+beforeEach(() => { api.streak = 3; api.best = 3; api.prot = []; api.ful = undefined; api.events = []; api.rest = []; api.throws = false; });
 
 describe("Tela da sequência (PDF do Ernâni, tela 07) — regra atual", () => {
   it("mostra o número de dias seguidos do servidor, no singular quando 1", async () => {
@@ -47,7 +47,7 @@ describe("Tela da sequência (PDF do Ernâni, tela 07) — regra atual", () => {
   it("explica a regra REAL: qualquer registro conta, descanso não quebra, abrir o app não conta — sem prometer 80%", async () => {
     renderIt();
     const rule = await screen.findByTestId("streak-rule");
-    expect(rule).toHaveTextContent("qualquer registro seu do plano");
+    expect(rule).toHaveTextContent("pelo menos metade do que está previsto");
     expect(rule).toHaveTextContent("Abrir o app não conta");
     expect(rule).not.toHaveTextContent("80%");
   });
@@ -70,6 +70,20 @@ describe("Tela da sequência (PDF do Ernâni, tela 07) — regra atual", () => {
   it("explica a regra de uma falha por semana", async () => {
     renderIt();
     expect(await screen.findByTestId("streak-rule")).toHaveTextContent("Uma falha por semana é perdoada");
+  });
+  it("a semana segue o servidor: registro em dia previsto não cumprido NÃO vira 'feito'", async () => {
+    api.events = [{ type: "hydration_logged", created_at: new Date().toISOString() }];
+    api.ful = []; // o servidor não considerou hoje cumprido
+    renderIt();
+    const week = await screen.findByTestId("streak-week");
+    await vi.waitFor(() => expect(week.querySelector(`[data-state="today"]`)).not.toBeNull());
+    expect(week.querySelector(`[data-state="done"]`)).toBeNull();
+  });
+  it("dia cumprido pelo servidor aparece como feito mesmo sem evento de adesão no cliente", async () => {
+    api.events = []; api.ful = [localDateKey(new Date())];
+    renderIt();
+    const week = await screen.findByTestId("streak-week");
+    await vi.waitFor(() => expect(week.querySelector(`[data-state="done"]`)).not.toBeNull());
   });
   it("falha de leitura: avisa", async () => {
     api.throws = true;

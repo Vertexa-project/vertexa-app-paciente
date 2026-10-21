@@ -28,6 +28,10 @@ describe("sequência (PDF do Ernâni, tela 07) — regra atual do servidor", () 
   it("sem dias protegidos, a falha segue como falta", () => {
     expect(weekStates([], [], WED)[0].state).toBe("missed");
   });
+  it("com os dias cumpridos do servidor, vale o servidor (não o evento solto)", () => {
+    const s = weekStates([{ type: "meal_logged", created_at: at("2026-10-19") }], [], WED, [], ["2026-10-20"]);
+    expect(s.map((x) => x.state).slice(0, 3)).toEqual(["missed", "done", "today"]);
+  });
   it("próximo marco da sequência: 3 → 7, 7 → 14, 90+ → nenhum", () => {
     expect(nextStreakMilestone(3)).toEqual({ target: 7, remaining: 4 });
     expect(nextStreakMilestone(7)).toEqual({ target: 14, remaining: 7 });

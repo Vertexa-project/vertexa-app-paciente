@@ -12,10 +12,13 @@ const NOT_ADHERENCE = new Set(["help_requested"]);
 export type DayState = "done" | "rest" | "protected" | "missed" | "today" | "future";
 
 /** Estado de cada dia (seg→dom) da semana de `today`. "today" = hoje ainda sem registro. */
-export function weekStates(events: { type: string; created_at: string }[], restDays: string[], today: Date, protectedDays: string[] = []): { day: string; state: DayState }[] {
+export function weekStates(events: { type: string; created_at: string }[], restDays: string[], today: Date, protectedDays: string[] = [], fulfilledDays?: string[]): { day: string; state: DayState }[] {
   const days = weekDays(weekStart(today));
   const todayKey = localDateKey(today);
-  const active = new Set(events.filter((e) => !NOT_ADHERENCE.has(e.type)).map((e) => localDateKey(new Date(e.created_at))));
+  // Com `fulfilledDays` (servidor), vale a regra do servidor (metade do previsto); sem ele, qualquer registro de adesão.
+  const active = fulfilledDays
+    ? new Set(fulfilledDays)
+    : new Set(events.filter((e) => !NOT_ADHERENCE.has(e.type)).map((e) => localDateKey(new Date(e.created_at))));
   const rest = new Set(restDays);
   const prot = new Set(protectedDays);
   return days.map((day) => {

@@ -19,7 +19,7 @@ export default function Streak() {
 
   const streak = adherence.data?.streak ?? 0;
   const best = Math.max(adherence.data?.best ?? 0, streak);
-  const states = events.data && rest.data ? weekStates(events.data, rest.data, today, adherence.data?.protected ?? []) : null;
+  const states = events.data && rest.data ? weekStates(events.data, rest.data, today, adherence.data?.protected ?? [], adherence.data?.fulfilled) : null;
   const next = nextStreakMilestone(streak);
 
   return (
@@ -63,7 +63,7 @@ export default function Streak() {
             )}
 
             <div className="bg-card rounded-2xl p-4 mb-4 text-[11px] text-muted-foreground space-y-1" data-testid="streak-rule">
-              <p><span className="font-semibold text-foreground">Dia cumprido</span> = qualquer registro seu do plano no dia (treino, refeição, suplemento, água, peso, foto…)</p>
+              <p><span className="font-semibold text-foreground">Dia cumprido</span> = pelo menos metade do que está previsto para o dia no seu plano (treino do dia, refeições e suplementos). Sem plano para o dia, qualquer registro conta. Vale a partir de 22/10</p>
               <p><span className="font-semibold text-foreground">Dia de descanso</span> marcado não quebra a sequência</p>
               <p><span className="font-semibold text-foreground">Uma falha por semana</span> é perdoada: o dia fica protegido e a sequência segue (duas falhas na mesma semana, ou seguidas, quebram)</p>
               <p><span className="font-semibold text-foreground">Abrir o app</span> não conta</p>

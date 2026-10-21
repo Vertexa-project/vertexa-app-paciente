@@ -77,6 +77,8 @@ export interface StreakSummary {
   best: number;
   /** Dias de falha perdoados nos últimos 14 dias (yyyy-mm-dd). */
   protected: string[];
+  /** Dias cumpridos nos últimos 14 dias pela regra do servidor (descanso e dia perdoado ficam de fora). */
+  fulfilled: string[];
 }
 
 /** Sequência calculada agora pelo servidor (regra: 1 falha perdoada por semana), recorde e dias protegidos. */
@@ -84,6 +86,6 @@ export async function getStreakSummary(): Promise<StreakSummary | null> {
   const { data, error } = await supabase.rpc("my_streak_summary");
   if (error) throw error;
   if (!data) return null;
-  const d = data as { streak?: number; best?: number; protected?: string[] };
-  return { streak: Number(d.streak ?? 0), best: Number(d.best ?? 0), protected: Array.isArray(d.protected) ? d.protected : [] };
+  const d = data as { streak?: number; best?: number; protected?: string[]; fulfilled?: string[] };
+  return { streak: Number(d.streak ?? 0), best: Number(d.best ?? 0), protected: Array.isArray(d.protected) ? d.protected : [], fulfilled: Array.isArray(d.fulfilled) ? d.fulfilled : [] };
 }
