@@ -1,7 +1,7 @@
-import { ArrowLeft, Flame, Moon, Trophy } from "lucide-react";
+import { ArrowLeft, Flame, Moon, ShieldCheck, Trophy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getLatestAdherenceState, getActivityEventsSince, getRestDays } from "@/lib/api";
+import { getStreakSummary, getActivityEventsSince, getRestDays } from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
 import RestDayCard from "@/components/RestDayCard";
 import { nextStreakMilestone, weekStates } from "@/lib/streakWeek";
@@ -13,12 +13,13 @@ export default function Streak() {
   const navigate = useNavigate();
   const today = new Date();
   const days = weekDays(weekStart(today));
-  const adherence = useQuery({ queryKey: ["adherence"], queryFn: getLatestAdherenceState });
+  const adherence = useQuery({ queryKey: ["streakSummary"], queryFn: getStreakSummary });
   const events = useQuery({ queryKey: ["streakWeekEvents", days[0]], queryFn: () => getActivityEventsSince(weekStart(today)) });
   const rest = useQuery({ queryKey: ["restDaysWeek", days[0]], queryFn: () => getRestDays(days[0], days[6]) });
 
   const streak = adherence.data?.streak ?? 0;
-  const states = events.data && rest.data ? weekStates(events.data, rest.data, today) : null;
+  const best = Math.max(adherence.data?.best ?? 0, streak);
+  const states = events.data && rest.data ? weekStates(events.data, rest.data, today, adherence.data?.protected ?? []) : null;
   const next = nextStreakMilestone(streak);
 
   return (
@@ -44,6 +45,7 @@ export default function Streak() {
               <Flame size={72} className="text-primary" strokeWidth={1.5} />
               <p className="text-6xl font-display font-bold text-foreground leading-none mt-2">{streak}</p>
               <p className="text-xs text-muted-foreground mt-1">{streak === 1 ? "dia seguido" : "dias seguidos"}</p>
+              <p className="text-[11px] text-muted-foreground mt-1" data-testid="streak-best">Recorde: {best} {best === 1 ? "dia" : "dias"}</p>
             </div>
 
             {states && (
@@ -51,9 +53,9 @@ export default function Streak() {
                 {states.map(({ day, state }) => (
                   <div key={day} data-state={state}
                     className={`h-12 rounded-xl flex flex-col items-center justify-center text-[10px] font-semibold ${
-                      state === "done" ? "bg-primary/15 text-primary" : state === "rest" ? "bg-muted text-muted-foreground" : state === "today" ? "border border-primary text-primary" : "bg-card text-muted-foreground/60"
+                      state === "done" ? "bg-primary/15 text-primary" : state === "rest" ? "bg-muted text-muted-foreground" : state === "protected" ? "bg-card text-primary border border-dashed border-primary/60" : state === "today" ? "border border-primary text-primary" : "bg-card text-muted-foreground/60"
                     }`}>
-                    {state === "done" ? <Flame size={14} /> : state === "rest" ? <Moon size={14} /> : <span className="h-3.5" />}
+                    {state === "done" ? <Flame size={14} /> : state === "rest" ? <Moon size={14} /> : state === "protected" ? <ShieldCheck size={14} /> : <span className="h-3.5" />}
                     {LETTER[new Date(`${day}T12:00:00`).getDay()]}
                   </div>
                 ))}
@@ -63,6 +65,7 @@ export default function Streak() {
             <div className="bg-card rounded-2xl p-4 mb-4 text-[11px] text-muted-foreground space-y-1" data-testid="streak-rule">
               <p><span className="font-semibold text-foreground">Dia cumprido</span> = qualquer registro seu do plano no dia (treino, refeição, suplemento, água, peso, foto…)</p>
               <p><span className="font-semibold text-foreground">Dia de descanso</span> marcado não quebra a sequência</p>
+              <p><span className="font-semibold text-foreground">Uma falha por semana</span> é perdoada: o dia fica protegido e a sequência segue (duas falhas na mesma semana, ou seguidas, quebram)</p>
               <p><span className="font-semibold text-foreground">Abrir o app</span> não conta</p>
             </div>
 

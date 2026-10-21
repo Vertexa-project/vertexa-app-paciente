@@ -65,3 +65,20 @@ export async function getAdherenceHistory(limit = 60): Promise<{ score: number; 
     .filter((r) => r.calculated_at)
     .map((r) => ({ score: r.score, at: r.calculated_at as string }));
 }
+
+export interface StreakSummary {
+  streak: number;
+  /** Maior sequência de todos os tempos (nunca menor que a atual). */
+  best: number;
+  /** Dias de falha perdoados nos últimos 14 dias (yyyy-mm-dd). */
+  protected: string[];
+}
+
+/** Sequência calculada agora pelo servidor (regra: 1 falha perdoada por semana), recorde e dias protegidos. */
+export async function getStreakSummary(): Promise<StreakSummary | null> {
+  const { data, error } = await supabase.rpc("my_streak_summary");
+  if (error) throw error;
+  if (!data) return null;
+  const d = data as { streak?: number; best?: number; protected?: string[] };
+  return { streak: Number(d.streak ?? 0), best: Number(d.best ?? 0), protected: Array.isArray(d.protected) ? d.protected : [] };
+}

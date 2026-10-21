@@ -59,3 +59,7 @@ Valem como ponto de partida até Ernâni/Juliana responderem; o que diverge entr
 - Quais tarefas entram na regra "dia cumprido = 80%" (hoje: qualquer registro).
 - Significado de "Geral" no ranking (sugestão: só a própria clínica).
 - Valor e limite de convidados (decisão comercial).
+
+## Sequência (feito em 21/10)
+- Servidor: 1 falha perdoada por semana (seg–dom BRT), duas falhas seguidas ou na mesma semana quebram; ninguém perdeu sequência (22 iguais, 1 maior em 23 pacientes). `private.streak_walk`, `public.my_streak_summary()`.
+- App: tela da Sequência com recorde, dia protegido e regra explicada. Home/Jornada seguem lendo o último snapshot (atualiza no próximo registro).

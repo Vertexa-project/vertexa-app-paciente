@@ -4,10 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { localDateKey } from "@/lib/pendingLogic";
 
-const api = vi.hoisted(() => ({ streak: 3 as number | null, events: [] as unknown[], rest: [] as string[], throws: false }));
+const api = vi.hoisted(() => ({ streak: 3 as number | null, best: 3 as number, prot: [] as string[], events: [] as unknown[], rest: [] as string[], throws: false }));
 
 vi.mock("@/lib/api", () => ({
-  getLatestAdherenceState: vi.fn(async () => { if (api.throws) throw new Error("x"); return api.streak === null ? null : { streak: api.streak }; }),
+  getStreakSummary: vi.fn(async () => { if (api.throws) throw new Error("x"); return api.streak === null ? null : { streak: api.streak, best: api.best, protected: api.prot }; }),
   getActivityEventsSince: vi.fn(async () => api.events),
   getRestDays: vi.fn(async () => api.rest),
   markRestDay: vi.fn(), undoRestDay: vi.fn(), getMyClinicBrand: vi.fn(async () => null),
@@ -19,7 +19,7 @@ function renderIt() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(<QueryClientProvider client={qc}><MemoryRouter><Streak /></MemoryRouter></QueryClientProvider>);
 }
-beforeEach(() => { api.streak = 3; api.events = []; api.rest = []; api.throws = false; });
+beforeEach(() => { api.streak = 3; api.best = 3; api.prot = []; api.events = []; api.rest = []; api.throws = false; });
 
 describe("Tela da sequência (PDF do Ernâni, tela 07) — regra atual", () => {
   it("mostra o número de dias seguidos do servidor, no singular quando 1", async () => {
@@ -54,6 +54,22 @@ describe("Tela da sequência (PDF do Ernâni, tela 07) — regra atual", () => {
   it("próximo marco: 3 dias → 7, faltam 4", async () => {
     renderIt();
     expect(await screen.findByTestId("streak-next")).toHaveTextContent("Próximo marco: 7 dias");
+  });
+  it("mostra o recorde e marca o dia protegido (falha perdoada)", async () => {
+    api.best = 25; api.prot = [localDateKey(new Date())];
+    renderIt();
+    expect(await screen.findByTestId("streak-best")).toHaveTextContent("Recorde: 25 dias");
+    const week = await screen.findByTestId("streak-week");
+    await vi.waitFor(() => expect(week.querySelector(`[data-state="protected"]`)).not.toBeNull());
+  });
+  it("o recorde nunca aparece menor que a sequência atual", async () => {
+    api.streak = 9; api.best = 4;
+    renderIt();
+    expect(await screen.findByTestId("streak-best")).toHaveTextContent("Recorde: 9 dias");
+  });
+  it("explica a regra de uma falha por semana", async () => {
+    renderIt();
+    expect(await screen.findByTestId("streak-rule")).toHaveTextContent("Uma falha por semana é perdoada");
   });
   it("falha de leitura: avisa", async () => {
     api.throws = true;
