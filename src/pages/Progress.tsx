@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Calendar, Image, TrendingDown, TrendingUp, Zap, Activity, X, ArrowRight, Plus, Watch, Trophy } from "lucide-react";
+import { ArrowLeft, Calendar, Image, TrendingDown, TrendingUp, Zap, Activity, X, ArrowRight, Plus, Watch, Trophy, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { comparablePoses, dayLabel, groupByPose, POSE_LABEL, poseKey, type PoseKey } from "@/lib/photoPose";
@@ -17,6 +17,8 @@ import { deriveConstancy, countWorkoutDaysInWindow } from "@/lib/constancy";
 import { tracker } from "@/lib/eventTracker";
 import { useAchievements } from "@/hooks/useAchievements";
 import WeeklyKcalCard from "@/components/WeeklyKcalCard";
+import BeforeAfterSlider from "@/components/BeforeAfterSlider";
+import { photoCaption, weightNear } from "@/lib/photoWeight";
 import BottomNav from "@/components/BottomNav";
 import DynamicBodyMap from "@/components/DynamicBodyMap";
 
@@ -404,7 +406,7 @@ export default function Progress() {
                 <p className="text-sm font-semibold text-foreground">Índice VRI</p>
                 <p className="text-xs text-muted-foreground">Sequência de {vri.streak} dias • {vri.weeklyCompletionRate}% semanal</p>
               </div>
-              <Activity size={18} className="text-primary shrink-0" />
+              <span className="text-xs font-semibold text-primary shrink-0 flex items-center">Detalhes <ChevronRight size={14} /></span>
             </>
           ) : (
             <>
@@ -576,29 +578,10 @@ export default function Progress() {
                   </label>
                 </div>
 
-                <div className="flex items-stretch gap-3 mb-4">
-                  {[{ p: firstPhoto, tag: "ANTES", accent: false }, { p: lastPhoto, tag: "ATUAL", accent: true }].map(({ p, tag, accent }, idx) => (
-                    <div key={idx} className="flex-1">
-                      <div className={`aspect-[3/4] rounded-2xl overflow-hidden relative border ${accent ? "border-primary/15" : "border-border"}`}>
-                        {p.display_url ? (
-                          <img src={p.display_url} alt={`Foto ${tag}`} className="absolute inset-0 w-full h-full object-contain bg-muted" loading="lazy" />
-                        ) : null}
-                        <div className={`absolute top-2 left-2 px-2 py-1 rounded-full backdrop-blur-sm ${accent ? "bg-primary/20" : "bg-background/70"}`}>
-                          <span className={`text-[9px] font-bold ${accent ? "text-primary" : "text-muted-foreground"}`}>{tag}</span>
-                        </div>
-                      </div>
-                      <p className="text-xs font-semibold text-foreground text-center mt-2">{dayLabel(p.taken_at)}</p>
-                    </div>
-                  ))}
-                  <div className="flex items-center"><ArrowRight size={16} className="text-primary/50" /></div>
-                </div>
-
-                <div className="flex items-center justify-center gap-3 py-3 px-4 rounded-xl bg-muted/50 border border-border mb-5">
-                  <Calendar size={14} className="text-muted-foreground" />
-                  <span className="text-xs text-muted-foreground">{dayLabel(firstPhoto.taken_at)}</span>
-                  <ArrowRight size={12} className="text-primary/50" />
-                  <span className="text-xs text-muted-foreground">{dayLabel(lastPhoto.taken_at)}</span>
-                </div>
+                <BeforeAfterSlider
+                  before={{ url: firstPhoto.display_url, alt: "Foto ANTES", caption: photoCaption(dayLabel(firstPhoto.taken_at), weightNear(firstPhoto.taken_at ?? "", weightRows)) }}
+                  after={{ url: lastPhoto.display_url, alt: "Foto ATUAL", caption: photoCaption(dayLabel(lastPhoto.taken_at), weightNear(lastPhoto.taken_at ?? "", weightRows)) }}
+                />
 
                 {/* Único número: Δpeso REAL de weight_logs (sem métricas fabricadas) */}
                 {hasWeight && weightDelta != null && (

@@ -29,3 +29,8 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - [x] Jornada: "fase n de 5", próximo marco 30/60/90 com barra, atalhos Sequência/Desafio e linha de conquistas (tela 06). Tela da Sequência com a regra ATUAL do servidor (tela 07).
 - [ ] (R) Nomes das 5 fases ("nomes a validar"), regra "dia cumprido = 80% das tarefas", proteção semanal e recorde da sequência: mudam regra do servidor e precisam de decisão
 - [ ] Dispositivos (sono/passos) — "em breve"
+
+## Telas 13, 15 e 16 (Evolução)
+- [x] Comparar fotos com divisor arrastável e data + peso mais próximo de cada foto (tela 16); sem peso a até 7 dias, mostra só a data
+- [x] Mapa muscular: "recuperado" volta a ser verde e "enfraquecido" violeta (tela 15)
+- [x] Cartão do VRI na Evolução com "Detalhes ›" (tela 13)
