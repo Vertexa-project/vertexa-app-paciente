@@ -54,7 +54,7 @@ describe("Meu Plano / aba Treino (WP-APP-4 item 6)", () => {
     fireEvent.click(screen.getByText("Treino"));
 
     expect(await screen.findByText(NO_WORKOUT_PLAN_TITLE)).toBeInTheDocument();
-    expect(screen.queryByText("Abrir meu treino")).not.toBeInTheDocument();
+    expect(screen.queryByText("Abrir treino")).not.toBeInTheDocument();
     expect(screen.queryByText("Guia de Treino Interativo")).not.toBeInTheDocument();
   });
 
@@ -63,7 +63,7 @@ describe("Meu Plano / aba Treino (WP-APP-4 item 6)", () => {
     renderPlan();
     fireEvent.click(screen.getByText("Treino"));
 
-    expect(await screen.findByText("Abrir meu treino")).toBeInTheDocument();
+    expect(await screen.findByText("Abrir treino")).toBeInTheDocument();
     expect(screen.queryByText(NO_WORKOUT_PLAN_TITLE)).not.toBeInTheDocument();
   });
 });

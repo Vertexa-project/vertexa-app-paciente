@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import WeekWorkouts from "@/components/WeekWorkouts";
 import { ArrowLeft, Check, Clock, Pill, BookOpen, UtensilsCrossed, Dumbbell, Droplet, Moon, Utensils, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -321,13 +322,7 @@ export default function Plan() {
                   icon={Dumbbell}
                 />
               ) : (
-                <div className="bg-card rounded-xl p-4 border border-primary/20">
-                  <p className="text-sm font-semibold text-foreground mb-1">Guia de Treino Interativo</p>
-                  <p className="text-xs text-muted-foreground mb-3">Veja sua ficha completa, inicie o treino do dia e acompanhe seu progresso exercício por exercício.</p>
-                  <button onClick={() => navigate('/workout-guide')} className="w-full h-11 rounded-xl gradient-orange text-primary-foreground text-sm font-bold flex items-center justify-center gap-2">
-                    Abrir meu treino
-                  </button>
-                </div>
+                <WeekWorkouts plan={workoutPlan ?? []} dow={new Date().getDay()} onOpen={() => navigate('/workout-guide')} />
               )}
             </motion.div>
           )}

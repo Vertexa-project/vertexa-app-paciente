@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -22,6 +22,8 @@ const SNAPSHOT: AdherenceState = {
 const api = vi.hoisted(() => ({
   snapshot: null as unknown,
   adherenceThrows: false,
+  workouts: [] as unknown[],
+  pending: null as unknown,
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -29,13 +31,13 @@ vi.mock("@/lib/api", () => ({
     if (api.adherenceThrows) throw new Error("boom");
     return api.snapshot;
   }),
-  getPendingSummary: vi.fn(async () => null),
+  getPendingSummary: vi.fn(async () => api.pending),
   getHydrationTodayLiters: vi.fn(async () => 0),
   getMyClinicBrand: vi.fn(async () => null),
   getMySupplements: vi.fn(async () => []),
   getSupplementsTakenToday: vi.fn(async () => new Set()),
   toggleSupplementTaken: vi.fn(),
-  getMyWorkoutPlan: vi.fn(async () => []),
+  getMyWorkoutPlan: vi.fn(async () => api.workouts),
   getRecentWeightLogs: vi.fn(async () => []),
   getMealAdherenceToday: vi.fn(async () => null),
 }));
@@ -53,6 +55,7 @@ vi.mock("@/hooks/useMe", () => ({
 
 vi.mock("@/hooks/useNotifications", () => ({
   useUnreadNotificationCount: () => ({ count: 0 }),
+  useNotifications: () => ({ notifications: [], unreadCount: 0, isLoading: false, isError: false, markRead: vi.fn(), markAllRead: vi.fn() }),
 }));
 
 const { default: HomePage } = await import("./HomePage");
@@ -74,6 +77,8 @@ function renderHome() {
 beforeEach(() => {
   api.snapshot = SNAPSHOT;
   api.adherenceThrows = false;
+  api.workouts = [];
+  api.pending = null;
 });
 
 describe("Home / barra semanal (WP-APP-4 item 1)", () => {
@@ -206,5 +211,63 @@ describe("Home / falha ao ler a adesão (WP-APP-6 item 3.2)", () => {
     await screen.findByText(/não foi possível carregar seu índice vri/i);
 
     expect(screen.queryByText(VRI_NOT_AVAILABLE_TITLE)).not.toBeInTheDocument();
+  });
+});
+
+// PDF do Ernâni (tela 01): cards logo abaixo do VRI, próxima ação e "Registro rápido" no lugar do elogio.
+describe("Home / ordem e blocos do design (PDF do Ernâni, tela 01)", () => {
+  it("mostra os cards de sequência e de semana concluída com dado real", async () => {
+    renderHome();
+    const cards = await screen.findByTestId("home-stat-cards");
+    expect(cards).toHaveTextContent("2 dias");
+    expect(cards).toHaveTextContent("40%");
+  });
+
+  it("sem snapshot não há cards (nada de número inventado)", async () => {
+    api.snapshot = null;
+    renderHome();
+    await screen.findByText(VRI_NOT_AVAILABLE_TITLE);
+    expect(screen.queryByTestId("home-stat-cards")).not.toBeInTheDocument();
+  });
+
+  it("'Próxima ação' só com ficha e treino pendente", async () => {
+    api.workouts = [{ id: "w", letter: "E", name: "Bíceps / Tríceps", dayIndex: new Date().getDay(), exercises: [], estimatedMinutes: 50, estimatedCalories: 0, completed: false, muscleGroup: "", dayOfWeek: "" }];
+    api.pending = { workoutPending: true, photoPending: false, weightPending: false };
+    renderHome();
+    expect(await screen.findByTestId("home-next-action")).toHaveTextContent("Treino E — Bíceps / Tríceps");
+  });
+
+  it("com ficha mas treino já feito hoje: sem 'Próxima ação'", async () => {
+    api.workouts = [{ id: "w", letter: "E", name: "X", dayIndex: new Date().getDay(), exercises: [], estimatedMinutes: 50, estimatedCalories: 0, completed: false, muscleGroup: "", dayOfWeek: "" }];
+    api.pending = { workoutPending: false, photoPending: false, weightPending: false };
+    renderHome();
+    await screen.findByTestId("home-stat-cards");
+    expect(screen.queryByTestId("home-next-action")).not.toBeInTheDocument();
+  });
+
+  it("sem ficha não há 'Próxima ação'", async () => {
+    api.pending = { workoutPending: true, photoPending: false, weightPending: false };
+    renderHome();
+    await screen.findByTestId("home-stat-cards");
+    expect(screen.queryByTestId("home-next-action")).not.toBeInTheDocument();
+  });
+
+  it("'Registro rápido' e 'Tarefas de hoje' substituem os nomes antigos; sem elogio automático", async () => {
+    api.snapshot = { ...SNAPSHOT, score: 92, level: "alta" };
+    renderHome();
+    expect(await screen.findByText("Registro rápido")).toBeInTheDocument();
+    expect(screen.getByText("Tarefas de hoje")).toBeInTheDocument();
+    expect(screen.queryByText("Ações rápidas")).not.toBeInTheDocument();
+    expect(screen.queryByText(/você está incrível/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("Home / sino abre painel (PDF do Ernâni, tela 02)", () => {
+  it("tocar no sino abre o painel sobre a Home", async () => {
+    renderHome();
+    await screen.findByTestId("home-stat-cards");
+    expect(screen.queryByText("Nenhuma notificação por aqui")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Abrir notificações" }));
+    expect(await screen.findByText("Nenhuma notificação por aqui")).toBeInTheDocument();
   });
 });

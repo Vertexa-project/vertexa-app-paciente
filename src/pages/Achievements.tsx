@@ -6,6 +6,7 @@ import { useAchievements } from "@/hooks/useAchievements";
 import { getLatestAdherenceState } from "@/lib/api";
 import type { AchievementView, AchievementCategory } from "@/lib/api";
 import BottomNav from "@/components/BottomNav";
+import AchievementsProgress from "@/components/AchievementsProgress";
 import { ComingSoonBadge } from "@/components/ComingSoonLock";
 
 const categoryLabels: Record<AchievementCategory, string> = {
@@ -64,6 +65,8 @@ export default function Achievements() {
             </div>
           )}
         </div>
+
+        {!isLoading && !isError && <AchievementsProgress unlocked={unlockedCount} total={totalCount} />}
 
         {isError ? (
           <p className="text-xs text-red-400 text-center py-6">Não foi possível carregar suas conquistas.</p>

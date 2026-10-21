@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Bell, Droplets, Moon, Footprints, UtensilsCrossed, Dumbbell, Scale, Camera, HelpCircle, ChevronRight, AlertTriangle, TrendingUp, TrendingDown, Zap, Trophy, MessageCircle, CircleAlert, ImagePlus } from "lucide-react";
+import { Bell, Droplets, Moon, Footprints, UtensilsCrossed, Dumbbell, Scale, Camera, HelpCircle, ChevronRight, AlertTriangle, TrendingUp, TrendingDown, Zap, Trophy, MessageCircle, CircleAlert, ImagePlus, Target } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { dailyGoals } from "@/data/mockData";
 import { useMe } from "@/hooks/useMe";
@@ -20,6 +20,7 @@ import ClinicBadge from "@/components/ClinicBadge";
 import SupplementReminders from "@/components/SupplementReminders";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
+import NotificationsPanel from "@/components/NotificationsPanel";
 import BottomNav from "@/components/BottomNav";
 
 const goalIcons: Record<string, React.ElementType> = {
@@ -87,6 +88,7 @@ function VRIRing({ score, level }: { score: number; level: string }) {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const [notifOpen, setNotifOpen] = useState(false);
 
   // VRI exibido = ÚLTIMO snapshot persistido (mesma fonte que a web → consistência app↔web).
   //
@@ -111,7 +113,8 @@ export default function HomePage() {
   // isLoading afirmaria "você não tem índice" quando o app está é sem rede. Segue o Perfil.
   const adherenceLoading = adherenceQuery.isPending;
   // Sem state não há ação derivável. A guarda fica AQUI, na chamada, e não dentro do motor.
-  const autoActions = state ? getAutoActions(state) : [];
+  // PDF do Ernâni (tela 01): "Registro rápido" SUBSTITUI o elogio automático — fica só o alerta de retomada.
+  const autoActions = state ? getAutoActions(state).filter((x) => x.id !== "positive") : [];
   const statusInfo = state ? statusLabels[state.status] ?? statusLabels["em_acompanhamento"] : null;
 
   useEffect(() => { tracker.track('home_viewed'); }, []);
@@ -218,8 +221,8 @@ export default function HomePage() {
 
   const quickActions = [
     { icon: Scale, label: "Peso", path: "/records" },
-    { icon: Dumbbell, label: "Treino", path: "/records" },
     { icon: Droplets, label: "Água", path: "/habits" },
+    { icon: UtensilsCrossed, label: "Refeição", path: "/plan" },
     { icon: Camera, label: "Foto", path: "/records" },
     { icon: MessageCircle, label: "Equipe", path: "/team-chat" },
     { icon: HelpCircle, label: "SOS", path: "/sos" },
@@ -238,7 +241,7 @@ export default function HomePage() {
                 nunca registrou nada. A saudação acima é real (me.name) e fica. */}
             {state && <p className="text-sm text-muted-foreground mt-0.5">{state.contextualMessage}</p>}
           </div>
-          <button onClick={() => navigate("/notifications")} className="relative w-10 h-10 rounded-full bg-card flex items-center justify-center">
+          <button onClick={() => setNotifOpen(true)} aria-label="Abrir notificações" className="relative w-10 h-10 rounded-full bg-card flex items-center justify-center">
             <Bell size={20} className="text-foreground" />
             {unreadNotifications > 0 && (
               <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1 border-2 border-background">
@@ -269,47 +272,6 @@ export default function HomePage() {
         </motion.div>
 
         <SupplementReminders />
-
-        {/* Pending Actions */}
-        {pendingItems.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="mb-5">
-            <div className="flex items-center gap-2 mb-3">
-              <CircleAlert size={14} className="text-destructive" />
-              <h2 className="text-sm font-display font-semibold text-foreground">Pendências</h2>
-              <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-destructive/15 text-destructive">
-                {pendingItems.length} {pendingItems.length === 1 ? 'item' : 'itens'}
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {pendingItems.map((item, i) => {
-                const Icon = item.icon;
-                return (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, x: -15 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.15 + i * 0.06 }}
-                    onClick={() => navigate(item.path)}
-                    className="relative flex items-center gap-3 p-3.5 rounded-xl bg-card border border-destructive/25 cursor-pointer active:scale-[0.98] transition-all overflow-hidden group"
-                  >
-                    {/* Subtle left accent bar */}
-                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-destructive/60 rounded-l-xl" />
-                    <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
-                      <Icon size={20} className="text-destructive" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground">{item.title}</p>
-                      <p className="text-[11px] text-muted-foreground">{item.subtitle}</p>
-                    </div>
-                    <span className="text-[11px] font-semibold text-destructive whitespace-nowrap group-hover:text-destructive/80 transition-colors">
-                      {item.cta}
-                    </span>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
 
         {/* VRI Score Card — QUATRO estados distintos, na ordem de precedência (WP-APP-6 3.2).
             Este é o único bloco que NÃO some sem snapshot: o assunto dele É o índice, e um
@@ -400,6 +362,77 @@ export default function HomePage() {
         </motion.div>
         )}
 
+        {/* PDF do Ernâni (tela 01): logo abaixo do índice vêm os 3 cards e a PRÓXIMA AÇÃO, depois as
+            pendências. Só entram cards com dado real; "kcal estimadas" fica de fora até haver origem. */}
+        {state && (
+          <div className="grid grid-cols-2 gap-3 mb-5" data-testid="home-stat-cards">
+            <div className="bg-card rounded-xl p-3.5">
+              <Zap size={16} className="text-primary mb-2" />
+              <p className="text-xl font-display font-bold text-foreground">{state.streak} {state.streak === 1 ? "dia" : "dias"}</p>
+              <p className="text-[10px] text-muted-foreground">de sequência</p>
+            </div>
+            <div className="bg-card rounded-xl p-3.5">
+              <Target size={16} className="text-primary mb-2" />
+              <p className="text-xl font-display font-bold text-foreground">{state.weeklyCompletionRate}%</p>
+              <p className="text-[10px] text-muted-foreground">da semana concluída</p>
+            </div>
+          </div>
+        )}
+
+        {hasRealWorkoutPlan && todayWorkout && (pending?.workoutPending ?? false) && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
+            className="mb-5 p-4 rounded-2xl bg-card border border-primary/25 flex items-center gap-3" data-testid="home-next-action">
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">Próxima ação</p>
+              <p className="text-sm font-semibold text-foreground truncate">{todayWorkoutLabel}</p>
+            </div>
+            <button onClick={() => navigate("/workout-guide")} className="px-4 py-2 rounded-full gradient-orange text-primary-foreground text-xs font-semibold">
+              Iniciar
+            </button>
+          </motion.div>
+        )}
+
+        {/* Pending Actions */}
+        {pendingItems.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="mb-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CircleAlert size={14} className="text-destructive" />
+              <h2 className="text-sm font-display font-semibold text-foreground">Pendências</h2>
+              <span className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-destructive/15 text-destructive">
+                {pendingItems.length} {pendingItems.length === 1 ? 'item' : 'itens'}
+              </span>
+            </div>
+            <div className="space-y-2.5">
+              {pendingItems.map((item, i) => {
+                const Icon = item.icon;
+                return (
+                  <motion.div
+                    key={item.id}
+                    initial={{ opacity: 0, x: -15 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.15 + i * 0.06 }}
+                    onClick={() => navigate(item.path)}
+                    className="relative flex items-center gap-3 p-3.5 rounded-xl bg-card border border-destructive/25 cursor-pointer active:scale-[0.98] transition-all overflow-hidden group"
+                  >
+                    {/* Subtle left accent bar */}
+                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-destructive/60 rounded-l-xl" />
+                    <div className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0">
+                      <Icon size={20} className="text-destructive" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">{item.title}</p>
+                      <p className="text-[11px] text-muted-foreground">{item.subtitle}</p>
+                    </div>
+                    <span className="text-[11px] font-semibold text-destructive whitespace-nowrap group-hover:text-destructive/80 transition-colors">
+                      {item.cta}
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+
         {/* Risk / Attention Alert */}
         {state && state.riskFactors.length > 0 && state.level !== 'alta' && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
@@ -456,7 +489,7 @@ export default function HomePage() {
         {/* Daily Goals */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-display font-semibold text-foreground">Metas do dia</h2>
+            <h2 className="text-base font-display font-semibold text-foreground">Tarefas de hoje</h2>
             {/* O contador ignora as metas bloqueadas: contar no denominador uma meta que a
                 paciente não tem como cumprir (nem enxergar) transformaria o cadeado numa
                 pendência permanente. */}
@@ -539,7 +572,7 @@ export default function HomePage() {
 
         {/* Quick Actions */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <h2 className="text-base font-display font-semibold text-foreground mb-3">Ações rápidas</h2>
+          <h2 className="text-base font-display font-semibold text-foreground mb-3">Registro rápido</h2>
           <div className="flex gap-3 mb-5 overflow-x-auto pb-1">
             {quickActions.map((a) => (
               <button key={a.label} onClick={() => navigate(a.path)} className="flex flex-col items-center gap-2 min-w-[64px]">
@@ -579,6 +612,7 @@ export default function HomePage() {
         </motion.div>
 
       </div>
+      <NotificationsPanel open={notifOpen} onOpenChange={setNotifOpen} />
       <BottomNav />
     </div>
   );

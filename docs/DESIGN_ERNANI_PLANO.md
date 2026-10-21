@@ -7,12 +7,12 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - [x] Abas: Home→Hoje, Progresso→Evolução (telas 01–27, barra inferior)
 - [x] Dicas gerais: textos e ícones por orientação, "todos os pacientes" (tela 25)
 - [x] Mapa muscular: "enfraquecido" deixa de ser verde (tela 15)
-- [ ] Home: cards sequência / kcal estimadas / meta semanal; bloco "Próxima ação"; "Registro rápido" (tela 01)
-- [ ] Notificações em painel sobre a tela, com tipos (tela 02)
+- [x] Home: cards sequência e semana concluída (kcal estimadas fica p/ lote 2, sem origem de dado); "Próxima ação"; "Registro rápido"; sem elogio automático (tela 01)
+- [x] Notificações em painel sobre a Home (tela 02); ícones por tipo já existiam
 - [ ] Água: copo que enche + atalhos +150/+250/+500 + desfazer (tela 04)
-- [ ] Plano › Treino: "Treino de hoje" + ficha A–E com status; duração real (tela 20)
+- [x] Plano › Treino: "Treino de hoje" + ficha da semana; sem "0 min" (tela 20). Status "feito" por dia: lote 2 (não há leitura)
 - [ ] Suplementos: adesão da semana + autor + semana em linha (tela 24)
-- [ ] Conquistas: progresso geral e contagem das bloqueadas (tela 08)
+- [x] Conquistas: barra de progresso geral (tela 08). Contagem 7/14 nas bloqueadas: lote 2
 - [ ] Chat: papéis da equipe no cabeçalho; botão flutuante "Minha equipe" (telas 01, 26)
 
 ## Lote 2 — dado novo, sem decisão externa
