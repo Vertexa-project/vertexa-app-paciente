@@ -1,7 +1,7 @@
 import { checkWeight, confirmMessage } from "@/lib/weightGuard";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Scale, Camera, Dumbbell, Droplets, Moon, FileText, Check, Loader2, X } from "lucide-react";
+import { ArrowLeft, Scale, Camera, Dumbbell, Droplets, Moon, FileText, Check, Loader2, X, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tracker } from "@/lib/eventTracker";
@@ -13,11 +13,13 @@ import {
   getRecentSleep,
   uploadProgressPhoto,
   getLatestProgressPhoto,
+  getRecentPoseShots,
   getMyWorkoutPlan,
   validateProgressPhotoFile,
   ProgressPhotoValidationError,
 } from "@/lib/api";
 import { PHOTO_POSES, POSE_LABEL, type PhotoPose } from "@/lib/photoPose";
+import { poseSeries, POSE_TIPS } from "@/lib/poseGuide";
 import { formatSleepHours, localYmd, parseSleepHours, SLEEP_QUALITY_LABEL } from "@/lib/sleep";
 import BottomNav from "@/components/BottomNav";
 import ComingSoonLock, { NOTES_LOCK_REASON } from "@/components/ComingSoonLock";
@@ -124,6 +126,9 @@ export default function Records() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoPose, setPhotoPose] = useState<PhotoPose | null>(null);
   const latestPhoto = useQuery({ queryKey: ["latestPhoto"], queryFn: getLatestProgressPhoto });
+  // Guia de pose (PDF do Ernâni, tela 05): check nas poses da série da última semana + próxima sugerida.
+  const poseShots = useQuery({ queryKey: ["poseShots"], queryFn: () => getRecentPoseShots(45) });
+  const series = poseSeries(poseShots.data ?? [], new Date());
 
   useEffect(() => {
     return () => {
@@ -319,7 +324,11 @@ export default function Records() {
 
           {activeRecord === "photo" && (
             <motion.div key="photo" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-card rounded-2xl p-5 shadow-card">
-              <h3 className="text-sm font-semibold text-foreground mb-4">Foto evolutiva</h3>
+              <h3 className="text-sm font-semibold text-foreground mb-1">Foto evolutiva</h3>
+              <p className="text-[11px] text-muted-foreground mb-4" data-testid="pose-series-line">
+                {series.lastShotAt ? `Última foto: ${new Date(series.lastShotAt).toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "")}` : "Nenhuma foto ainda"}
+                {series.next ? ` · próxima sugerida: ${POSE_LABEL[series.next]}` : " · série da semana completa"}
+              </p>
               {/* câmera E galeria: input de imagem sem `capture` deixa o sistema oferecer ambas (decisão C3) */}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPickFile} />
               <button
@@ -355,11 +364,15 @@ export default function Records() {
                     onClick={() => setPhotoPose(pz)}
                     className={`h-10 rounded-xl border text-xs font-semibold transition-colors ${photoPose === pz ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground"}`}
                   >
-                    {POSE_LABEL[pz]}
+                    {series.done.has(pz) && <Check size={12} aria-label="já fotografada nesta semana" className="inline mr-1 -mt-0.5" />}{POSE_LABEL[pz]}
                   </button>
                 ))}
               </div>
               <p className="text-[10px] text-center text-muted-foreground mt-2">Use sempre a mesma posição para comparar sua evolução</p>
+              <ul className="mt-3 text-[11px] text-muted-foreground list-disc pl-4 space-y-0.5" data-testid="pose-tips">
+                {POSE_TIPS.map((t) => <li key={t}>{t}</li>)}
+              </ul>
+              <p className="mt-2 text-[11px] text-success flex items-center gap-1"><Lock size={11} /> Visível só para você e sua equipe</p>
               <button onClick={handleSendPhoto} disabled={photoMutation.isPending || !photoFile || !photoPose}
                 className="w-full h-12 rounded-xl gradient-orange text-primary-foreground font-semibold text-sm shadow-orange active:scale-[0.98] transition-transform mt-4 disabled:opacity-60 flex items-center justify-center gap-2">
                 {photoMutation.isPending && <Loader2 size={16} className="animate-spin" />}

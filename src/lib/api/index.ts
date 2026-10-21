@@ -69,6 +69,7 @@ export type { LogHydrationInput } from "./hydration";
 export {
   uploadProgressPhoto,
   getLatestProgressPhoto,
+  getRecentPoseShots,
   getMyProgressPhotos,
   validateProgressPhotoFile,
   ProgressPhotoValidationError,

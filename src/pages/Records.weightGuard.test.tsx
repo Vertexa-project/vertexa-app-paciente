@@ -17,6 +17,7 @@ vi.mock("@/lib/api", () => ({
   logHydration: vi.fn(),
   uploadProgressPhoto: vi.fn(),
   getLatestProgressPhoto: vi.fn(async () => null),
+  getRecentPoseShots: vi.fn(async () => []),
   getMyWorkoutPlan: vi.fn(async () => []),
   validateProgressPhotoFile: vi.fn(),
   ProgressPhotoValidationError: class extends Error {},

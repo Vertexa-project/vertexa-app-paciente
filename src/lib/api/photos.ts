@@ -178,3 +178,21 @@ export async function getLatestProgressPhoto(): Promise<ProgressPhotoRow | null>
   if (error) throw error;
   return (data as ProgressPhotoRow) ?? null;
 }
+
+/** Pose e data das fotos dos últimos `days` dias (só metadados, sem URL assinada) — base do guia de pose. */
+export async function getRecentPoseShots(days = 45): Promise<{ pose: string | null; taken_at: string }[]> {
+  const patientId = await getMyPatientId();
+  if (!patientId) return [];
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const { data, error } = await supabase
+    .from("progress_photos")
+    .select("pose, taken_at")
+    .eq("patient_id", patientId)
+    .gte("taken_at", since.toISOString())
+    .order("taken_at", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as { pose: string | null; taken_at: string | null }[])
+    .filter((r) => r.taken_at)
+    .map((r) => ({ pose: r.pose, taken_at: r.taken_at as string }));
+}
