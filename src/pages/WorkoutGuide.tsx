@@ -1,4 +1,5 @@
 import EffortPicker from "@/components/EffortPicker";
+import EducatorNote from "@/components/EducatorNote";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Play, X, ChevronRight, Clock, Flame, Dumbbell, CheckCircle2, Timer, StickyNote, Trophy, Zap, Video, Camera, Upload, Sparkles, AlertCircle, ChevronDown, StretchHorizontal } from "lucide-react";
@@ -1210,6 +1211,7 @@ export default function WorkoutGuide() {
           </div>
 
           <EffortPicker onPick={(effort) => tracker.track("workout_effort", { workoutId: selectedWorkout.id, effort })} />
+          <EducatorNote workoutLabel={`Treino ${selectedWorkout.letter}`.trim()} />
 
           <motion.button
             whileTap={{ scale: 0.97 }}

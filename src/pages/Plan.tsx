@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import WeekWorkouts from "@/components/WeekWorkouts";
 import { WeekAdherenceCard, WeekStrip } from "@/components/SupplementWeekStrip";
 import { supplementWeek } from "@/lib/supplementWeek";
+import { weekStart } from "@/lib/weeklySummary";
 import { ArrowLeft, Check, Clock, Pill, BookOpen, UtensilsCrossed, Dumbbell, Droplet, Moon, Utensils, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ import {
   toggleMealDone,
   getMySupplements,
   getSupplementsTakenToday,
+  getWorkoutCompletionsSince,
   getSupplementIntakesWeek,
   toggleSupplementTaken,
   getMyWorkoutPlan,
@@ -148,6 +150,13 @@ export default function Plan() {
     refetch: refetchWorkout,
   } = useQuery({ queryKey: ["workoutPlan"], queryFn: getMyWorkoutPlan });
   const hasRealWorkoutPlan = (workoutPlan?.length ?? 0) > 0;
+  // "Feito" por treino na semana (segunda→hoje): conclusões reais (workout_checked/completed).
+  const { data: weekCompletions } = useQuery({
+    queryKey: ["weekWorkoutDone", todayKey],
+    queryFn: () => getWorkoutCompletionsSince(weekStart(new Date())),
+    enabled: hasRealWorkoutPlan,
+  });
+  const weekDoneIds = weekCompletions ? new Set(weekCompletions.map((c) => c.workoutId).filter((x): x is string => !!x)) : undefined;
 
   // ── Suplementos (S3): lista REAL (autoria web) + "tomado hoje" persistido (supplement_intakes) ──
   const {
@@ -334,7 +343,7 @@ export default function Plan() {
                   icon={Dumbbell}
                 />
               ) : (
-                <WeekWorkouts plan={workoutPlan ?? []} dow={new Date().getDay()} onOpen={() => navigate('/workout-guide')} />
+                <WeekWorkouts plan={workoutPlan ?? []} dow={new Date().getDay()} onOpen={() => navigate('/workout-guide')} doneIds={weekDoneIds} />
               )}
             </motion.div>
           )}

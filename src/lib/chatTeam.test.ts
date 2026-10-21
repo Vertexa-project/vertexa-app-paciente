@@ -184,3 +184,19 @@ describe("teamRolesLabel (PDF do Ernâni, tela 26)", () => {
     expect(teamRolesLabel([])).toBeNull();
   });
 });
+
+describe("chips 'Para:' (PDF do Ernâni, tela 26)", () => {
+  const P = (profileId: string, name: string, disciplines: string[]) => ({ profileId, name, disciplines, specialty: null, type: null }) as never;
+  it("usa o papel; com papel repetido acrescenta o primeiro nome", async () => {
+    const { recipientChips } = await import("./chatTeam");
+    expect(recipientChips([P("a", "Carol M", ["nutricionista"]), P("b", "Diego R", ["educador_fisico"])]).map((c) => c.label)).toEqual(["Nutricionista", "Educador Físico"]);
+    expect(recipientChips([P("a", "Carol M", ["nutricionista"]), P("b", "Bia T", ["nutricionista"])]).map((c) => c.label)).toEqual(["Nutricionista · Carol", "Nutricionista · Bia"]);
+  });
+  it("pré-seleciona pela disciplina da aba; sem correspondência ou sem aba, ninguém", async () => {
+    const { presetRecipient } = await import("./chatTeam");
+    const r = [P("a", "Carol", ["nutricionista"]), P("b", "Diego", ["educador_fisico"])];
+    expect(presetRecipient(r, "educador_fisico")).toBe("b");
+    expect(presetRecipient(r, "medico")).toBeNull();
+    expect(presetRecipient(r, undefined)).toBeNull();
+  });
+});

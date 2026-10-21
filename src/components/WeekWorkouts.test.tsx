@@ -35,4 +35,15 @@ describe("Plano › Treino (PDF do Ernâni, tela 20)", () => {
     expect(screen.getByText("Próximo treino")).toBeInTheDocument();
     expect(screen.queryByText("hoje")).toBeNull();
   });
+  it("marca 'feito' só nos treinos concluídos na semana e conta 'X de Y feitos'", () => {
+    render(<WeekWorkouts plan={PLAN} dow={5} onOpen={() => {}} doneIds={new Set(["a", "e"])} />);
+    expect(screen.getAllByText("✓ feito")).toHaveLength(2);
+    expect(screen.getByTestId("week-done-count")).toHaveTextContent("2 de 3 feitos");
+    expect(screen.queryByText("hoje")).toBeNull(); // o de hoje (E) já foi feito: o selo "feito" vence
+  });
+  it("sem leitura de conclusões (doneIds ausente): sem contador nem 'feito'", () => {
+    render(<WeekWorkouts plan={PLAN} dow={5} onOpen={() => {}} />);
+    expect(screen.queryByTestId("week-done-count")).toBeNull();
+    expect(screen.queryByText("✓ feito")).toBeNull();
+  });
 });

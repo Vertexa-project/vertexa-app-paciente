@@ -139,3 +139,24 @@ export function teamRolesLabel(
   }
   return roles.length > 0 ? roles.join(" · ") : null;
 }
+
+/** Rótulos dos chips "Para:" (PDF do Ernâni, tela 26): o papel; se dois têm o mesmo papel, acrescenta o primeiro nome. */
+export function recipientChips(
+  professionals: Pick<ChannelProfessional, "profileId" | "name" | "disciplines" | "specialty" | "type">[],
+): { profileId: string; label: string }[] {
+  const roles = professionals.map((p) => professionalDisciplineLabel(p) ?? p.name);
+  return professionals.map((p, i) => {
+    const dup = roles.filter((r) => r === roles[i]).length > 1;
+    const first = p.name.trim().split(/\s+/)[0] ?? p.name;
+    return { profileId: p.profileId, label: dup ? `${roles[i]} · ${first}` : roles[i] };
+  });
+}
+
+/** Quem pré-selecionar quando o chat é aberto de uma aba (ex.: Plano → nutricionista). null = Toda a equipe. */
+export function presetRecipient(
+  professionals: Pick<ChannelProfessional, "profileId" | "disciplines">[],
+  discipline: string | null | undefined,
+): string | null {
+  if (!discipline) return null;
+  return professionals.find((p) => (p.disciplines ?? []).includes(discipline))?.profileId ?? null;
+}

@@ -5,7 +5,7 @@ import {
   Lock, Users, AtSign, X, Check, Stethoscope, Apple, Dumbbell, Activity,
   Shield, Loader2, AlertCircle, CornerUpLeft,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tracker } from "@/lib/eventTracker";
 import {
@@ -24,6 +24,8 @@ import {
   professionalsByProfileId,
   teamReadsLabel,
   teamRolesLabel,
+  recipientChips,
+  presetRecipient,
 } from "@/lib/chatTeam";
 import { indexById, missingQuotedIds, quotedPreview } from "@/lib/chatReply";
 import type { ChatMessageView } from "@/lib/api";
@@ -79,6 +81,7 @@ const quickSuggestions = [
 
 export default function TeamChat() {
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
 
   const [input, setInput] = useState("");
@@ -198,6 +201,18 @@ export default function TeamChat() {
     setShowMentions(false);
     inputRef.current?.focus();
   };
+
+  // "Para:" (PDF do Ernâni, tela 26): chips de destino. Escolher um chip marca o destinatário sem mexer no texto;
+  // "Toda a equipe" desmarca. Aberto de uma aba (Plano → nutricionista, Treino → educador), já vem preenchido.
+  const chips = useMemo(() => recipientChips(professionals), [professionals]);
+  const presetDone = useRef(false);
+  useEffect(() => {
+    if (presetDone.current || professionals.length === 0) return;
+    presetDone.current = true;
+    const id = presetRecipient(professionals, (location.state as { toDiscipline?: string | null } | null)?.toDiscipline);
+    const prof = id ? professionals.find((p) => p.profileId === id) : null;
+    if (prof) setSelectedMention(prof);
+  }, [professionals, location.state]);
 
   const clearMention = () => {
     setSelectedMention(null);
@@ -546,6 +561,31 @@ export default function TeamChat() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Para: — chips de destino */}
+      {chips.length > 0 && (
+        <div className="px-4 pb-1 flex items-center gap-1.5 overflow-x-auto" role="group" aria-label="Para" data-testid="recipient-chips">
+          <span className="text-[10px] text-muted-foreground shrink-0">Para:</span>
+          {chips.map((c) => {
+            const on = selectedMention?.profileId === c.profileId;
+            return (
+              <button
+                key={c.profileId} onClick={() => setSelectedMention(on ? null : professionals.find((p) => p.profileId === c.profileId) ?? null)}
+                aria-pressed={on}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium border ${on ? "bg-primary/15 border-primary/30 text-primary" : "bg-muted border-transparent text-muted-foreground"}`}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setSelectedMention(null)} aria-pressed={selectedMention === null}
+            className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-medium border ${selectedMention === null ? "bg-primary/15 border-primary/30 text-primary" : "bg-muted border-transparent text-muted-foreground"}`}
+          >
+            Toda a equipe
+          </button>
+        </div>
+      )}
 
       {/* Selected mention badge */}
       {selectedMention && (

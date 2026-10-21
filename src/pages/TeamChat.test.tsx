@@ -110,11 +110,11 @@ function mensagemDeQuemSaiu(): ChatMessageView {
   } as ChatMessageView;
 }
 
-function renderChat() {
+function renderChat(state?: { toDiscipline: string | null }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[{ pathname: "/team-chat", state }]}>
         <TeamChat />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -197,12 +197,60 @@ describe("TeamChat / cabeçalho com papéis (PDF do Ernâni, tela 26)", () => {
   it("título 'Sua equipe' e papéis da equipe no subtítulo", async () => {
     renderChat();
     expect(await screen.findByText("Sua equipe")).toBeInTheDocument();
-    expect(await screen.findByText("Fisioterapeuta")).toBeInTheDocument();
+    expect((await screen.findAllByText("Fisioterapeuta")).length).toBeGreaterThan(0); // cabeçalho e chip
     expect(screen.queryByText("Nutricionista")).not.toBeInTheDocument(); // quem saiu não aparece
   });
   it("o canal seguro diz que é só você e a equipe", async () => {
     renderChat();
     expect(await screen.findByText(/Canal seguro · só você e sua equipe/)).toBeInTheDocument();
+  });
+});
+
+describe("TeamChat / Para: (PDF do Ernâni, tela 26)", () => {
+  it("mostra os chips do papel de quem está na equipe e 'Toda a equipe', sem quem saiu", async () => {
+    renderChat();
+    const chips = await screen.findByTestId("recipient-chips");
+    expect(within(chips).getByText("Fisioterapeuta")).toBeInTheDocument();
+    expect(within(chips).getByText("Toda a equipe")).toBeInTheDocument();
+    expect(within(chips).queryByText("Nutricionista")).not.toBeInTheDocument();
+  });
+  it("escolher um chip marca o destinatário (badge 'Direcionado a') e escolher de novo desmarca", async () => {
+    renderChat();
+    const chips = await screen.findByTestId("recipient-chips");
+    fireEvent.click(within(chips).getByText("Fisioterapeuta"));
+    expect(await screen.findByText("Direcionado a Dr. Colega Fica")).toBeInTheDocument();
+    fireEvent.click(within(chips).getByText("Fisioterapeuta"));
+    expect(screen.queryByText("Direcionado a Dr. Colega Fica")).not.toBeInTheDocument();
+    fireEvent.click(within(chips).getByText("Fisioterapeuta"));
+    fireEvent.click(within(chips).getByText("Toda a equipe"));
+    expect(screen.queryByText("Direcionado a Dr. Colega Fica")).not.toBeInTheDocument();
+  });
+});
+
+describe("TeamChat / Para: já preenchido pela aba (PDF do Ernâni, tela 26)", () => {
+  it("aberto do Treino (educador): sem educador no canal, nada é marcado", async () => {
+    renderChat({ toDiscipline: "educador_fisico" });
+    await screen.findByTestId("recipient-chips");
+    expect(screen.queryByText(/Direcionado a/)).not.toBeInTheDocument();
+  });
+  it("aberto do Plano (nutricionista) com um fisioterapeuta no canal: nada é marcado", async () => {
+    renderChat({ toDiscipline: "nutricionista" });
+    await screen.findByTestId("recipient-chips");
+    expect(screen.queryByText(/Direcionado a/)).not.toBeInTheDocument();
+  });
+  it("aberto da aba que casa com quem está no canal: já vem marcado", async () => {
+    renderChat({ toDiscipline: "fisioterapeuta" });
+    expect(await screen.findByText("Direcionado a Dr. Colega Fica")).toBeInTheDocument();
+  });
+  it("com dois no canal, marca o da aba (não o primeiro da lista)", async () => {
+    api.roster = [FICA, SAIU]; // FICA = fisioterapeuta (primeiro), SAIU = nutricionista
+    renderChat({ toDiscipline: "nutricionista" });
+    expect(await screen.findByText("Direcionado a Dra. Alvo Silva")).toBeInTheDocument();
+  });
+  it("aberto sem aba: ninguém marcado", async () => {
+    renderChat();
+    await screen.findByTestId("recipient-chips");
+    expect(screen.queryByText(/Direcionado a/)).not.toBeInTheDocument();
   });
 });
 

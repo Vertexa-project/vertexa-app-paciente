@@ -3,8 +3,14 @@ import { MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 
-const VISIBLE_ROUTES = ["/home", "/plan", "/habits", "/progress", "/journey", "/workout-guide", "/records", "/challenges", "/achievements"];
+const VISIBLE_ROUTES = ["/home", "/plan", "/habits", "/progress", "/journey", "/workout-guide", "/records", "/challenges", "/achievements", "/vri", "/weekly-summary"];
 const HIDDEN_ROUTES = ["/", "/onboarding", "/login", "/team-chat", "/sos"];
+
+// Para quem o chat abre pré-preenchido, conforme a aba (PDF do Ernâni, tela 26: "Para: já vem preenchido").
+const contextRecipient: Record<string, string> = {
+  "/workout-guide": "educador_fisico",
+  "/plan": "nutricionista",
+};
 
 const contextLabels: Record<string, string> = {
   "/workout-guide": "Dúvida no treino?",
@@ -17,7 +23,6 @@ export default function FloatingChatButton() {
   const location = useLocation();
   const navigate = useNavigate();
   const [showLabel, setShowLabel] = useState(false);
-  const [unreadCount] = useState(2);
 
   const isVisible = VISIBLE_ROUTES.some(r => location.pathname.startsWith(r)) && !HIDDEN_ROUTES.includes(location.pathname);
 
@@ -40,7 +45,7 @@ export default function FloatingChatButton() {
         exit={{ scale: 0, opacity: 0 }}
         whileTap={{ scale: 0.9 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        onClick={() => navigate("/team-chat")}
+        onClick={() => navigate("/team-chat", { state: { toDiscipline: contextRecipient[location.pathname] ?? null } })}
         className="fixed z-40 right-5 bottom-[88px] flex items-center gap-2 gradient-orange rounded-full shadow-lg shadow-primary/30 active:shadow-primary/50 transition-shadow"
         style={{ padding: showLabel ? "12px 18px 12px 14px" : "14px" }}
       >
@@ -60,11 +65,6 @@ export default function FloatingChatButton() {
           )}
         </AnimatePresence>
 
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-white text-primary text-[10px] font-bold flex items-center justify-center px-1 shadow-sm">
-            {unreadCount}
-          </span>
-        )}
       </motion.button>
     </AnimatePresence>
   );

@@ -19,7 +19,7 @@ export function workoutMeta(w: Workout): string {
   return parts.join(" · ");
 }
 
-export default function WeekWorkouts({ plan, dow, onOpen }: { plan: Workout[]; dow: number; onOpen: () => void }) {
+export default function WeekWorkouts({ plan, dow, onOpen, doneIds }: { plan: Workout[]; dow: number; onOpen: () => void; doneIds?: ReadonlySet<string> }) {
   const picked = pickTodayWorkout(plan, dow);
   if (!picked) return null;
   const { workout, isToday } = picked;
@@ -37,7 +37,10 @@ export default function WeekWorkouts({ plan, dow, onOpen }: { plan: Workout[]; d
         </button>
       </div>
       <section aria-label="Ficha da semana" className="flex flex-col gap-2">
-        <h3 className="text-xs font-semibold text-muted-foreground">Ficha da semana</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-semibold text-muted-foreground">Ficha da semana</h3>
+          {doneIds && <span className="text-[11px] text-muted-foreground" data-testid="week-done-count">{plan.filter((w) => doneIds.has(w.id)).length} de {plan.length} feitos</span>}
+        </div>
         {plan.map((w) => {
           const today = isToday && w.id === workout.id;
           return (
@@ -49,7 +52,11 @@ export default function WeekWorkouts({ plan, dow, onOpen }: { plan: Workout[]; d
                 <p className="text-sm font-medium text-foreground truncate">{w.name}</p>
                 <p className="text-[11px] text-muted-foreground">{[w.dayOfWeek, workoutMeta(w)].filter(Boolean).join(" · ")}</p>
               </div>
-              {today && <span className="text-[10px] font-semibold text-primary px-2 py-0.5 rounded-full bg-primary/10">hoje</span>}
+              {doneIds?.has(w.id) ? (
+                <span className="text-[10px] font-semibold text-success px-2 py-0.5 rounded-full bg-success/10">✓ feito</span>
+              ) : today ? (
+                <span className="text-[10px] font-semibold text-primary px-2 py-0.5 rounded-full bg-primary/10">hoje</span>
+              ) : null}
             </div>
           );
         })}

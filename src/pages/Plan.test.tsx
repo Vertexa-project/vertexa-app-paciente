@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   workouts: [] as unknown[],
   supplements: [] as unknown[],
   intakes: [] as unknown[],
+  completions: [] as unknown[],
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -16,6 +17,7 @@ vi.mock("@/lib/api", () => ({
   getMySupplements: vi.fn(async () => api.supplements),
   getSupplementsTakenToday: vi.fn(async () => new Set<string>()),
   getSupplementIntakesWeek: vi.fn(async () => api.intakes),
+  getWorkoutCompletionsSince: vi.fn(async () => api.completions),
   toggleSupplementTaken: vi.fn(),
   getMyWorkoutPlan: vi.fn(async () => api.workouts),
 }));
@@ -48,6 +50,7 @@ beforeEach(() => {
   api.workouts = [];
   api.supplements = [];
   api.intakes = [];
+  api.completions = [];
 });
 
 describe("Meu Plano / aba Treino (WP-APP-4 item 6)", () => {
@@ -118,5 +121,24 @@ describe("Meu Plano / aba Suplementos — semana (PDF do Ernâni, tela 24)", () 
     fireEvent.click(screen.getByText("Suplem."));
     expect(await screen.findByText(/Nenhum suplemento ou medicamento/)).toBeInTheDocument();
     expect(screen.queryByText("Adesão da semana")).not.toBeInTheDocument();
+  });
+});
+
+describe("Meu Plano / Treino — 'feito' na semana (PDF do Ernâni, tela 20)", () => {
+  it("o treino concluído na semana aparece como feito, com o contador", async () => {
+    api.workouts = [WORKOUT];
+    api.completions = [{ created_at: new Date().toISOString(), workoutId: (WORKOUT as { id: string }).id }];
+    renderPlan();
+    fireEvent.click(screen.getByText("Treino"));
+    expect(await screen.findByText("✓ feito")).toBeInTheDocument();
+    expect(screen.getByTestId("week-done-count")).toHaveTextContent("1 de 1 feitos");
+  });
+  it("conclusão de outro treino não marca este", async () => {
+    api.workouts = [WORKOUT];
+    api.completions = [{ created_at: new Date().toISOString(), workoutId: "outro" }];
+    renderPlan();
+    fireEvent.click(screen.getByText("Treino"));
+    expect(await screen.findByTestId("week-done-count")).toHaveTextContent("0 de 1 feitos");
+    expect(screen.queryByText("✓ feito")).not.toBeInTheDocument();
   });
 });
