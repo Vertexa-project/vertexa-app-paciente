@@ -45,3 +45,20 @@ export async function getActivityEventsSince(
   if (error) throw error;
   return (data ?? []) as { type: string; created_at: string }[];
 }
+/** Treinos CONCLUÍDOS (workout_checked/action=completed) desde `since`: quando e qual treino. Só leitura. */
+export async function getWorkoutCompletionsSince(since: Date | string): Promise<{ created_at: string; workoutId: string | null }[]> {
+  const patientId = await getMyPatientId();
+  if (!patientId) return [];
+  const sinceIso = typeof since === "string" ? since : since.toISOString();
+  const { data, error } = await supabase
+    .from("activity_events")
+    .select("created_at, payload")
+    .eq("patient_id", patientId)
+    .eq("type", "workout_checked")
+    .gte("created_at", sinceIso)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as { created_at: string; payload: Record<string, unknown> | null }[])
+    .filter((r) => r.payload?.action === "completed")
+    .map((r) => ({ created_at: r.created_at, workoutId: typeof r.payload?.workoutId === "string" ? (r.payload.workoutId as string) : null }));
+}

@@ -82,3 +82,21 @@ export async function getMealAdherenceToday(): Promise<MealAdherence> {
   for (const id of doneToday) if (planMealIds.has(id)) done++;
   return { done, total: planMealIds.size };
 }
+
+/** Marcas de refeição feitas desde o dia `sinceKey` (yyyy-mm-dd local), só das refeições do plano ativo. */
+export async function getMealLogsSince(sinceKey: string): Promise<{ consumed_on: string }[]> {
+  const patientId = await getMyPatientId();
+  if (!patientId) return [];
+  const plan = await getMyNutritionPlan();
+  const planIds = new Set((plan?.meals ?? []).map((m) => m.id).filter(Boolean));
+  if (planIds.size === 0) return [];
+  const { data, error } = await supabase
+    .from("meal_logs")
+    .select("meal_id, consumed_on")
+    .eq("patient_id", patientId)
+    .gte("consumed_on", sinceKey);
+  if (error) throw error;
+  return ((data ?? []) as { meal_id: string; consumed_on: string }[])
+    .filter((r) => planIds.has(r.meal_id))
+    .map((r) => ({ consumed_on: r.consumed_on }));
+}

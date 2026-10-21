@@ -16,12 +16,12 @@ export type {
   SendPatientMessageResult,
   ChannelSubscriptionHandlers,
 } from "./chat";
-export { logActivityEvent, getActivityEventsSince } from "./events";
+export { logActivityEvent, getActivityEventsSince, getWorkoutCompletionsSince } from "./events";
 export type { LogActivityEventInput } from "./events";
 export { getMuscleRecovery } from "./recovery";
 export { getMyNutritionPlan } from "./plan";
 export type { MealView, NutritionPlanView } from "./plan";
-export { toggleMealDone, getMealsDoneToday, getMealAdherenceToday } from "./meals";
+export { toggleMealDone, getMealsDoneToday, getMealAdherenceToday, getMealLogsSince } from "./meals";
 export type { ToggleMealDoneInput, MealAdherence } from "./meals";
 export { logActivitySession, getRecentActivitySessions, getActivitySessionsSince } from "./activities";
 export type { LogActivitySessionInput, ActivitySessionRow } from "./activities";

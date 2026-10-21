@@ -19,8 +19,8 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - [x] Trava de peso >2 kg/dia com confirmação (tela 03); valor confirmado fora da curva não emite o marcador do VRI. Pendente: a equipe aprovar/rejeitar no web e o valor sair do gráfico até lá
 - [x] Esforço percebido 1–10 ao concluir o treino (tela 23; evento workout_effort, aparece na timeline do web). Recado ao educador: pendente
 - [ ] Preparação corporal opcional e miniatura sem quadrado branco (telas 21–22)
-- [ ] Gráfico de kcal da semana; resumo da semana (telas 13, 17)
-- [ ] Tela do VRI com 4 componentes e dica acionável (tela 14)
+- [x] Kcal estimadas da semana em barras na Evolução (tela 13) e Resumo da semana (tela 17; kcal = treino concluído + atividades, rotulado como estimativa). Pendente da tela 17: recado da equipe e compartilhar
+- [x] Tela do VRI: número do servidor, curva dos snapshots, 4 componentes com dado real, dica do mais fraco (tela 14). A dica não promete pontos (o servidor decide)
 - [ ] Guia de pose da foto (tela 05); "Para:" preenchido pelo botão (tela 26)
 
 ## Lote 3 — depende da cliente (R)

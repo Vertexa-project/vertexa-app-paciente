@@ -16,6 +16,7 @@ import { daysAgoLocal, localDateKey } from "@/lib/pendingLogic";
 import { deriveConstancy, countWorkoutDaysInWindow } from "@/lib/constancy";
 import { tracker } from "@/lib/eventTracker";
 import { useAchievements } from "@/hooks/useAchievements";
+import WeeklyKcalCard from "@/components/WeeklyKcalCard";
 import BottomNav from "@/components/BottomNav";
 import DynamicBodyMap from "@/components/DynamicBodyMap";
 
@@ -369,6 +370,8 @@ export default function Progress() {
             </>
           )}
         </motion.div>
+
+        <WeeklyKcalCard />
 
         {/* ═══ VRI (REAL — último snapshot de adherence_snapshots) ═══ */}
         <motion.div {...anim(0.5)} onClick={() => vri && navigate("/vri")} role={vri ? "button" : undefined} aria-label={vri ? "Ver detalhes do índice VRI" : undefined} className={`bg-card rounded-2xl p-4 shadow-card mb-5 flex items-center gap-4 ${vri ? "cursor-pointer" : ""}`}>

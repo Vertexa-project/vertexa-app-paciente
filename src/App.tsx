@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import HomePage from "./pages/HomePage";
 import Progress from "./pages/Progress";
 import VriDetail from "./pages/VriDetail";
+import WeeklySummary from "./pages/WeeklySummary";
 import Plan from "./pages/Plan";
 import Habits from "./pages/Habits";
 import Records from "./pages/Records";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/home" element={<HomePage />} />
               <Route path="/progress" element={<Progress />} />
               <Route path="/vri" element={<VriDetail />} />
+              <Route path="/weekly-summary" element={<WeeklySummary />} />
               <Route path="/plan" element={<Plan />} />
               <Route path="/workout-guide" element={<WorkoutGuide />} />
               <Route path="/challenges" element={<Challenges />} />
