@@ -52,7 +52,10 @@ export async function getLatestAdherenceState(): Promise<AdherenceState | null> 
     },
     prevScore
   );
-  return phase ? { ...state, journeyPhase: phase } : state;
+  // Sequência AO VIVO (servidor: falha perdoada + metade do previsto): o snapshot só atualiza no próximo registro e
+  // deixaria Home/Jornada/Resumo diferentes da tela da Sequência. Se a leitura falhar, vale o snapshot.
+  const live = await getStreakSummary().catch(() => null);
+  return { ...state, ...(phase ? { journeyPhase: phase } : {}), ...(live ? { streak: live.streak } : {}) };
 }
 
 /** Histórico do VRI (snapshots, só leitura), do mais novo ao mais antigo. O servidor só grava quando o score/nível muda. */
