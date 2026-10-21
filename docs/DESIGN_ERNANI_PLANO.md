@@ -69,3 +69,8 @@ Valem como ponto de partida até Ernâni/Juliana responderem; o que diverge entr
 - Dia cumprido: ≥80% das atividades PREVISTAS para aquele dia (treino do dia, refeições do plano, hidratação, suplementos). Dia de descanso marcado continua não quebrando a sequência. NÃO implementado ainda: endurece a regra do servidor (pode reduzir sequências atuais), então primeiro simular o efeito nos pacientes reais.
 - Ranking "Geral": só pacientes da própria clínica.
 - Convidados: 2 gratuitos por clínica; valor do adicional a definir com a Juliana.
+
+### Simulação da regra dos 80% (21/10, só leitura, últimos 30 dias, 14 pacientes com plano, plano atual aplicado ao período)
+- 394 dias-paciente com algo previsto: 60 tiveram algum registro (regra atual); só 1 chegou a 80% do previsto. Aplicar a regra zeraria quase todas as sequências.
+- Hidratação não entra: não existe meta de água por paciente no banco.
+- Decisão pendente: manter "qualquer registro" ou usar limite mais baixo (ex.: 1 de cada 2 atividades previstas) ou só treino+refeição.
