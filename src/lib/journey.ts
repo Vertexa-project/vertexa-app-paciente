@@ -97,3 +97,27 @@ export function deriveJourney(input: {
     totalCount: checkpoints.length,
   };
 }
+
+// ── Marcos de 30, 60 e 90 dias (PDF do Ernâni, tela 06: "os marcos que o painel da clínica já usa") ──
+export const DAY_MILESTONES = [30, 60, 90] as const;
+
+export interface NextMilestone {
+  day: number;          // 30 | 60 | 90
+  current: number;      // dia atual da jornada
+  remaining: number;    // dias que faltam
+}
+
+/** Próximo marco de 30/60/90 ainda por vir. Passado o dia 90, ou sem jornada iniciada (dia 0): null. */
+export function nextDayMilestone(dayNumber: number): NextMilestone | null {
+  if (!(dayNumber >= 1)) return null;
+  const day = DAY_MILESTONES.find((m) => dayNumber < m);
+  return day ? { day, current: dayNumber, remaining: day - dayNumber } : null;
+}
+
+/** "Início em 17 set" a partir de start_date (DATE). null sem data. */
+export function startedOnLabel(startDate: string | null): string | null {
+  if (!startDate) return null;
+  const d = localMidnight(startDate);
+  const mon = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  return `Início em ${d.getDate()} ${mon}`;
+}

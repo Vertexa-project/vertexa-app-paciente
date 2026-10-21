@@ -3,7 +3,7 @@ import { MessageCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 
-const VISIBLE_ROUTES = ["/home", "/plan", "/habits", "/progress", "/journey", "/workout-guide", "/records", "/challenges", "/achievements", "/vri", "/weekly-summary"];
+const VISIBLE_ROUTES = ["/home", "/plan", "/habits", "/progress", "/journey", "/workout-guide", "/records", "/challenges", "/achievements", "/vri", "/weekly-summary", "/streak"];
 const HIDDEN_ROUTES = ["/", "/onboarding", "/login", "/team-chat", "/sos"];
 
 // Para quem o chat abre pré-preenchido, conforme a aba (PDF do Ernâni, tela 26: "Para: já vem preenchido").

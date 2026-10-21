@@ -77,3 +77,19 @@ describe("deriveJourney (jornada real; substitui o mock, sem tocar o adherenceEn
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 });
+
+describe("marcos de 30/60/90 dias (PDF do Ernâni, tela 06)", () => {
+  it("próximo marco: dia 9 → 30 (faltam 21); dia 30 já passou para 60; dia 89 → 90; depois de 90 nenhum", async () => {
+    const { nextDayMilestone } = await import("./journey");
+    expect(nextDayMilestone(9)).toEqual({ day: 30, current: 9, remaining: 21 });
+    expect(nextDayMilestone(30)).toEqual({ day: 60, current: 30, remaining: 30 });
+    expect(nextDayMilestone(89)).toEqual({ day: 90, current: 89, remaining: 1 });
+    expect(nextDayMilestone(90)).toBeNull();
+    expect(nextDayMilestone(0)).toBeNull();
+  });
+  it("'Início em 17 set' sem escorregar de dia pelo fuso", async () => {
+    const { startedOnLabel } = await import("./journey");
+    expect(startedOnLabel("2026-09-17")).toBe("Início em 17 set");
+    expect(startedOnLabel(null)).toBeNull();
+  });
+});

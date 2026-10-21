@@ -3,6 +3,9 @@ import { ArrowLeft, CheckCircle2, Circle, ChevronRight, Zap, Trophy, Target } fr
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useJourney } from "@/hooks/useJourney";
+import { useAchievements } from "@/hooks/useAchievements";
+import { startedOnLabel } from "@/lib/journey";
+import { NextMilestoneCard, JourneyShortcuts, AchievementsRow } from "@/components/JourneyExtras";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 
@@ -29,6 +32,7 @@ function fmtDate(s: string | null): string {
 export default function Journey() {
   const navigate = useNavigate();
   const { data, isLoading, isError } = useJourney();
+  const { all: allAchievements } = useAchievements();
 
   useEffect(() => { tracker.track('journey_viewed'); }, []);
 
@@ -45,7 +49,10 @@ export default function Journey() {
           <button onClick={() => navigate(-1)} className="w-10 h-10 rounded-full bg-card flex items-center justify-center">
             <ArrowLeft size={20} className="text-foreground" />
           </button>
-          <h1 className="text-xl font-display font-bold text-foreground">Minha Jornada</h1>
+          <div>
+            <h1 className="text-xl font-display font-bold text-foreground">Minha Jornada</h1>
+            {startedOnLabel(data?.startDate ?? null) && <p className="text-[11px] text-muted-foreground">{startedOnLabel(data?.startDate ?? null)}</p>}
+          </div>
           {data && data.dayNumber > 0 && (
             <span className="ml-auto text-xs text-primary font-semibold">Dia {data.dayNumber}</span>
           )}
@@ -68,7 +75,7 @@ export default function Journey() {
                   <span className="text-2xl">{phaseInfo.icon}</span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs text-primary font-semibold uppercase tracking-wider">Fase atual</p>
+                  <p className="text-xs text-primary font-semibold uppercase tracking-wider">Fase atual · {Math.max(currentPhaseIdx, 0) + 1} de {phases.length}</p>
                   <p className="text-base font-display font-bold text-foreground">{phaseInfo.label}</p>
                   <p className="text-xs text-muted-foreground">{phaseInfo.description}</p>
                 </div>
@@ -101,6 +108,10 @@ export default function Journey() {
                 <p className="text-[10px] text-muted-foreground">índice VRI</p>
               </div>
             </motion.div>
+
+            <NextMilestoneCard dayNumber={data?.dayNumber ?? 0} />
+            <JourneyShortcuts streak={data?.streak ?? 0} />
+            <AchievementsRow all={allAchievements} />
 
             {/* Timeline (REAL: onboarding + conquistas, cronológico; travados = marcos futuros) */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>

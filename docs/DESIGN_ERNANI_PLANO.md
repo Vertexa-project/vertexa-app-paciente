@@ -26,5 +26,6 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 ## Lote 3 — depende da cliente (R)
 - [ ] Ligas Bronze→Platina; filtro Geral/Amigos/Clínica; feed sem peso de terceiros (telas 09–11)
 - [ ] Participar do ranking / só iniciais / exportar dados (LGPD) (tela 27)
-- [ ] 5 fases da Jornada com novos nomes ("nomes a validar") e proteção semanal da sequência (telas 06–07)
+- [x] Jornada: "fase n de 5", próximo marco 30/60/90 com barra, atalhos Sequência/Desafio e linha de conquistas (tela 06). Tela da Sequência com a regra ATUAL do servidor (tela 07).
+- [ ] (R) Nomes das 5 fases ("nomes a validar"), regra "dia cumprido = 80% das tarefas", proteção semanal e recorde da sequência: mudam regra do servidor e precisam de decisão
 - [ ] Dispositivos (sono/passos) — "em breve"
