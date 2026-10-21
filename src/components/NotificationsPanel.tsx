@@ -10,7 +10,7 @@ function PanelBody() {
   useEffect(() => { tracker.track("notification_viewed"); }, []);
   return (
     <>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-4 pr-10">
         <SheetTitle className="font-display text-lg text-foreground">Notificações</SheetTitle>
         {unreadCount > 0 && (
           <button onClick={() => markAllRead()} className="ml-auto text-xs text-primary font-semibold">
