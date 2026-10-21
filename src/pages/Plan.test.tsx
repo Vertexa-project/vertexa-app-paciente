@@ -79,16 +79,16 @@ describe("Meu Plano / aba de dicas (WP-APP-4 item 4)", () => {
     fireEvent.click(screen.getByText("Dicas gerais"));
 
     expect(await screen.findByText("Orientações gerais")).toBeInTheDocument();
-    expect(screen.getByText(/não são a prescrição do seu profissional/i)).toBeInTheDocument();
+    expect(screen.getByText(/não substituem a prescrição da sua equipe/i)).toBeInTheDocument();
   });
 
   it("as quatro orientações continuam lá — o WP rotula, não apaga", async () => {
     renderPlan();
     fireEvent.click(screen.getByText("Dicas gerais"));
 
-    expect(await screen.findByText("Hidratação adequada")).toBeInTheDocument();
+    expect(await screen.findByText("Hidratação")).toBeInTheDocument();
     expect(screen.getByText("Sono reparador")).toBeInTheDocument();
     expect(screen.getByText("Alimentação consciente")).toBeInTheDocument();
-    expect(screen.getByText("Gerenciamento de estresse")).toBeInTheDocument();
+    expect(screen.getByText("Estresse")).toBeInTheDocument();
   });
 });

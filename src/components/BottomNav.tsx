@@ -3,9 +3,9 @@ import { Home, Route, TrendingUp, ClipboardList, User } from "lucide-react";
 import { motion } from "framer-motion";
 
 const tabs = [
-  { path: "/home", icon: Home, label: "Home" },
+  { path: "/home", icon: Home, label: "Hoje" },
   { path: "/journey", icon: Route, label: "Jornada" },
-  { path: "/progress", icon: TrendingUp, label: "Progresso" },
+  { path: "/progress", icon: TrendingUp, label: "Evolução" },
   { path: "/plan", icon: ClipboardList, label: "Plano" },
   { path: "/profile", icon: User, label: "Perfil" },
 ];

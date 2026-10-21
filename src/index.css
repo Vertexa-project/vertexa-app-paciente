@@ -41,7 +41,7 @@
     --recovery-fatigued: 0 72% 51%;     /* família --destructive */
     --recovery-recovering: 45 93% 47%;  /* família --warning */
     --recovery-recovered: 211 92% 56%;  /* azul (sem token de marca anterior) */
-    --recovery-weakened: 142 71% 45%;   /* família --success */
+    --recovery-weakened: 268 70% 62%;   /* violeta — PDF do Ernâni: "sem o verde para enfraquecido" (verde lê-se como "bom") */
     --recovery-neutral: 0 0% 45%;       /* cinza (família --muted) — sem estímulo */
 
     --border: 0 0% 18%;

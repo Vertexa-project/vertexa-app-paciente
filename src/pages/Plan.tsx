@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Check, Clock, Pill, BookOpen, UtensilsCrossed, Dumbbell } from "lucide-react";
+import { ArrowLeft, Check, Clock, Pill, BookOpen, UtensilsCrossed, Dumbbell, Droplet, Moon, Utensils, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -410,19 +410,18 @@ export default function Plan() {
               <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4">
                 <p className="text-xs font-semibold text-muted-foreground">Orientações gerais</p>
                 <p className="text-[11px] text-muted-foreground/70 mt-1 leading-relaxed">
-                  Recomendações gerais de saúde, iguais para todas as pacientes. Não são a prescrição
-                  do seu profissional — o que ele prescreveu para você está nas abas Alimentar,
-                  Treino e Suplem.
+                  Recomendações gerais de saúde, iguais para todos os pacientes. Não substituem a prescrição
+                  da sua equipe, que está em Alimentar, Treino e Suplementos.
                 </p>
               </div>
               {[
-                { title: "Hidratação adequada", desc: "Beba pelo menos 2.5L de água por dia, distribuídos ao longo do dia." },
-                { title: "Sono reparador", desc: "Durma entre 7-8 horas. Evite telas 1h antes de dormir." },
-                { title: "Alimentação consciente", desc: "Coma devagar, mastigue bem e evite distrações durante as refeições." },
-                { title: "Gerenciamento de estresse", desc: "Pratique 10 minutos de respiração ou meditação diariamente." },
+                { title: "Hidratação", Icon: Droplet, desc: "Beba pelo menos 2,5 L de água por dia, distribuídos ao longo do dia." },
+                { title: "Sono reparador", Icon: Moon, desc: "Durma de 7 a 8 horas. Evite telas 1 hora antes de dormir." },
+                { title: "Alimentação consciente", Icon: Utensils, desc: "Coma devagar, mastigue bem e evite distrações nas refeições." },
+                { title: "Estresse", Icon: Heart, desc: "Pratique 10 minutos de respiração ou meditação por dia." },
               ].map((o, i) => (
                 <div key={i} className="bg-card rounded-xl p-4 flex items-start gap-3">
-                  <BookOpen size={18} className="text-primary mt-0.5 shrink-0" />
+                  <o.Icon size={18} className="text-primary mt-0.5 shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-foreground">{o.title}</p>
                     <p className="text-xs text-muted-foreground mt-1">{o.desc}</p>
