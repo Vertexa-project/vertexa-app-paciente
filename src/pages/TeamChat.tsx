@@ -334,8 +334,12 @@ export default function TeamChat() {
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border">
             <Lock size={10} className="text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground">Canal seguro · só você e sua equipe</span>
-            <span aria-hidden className="text-[10px] text-muted-foreground">·</span>
-            <span className="text-[10px] text-muted-foreground" data-testid="team-reads">{teamSubtitle}</span>
+            {teamRoles && (
+              <>
+                <span aria-hidden className="text-[10px] text-muted-foreground">·</span>
+                <span className="text-[10px] text-muted-foreground" data-testid="team-reads">{teamSubtitle}</span>
+              </>
+            )}
           </div>
         </div>
 
