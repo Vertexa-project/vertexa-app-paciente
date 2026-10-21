@@ -34,24 +34,6 @@ export default function DynamicBodyMap() {
   const frontRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
 
-  // Modo debug de calibração — DEV-ONLY (?debugbody=1 ou tecla "d"). Em produção
-  // import.meta.env.DEV é false: o estado fica fixo em false e nada do overlay entra no bundle.
-  const [debug, setDebug] = useState<boolean>(
-    import.meta.env.DEV &&
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).has("debugbody")
-  );
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (t && /^(INPUT|TEXTAREA)$/.test(t.tagName)) return;
-      if (e.key === "d" || e.key === "D") setDebug((v) => !v);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   // Tira a face oculta do flip da ordem de tab / árvore de acessibilidade / hit-test.
   useEffect(() => {
     if (frontRef.current) frontRef.current.inert = side !== "front";
@@ -97,7 +79,6 @@ export default function DynamicBodyMap() {
     statusByMuscle,
     onZoneTap: openZone,
     selectedMuscle: selected?.muscle ?? null,
-    debug: import.meta.env.DEV && debug,
   };
 
   return (

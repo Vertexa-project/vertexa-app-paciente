@@ -1,14 +1,5 @@
-import {
-  FACE_VIEWBOX,
-  RECOVERY_FILL,
-  RECOVERY_LABEL_PT,
-  RECOVERY_STROKE,
-  ZONES_BY_SIDE,
-  resolveZonePaths,
-  type BodySide,
-  type BodyZone,
-} from "@/components/bodyMapZones";
-import BodyMapDebug from "@/components/BodyMapDebug";
+import { BODY_VIEWBOX, OFFICIAL_MUSCLES, type BodySide } from "@/components/officialMuscles";
+import { RECOVERY_COLOR, RECOVERY_LABEL_PT, type BodyZone } from "@/components/bodyMapZones";
 import type { CanonicalMuscle, MuscleStatus } from "@/lib/api/types";
 
 interface BodyMapFaceProps {
@@ -18,29 +9,18 @@ interface BodyMapFaceProps {
   statusByMuscle: Partial<Record<CanonicalMuscle, MuscleStatus>>;
   onZoneTap: (zone: BodyZone) => void;
   selectedMuscle?: CanonicalMuscle | null;
-  /** Overlay de calibração (dev-only): só tem efeito sob import.meta.env.DEV. */
-  debug?: boolean;
 }
 
-// Expansão leve da área de TOQUE (em torno do centro do músculo): alvo confortável no mobile
-// sem invadir claramente o vizinho. A forma visível continua no contorno real.
-const HIT_SCALE = 1.07;
-
 /**
- * Uma face do corpo: PNG oficial (object-contain) + overlay SVG das zonas no MESMO box.
- * Cada zona é um <g> clicável; o blob é um <path> que segue o CONTORNO do músculo, pintado pelo
- * token do status, sem filtro na imagem (a anatomia continua visível pelo fill-opacity).
+ * Uma face do corpo com o body map OFICIAL: PNG + SVG dos músculos no MESMO viewBox (coordenadas do PNG).
+ * Cada músculo tem halo (brilho), tint (cor que respeita a textura), lift (realce) e hit (área de toque),
+ * como no pacote oficial. O PNG precisa ficar logo atrás do SVG por causa do mix-blend-mode.
  */
-export default function BodyMapFace({
-  side,
-  imgSrc,
-  statusByMuscle,
-  onZoneTap,
-  selectedMuscle,
-  debug = false,
-}: BodyMapFaceProps) {
-  const { w, h } = FACE_VIEWBOX[side];
-  const zones = ZONES_BY_SIDE[side];
+export default function BodyMapFace({ side, imgSrc, statusByMuscle, onZoneTap, selectedMuscle }: BodyMapFaceProps) {
+  const { w, h } = BODY_VIEWBOX[side];
+  const muscles = OFFICIAL_MUSCLES.filter((m) => m.side === side);
+  const glow = `vx-glow-${side}`;
+  const soft = `vx-soft-${side}`;
 
   return (
     <div className="relative w-full h-full">
@@ -57,57 +37,44 @@ export default function BodyMapFace({
         role="group"
         aria-label={`Mapa de recuperação — ${side === "front" ? "frente" : "costas"}`}
       >
-        {zones.map((zone) => {
-          const status: MuscleStatus = statusByMuscle[zone.muscle] ?? "neutral";
-          const isSelected = selectedMuscle === zone.muscle;
+        <defs>
+          <filter id={glow} x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="9" /></filter>
+          <filter id={soft} x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="1.2" /></filter>
+        </defs>
+        {muscles.map((m) => {
+          const status: MuscleStatus = statusByMuscle[m.muscle] ?? "neutral";
+          const color = status === "neutral" ? null : RECOVERY_COLOR[status];
+          const selected = selectedMuscle === m.muscle;
           return (
             <g
-              key={zone.id}
+              key={m.id}
+              data-muscle={m.official}
+              data-status={status}
               role="button"
               tabIndex={0}
-              aria-label={`${zone.labelPt}: ${RECOVERY_LABEL_PT[status]}`}
+              aria-label={`${m.labelPt}: ${RECOVERY_LABEL_PT[status]}`}
               className="cursor-pointer outline-none"
-              onClick={() => onZoneTap(zone)}
+              onClick={() => onZoneTap({ muscle: m.muscle, labelPt: m.labelPt, side })}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  onZoneTap(zone);
+                  onZoneTap({ muscle: m.muscle, labelPt: m.labelPt, side });
                 }
               }}
             >
-              {resolveZonePaths(zone).map((rp, i) => (
-                <g key={i}>
-                  {/* área de toque transparente (leve expansão em torno do centro do músculo) */}
-                  <path
-                    d={rp.d}
-                    fill="transparent"
-                    // Hooks de calibração/validação só em DEV (tree-shake remove de produção).
-                    {...(import.meta.env.DEV
-                      ? { "data-muscle": zone.muscle, "data-cx": rp.center.x, "data-cy": rp.center.y }
-                      : {})}
-                    transform={`translate(${rp.center.x} ${rp.center.y}) scale(${HIT_SCALE}) translate(${-rp.center.x} ${-rp.center.y})`}
-                    style={{ pointerEvents: "all" }}
-                  />
-                  {/* forma visível pintada pelo token do status (segue o contorno do músculo) */}
-                  <path
-                    d={rp.d}
-                    className={`${RECOVERY_FILL[status]} ${RECOVERY_STROKE[status]} transition-colors duration-300`}
-                    style={{
-                      pointerEvents: "none",
-                      fillOpacity: status === "neutral" ? 0.22 : 0.5,
-                      strokeOpacity: isSelected ? 0.95 : 0.65,
-                      strokeWidth: isSelected ? 1.2 : 0.6,
-                    }}
-                  />
-                </g>
-              ))}
+              {color && (
+                <>
+                  <path d={m.d} fill={color} opacity={0.35} filter={`url(#${glow})`} style={{ pointerEvents: "none" }} />
+                  <path d={m.d} fill={color} opacity={0.9} filter={`url(#${soft})`} style={{ mixBlendMode: "color", pointerEvents: "none" }} />
+                  <path d={m.d} fill={color} opacity={0.28} filter={`url(#${soft})`} style={{ mixBlendMode: "screen", pointerEvents: "none" }} />
+                </>
+              )}
+              {selected && <path d={m.d} fill="none" stroke="white" strokeOpacity={0.85} strokeWidth={3} style={{ pointerEvents: "none" }} />}
+              <path d={m.d} fill="#fff" fillOpacity={0} style={{ pointerEvents: "all" }} />
             </g>
           );
         })}
       </svg>
-
-      {/* Overlay de calibração — dev-only (tree-shake em produção via import.meta.env.DEV). */}
-      {import.meta.env.DEV && debug && <BodyMapDebug side={side} />}
     </div>
   );
 }
