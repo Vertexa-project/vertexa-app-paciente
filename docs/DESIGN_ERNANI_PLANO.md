@@ -16,8 +16,8 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - [x] Chat: "Sua equipe" com papéis e canal seguro em destaque (tela 26). Botão flutuante "Minha equipe" em todas as telas: pendente
 
 ## Lote 2 — dado novo, sem decisão externa
-- [ ] Trava de peso >2 kg/dia com confirmação; fora da curva não entra no VRI/ranking (tela 03)
-- [ ] Esforço percebido 1–10 ao concluir treino + recado ao educador (tela 23)
+- [x] Trava de peso >2 kg/dia com confirmação (tela 03); valor confirmado fora da curva não emite o marcador do VRI. Pendente: a equipe aprovar/rejeitar no web e o valor sair do gráfico até lá
+- [x] Esforço percebido 1–10 ao concluir o treino (tela 23; evento workout_effort, aparece na timeline do web). Recado ao educador: pendente
 - [ ] Preparação corporal opcional e miniatura sem quadrado branco (telas 21–22)
 - [ ] Gráfico de kcal da semana; resumo da semana (telas 13, 17)
 - [ ] Tela do VRI com 4 componentes e dica acionável (tela 14)

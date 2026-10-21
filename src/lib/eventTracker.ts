@@ -8,6 +8,7 @@ export type EventType =
   | 'weight_logged'
   | 'progress_photo_uploaded'
   | 'workout_checked'
+  | 'workout_effort'
   | 'meal_logged'
   | 'activity_logged'
   | 'hydration_logged'

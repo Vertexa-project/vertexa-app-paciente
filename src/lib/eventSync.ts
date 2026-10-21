@@ -17,6 +17,7 @@ import { queryClient } from "@/lib/queryClient";
 // (home_viewed, plan_viewed, *_viewed, login_completed, ...) is ignored.
 const RELEVANT_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
   "workout_checked",
+  "workout_effort", // esforço percebido 1–10: informação para a equipe (catálogo: não conta como adesão)
   "weight_logged",
   "progress_photo_uploaded",
   "meal_logged",
@@ -90,6 +91,8 @@ async function handleEvent(event: AppEvent): Promise<void> {
 
   const persisted = await mirror(event.type, event.payload);
   if (!persisted) return;
+  // Esforço percebido não muda VRI nem conquistas: sem recálculo.
+  if (event.type === "workout_effort") return;
 
   const payload = event.payload;
   if (

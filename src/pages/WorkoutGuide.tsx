@@ -1,3 +1,4 @@
+import EffortPicker from "@/components/EffortPicker";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Play, X, ChevronRight, Clock, Flame, Dumbbell, CheckCircle2, Timer, StickyNote, Trophy, Zap, Video, Camera, Upload, Sparkles, AlertCircle, ChevronDown, StretchHorizontal } from "lucide-react";
@@ -1207,6 +1208,8 @@ export default function WorkoutGuide() {
               <p className="text-[10px] text-muted-foreground">kcal</p>
             </div>
           </div>
+
+          <EffortPicker onPick={(effort) => tracker.track("workout_effort", { workoutId: selectedWorkout.id, effort })} />
 
           <motion.button
             whileTap={{ scale: 0.97 }}

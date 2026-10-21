@@ -1,3 +1,4 @@
+import { checkWeight, confirmMessage } from "@/lib/weightGuard";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Scale, Camera, Dumbbell, Droplets, Moon, FileText, Check, Loader2, X } from "lucide-react";
@@ -86,11 +87,16 @@ export default function Records() {
     }
   }, [recentWeights.data]);
 
+  // Conferência antes de salvar (PDF do Ernâni, tela 03): variação > 2 kg/dia pede confirmação.
+  const [weightConfirm, setWeightConfirm] = useState<{ kg: number; message: string } | null>(null);
+
   const weightMutation = useMutation({
-    mutationFn: (kg: number) => logWeight({ weightKg: kg }),
-    onSuccess: () => {
+    mutationFn: ({ kg }: { kg: number; suspect: boolean }) => logWeight({ weightKg: kg }),
+    onSuccess: (_row, { suspect }) => {
       // activity_events(weight_logged) permanece como MARCADOR de Timeline (valor vai p/ weight_logs).
-      tracker.track("weight_logged", { source: "app" });
+      // Valor fora da curva, mesmo confirmado, NÃO emite o marcador: não conta no VRI até a equipe ver.
+      if (!suspect) tracker.track("weight_logged", { source: "app" });
+      setWeightConfirm(null);
       qc.invalidateQueries({ queryKey: ["recentWeights"] });
       qc.invalidateQueries({ queryKey: ["me"] });
       flashSaved("Peso salvo! Sua jornada foi fortalecida ✨");
@@ -104,7 +110,12 @@ export default function Records() {
       flashError("Informe um peso válido em kg.");
       return;
     }
-    weightMutation.mutate(kg);
+    const check = checkWeight(kg, recentWeights.data?.[0], new Date());
+    if (check.status === "confirm") {
+      setWeightConfirm({ kg, message: confirmMessage(kg, check) });
+      return;
+    }
+    weightMutation.mutate({ kg, suspect: false });
   };
 
   // ── Photo ──
@@ -262,12 +273,27 @@ export default function Records() {
               <div className="bg-card rounded-2xl p-5 shadow-card">
                 <h3 className="text-sm font-semibold text-foreground mb-4">Registrar peso</h3>
                 <div className="flex items-center justify-center gap-2 mb-4">
-                  <input type="number" step="0.1" value={weightVal} placeholder="0.0" onChange={e => setWeightVal(e.target.value)}
+                  <input type="number" step="0.1" value={weightVal} placeholder="0.0" onChange={e => { setWeightVal(e.target.value); setWeightConfirm(null); }}
                     className="text-4xl font-display font-bold text-foreground bg-transparent text-center w-32 focus:outline-none" />
                   <span className="text-lg text-muted-foreground">kg</span>
                 </div>
                 <p className="text-[10px] text-center text-muted-foreground mb-3">Este registro fortalece sua jornada e atualiza seu VRI</p>
-                <button onClick={handleSaveWeight} disabled={weightMutation.isPending}
+                {weightConfirm && (
+                  <div role="alertdialog" aria-label="Conferir peso" className="mb-3 rounded-xl border border-warning/40 bg-warning/10 p-3">
+                    <p className="text-xs text-foreground">{weightConfirm.message}</p>
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={() => setWeightConfirm(null)} className="flex-1 h-10 rounded-lg bg-muted text-sm font-medium text-foreground">
+                        Corrigir
+                      </button>
+                      <button onClick={() => weightMutation.mutate({ kg: weightConfirm.kg, suspect: true })} disabled={weightMutation.isPending}
+                        className="flex-1 h-10 rounded-lg gradient-orange text-sm font-semibold text-primary-foreground disabled:opacity-60">
+                        Confirmar {weightConfirm.kg.toFixed(1).replace(".", ",")} kg
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[10px] text-muted-foreground">Se confirmar, sua equipe vai conferir este valor antes de ele entrar no seu índice.</p>
+                  </div>
+                )}
+                <button onClick={handleSaveWeight} disabled={weightMutation.isPending || !!weightConfirm}
                   className="w-full h-12 rounded-xl gradient-orange text-primary-foreground font-semibold text-sm shadow-orange active:scale-[0.98] transition-transform disabled:opacity-60 flex items-center justify-center gap-2">
                   {weightMutation.isPending && <Loader2 size={16} className="animate-spin" />}
                   {weightMutation.isPending ? "Salvando..." : "Salvar registro"}
