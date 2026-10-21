@@ -47,6 +47,35 @@ export async function toggleMealDone({ mealId, on }: ToggleMealDoneInput): Promi
 }
 
 /**
+ * Registra qual opção da refeição o paciente usou hoje (PDF do Ernâni, tela 19: "Usar opção registra a troca").
+ * Usar uma opção marca a refeição como feita. optionIndex 1 = a refeição original (grava NULL).
+ * meal_logs não tem UPDATE para o paciente: trocar de opção = apagar a linha de hoje e inserir de novo.
+ */
+export async function registerMealOption({ mealId, optionIndex }: { mealId: string; optionIndex: number }): Promise<void> {
+  const patientId = await getMyPatientId();
+  if (!patientId) throw new Error("Paciente não resolvido (patient_id ausente)");
+  const consumedOn = localDateKey(new Date());
+  const { error: delError } = await supabase.from("meal_logs").delete().eq("patient_id", patientId).eq("meal_id", mealId).eq("consumed_on", consumedOn);
+  if (delError) throw delError;
+  const { error } = await supabase.from("meal_logs").insert({
+    patient_id: patientId, meal_id: mealId, consumed_on: consumedOn, source: "app",
+    option_index: optionIndex > 1 ? optionIndex : null,
+  });
+  if (error) throw error;
+}
+
+/** Opção usada HOJE por refeição (só as que usaram uma alternativa; ausente = original). */
+export async function getMealOptionsToday(): Promise<Record<string, number>> {
+  const patientId = await getMyPatientId();
+  if (!patientId) return {};
+  const { data, error } = await supabase.from("meal_logs").select("meal_id, option_index").eq("patient_id", patientId).eq("consumed_on", localDateKey(new Date())).not("option_index", "is", null);
+  if (error) throw error;
+  const out: Record<string, number> = {};
+  for (const r of (data ?? []) as { meal_id: string; option_index: number }[]) out[r.meal_id] = r.option_index;
+  return out;
+}
+
+/**
  * Conjunto dos meals.id marcados como feitos HOJE (fuso local) pelo paciente.
  * Retorna Set vazio quando não há paciente resolvido.
  */

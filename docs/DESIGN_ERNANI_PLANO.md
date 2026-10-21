@@ -36,7 +36,10 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - [x] Cartão do VRI na Evolução com "Detalhes ›" (tela 13)
 
 ## Ficou para a volta ao web / decisão (não são só mobile)
-- Opções de refeição (tela 19): exige tabela de alternativas + editor da nutricionista no web + "usar opção registra a troca". Enquanto isso o botão morto "Ver opções" foi removido.
 - Desafio/ranking/ligas/feed/Perfil de ranking e LGPD (telas 09–12 e 27): a tela de Desafios é toda de dados de exemplo (participantes inventados). Precisa de back-end próprio (grupos, pontuação, consentimento, só iniciais). O card da Home deixou de mostrar "#4 · 1.060 pts" fixo.
 - Regras da sequência do PDF (dia = 80% das tarefas, proteção semanal, recorde) e nomes das 5 fases: mudam regra do servidor.
 - Dispositivos (sono e passos), compartilhar resumo semanal, recado da equipe no resumo, contagem 7/14 nas conquistas, desfazer água, autor do suplemento.
+
+## Feito depois
+- Opções de refeição (tela 19): `meals.options` (até 5 alternativas, gravadas pelo editor do plano no web) e `meal_logs.option_index` (qual opção o paciente usou). "Usar opção" marca a refeição como feita com aquela opção.
+- Body map oficial (pacote do Ernâni): `src/components/officialMuscles.ts` (gerado do SVG oficial, 41 músculos); serrátil/oblíquos→abdômen, adutores→quadríceps, tibial→panturrilha, infraespinhal→dorsais no estado de recuperação.

@@ -9,12 +9,17 @@ const api = vi.hoisted(() => ({
   intakes: [] as unknown[],
   completions: [] as unknown[],
   nutrition: null as unknown,
+  register: vi.fn(async () => undefined),
+  optionToday: {} as Record<string, number>,
+  done: new Set<string>(),
 }));
 
 vi.mock("@/lib/api", () => ({
   getMyNutritionPlan: vi.fn(async () => api.nutrition),
-  getMealsDoneToday: vi.fn(async () => new Set<string>()),
+  getMealsDoneToday: vi.fn(async () => api.done),
   toggleMealDone: vi.fn(),
+  registerMealOption: api.register,
+  getMealOptionsToday: vi.fn(async () => api.optionToday),
   getMySupplements: vi.fn(async () => api.supplements),
   getSupplementsTakenToday: vi.fn(async () => new Set<string>()),
   getSupplementIntakesWeek: vi.fn(async () => api.intakes),
@@ -53,6 +58,7 @@ beforeEach(() => {
   api.intakes = [];
   api.completions = [];
   api.nutrition = null;
+  api.register.mockClear(); api.optionToday = {}; api.done = new Set<string>();
 });
 
 describe("Meu Plano / aba Treino (WP-APP-4 item 6)", () => {
@@ -145,12 +151,40 @@ describe("Meu Plano / Treino — 'feito' na semana (PDF do Ernâni, tela 20)", (
   });
 });
 
-describe("Meu Plano / Alimentar — sem botão morto (tela 19 do PDF do Ernâni depende de dado novo)", () => {
-  it("não mostra 'Ver opções' enquanto o plano não tiver alternativas cadastradas", async () => {
-    api.nutrition = { title: "Plano", status: "active", meals: [{ id: "m1", time: "09:00", name: "Café da manhã", items: ["Ovos 2"], calories: 325, done: false }] };
+const MEAL = { id: "m1", time: "09:00", name: "Café da manhã", items: ["Leite 200 mL"], calories: 325, done: false,
+  options: [{ items: ["Pão integral 2 fatias", "Ovos 2"], calories: 330 }, { items: ["Tapioca 40 g"], calories: 310 }] };
+
+describe("Plano › Alimentar — opções de troca (tela 19 do PDF do Ernâni)", () => {
+  it("sem alternativas cadastradas não mostra 'Ver opções'", async () => {
+    api.nutrition = { title: "Plano", status: "active", meals: [{ ...MEAL, options: [] }] };
     renderPlan();
     expect(await screen.findByText("Café da manhã")).toBeInTheDocument();
-    expect(screen.getByText("325 kcal")).toBeInTheDocument();
     expect(screen.queryByText("Ver opções")).not.toBeInTheDocument();
+  });
+  it("abre o painel com a opção atual destacada e as alternativas com kcal", async () => {
+    api.nutrition = { title: "Plano", status: "active", meals: [MEAL] };
+    renderPlan();
+    fireEvent.click(await screen.findByText("Ver opções"));
+    expect(await screen.findByText("Opção 1 · atual")).toBeInTheDocument();
+    expect(screen.getByText("Opção 2")).toBeInTheDocument();
+    expect(screen.getByText("330 kcal")).toBeInTheDocument();
+    expect(screen.getByText("Pão integral 2 fatias · Ovos 2")).toBeInTheDocument();
+  });
+  it("'Usar opção selecionada' registra a opção escolhida (2) e não a original", async () => {
+    api.nutrition = { title: "Plano", status: "active", meals: [MEAL] };
+    renderPlan();
+    fireEvent.click(await screen.findByText("Ver opções"));
+    fireEvent.click(await screen.findByText("Opção 3"));
+    fireEvent.click(screen.getByText("Usar opção selecionada"));
+    await vi.waitFor(() => expect(api.register).toHaveBeenCalledWith({ mealId: "m1", optionIndex: 3 }));
+  });
+  it("refeição feita com a opção 2 mostra os itens e a kcal dela, com o aviso", async () => {
+    api.nutrition = { title: "Plano", status: "active", meals: [MEAL] };
+    api.done = new Set(["m1"]); api.optionToday = { m1: 2 };
+    renderPlan();
+    expect(await screen.findByTestId("meal-used-option")).toHaveTextContent("Opção 2 usada hoje");
+    expect(screen.getByText("• Pão integral 2 fatias")).toBeInTheDocument();
+    expect(screen.getByText("330 kcal")).toBeInTheDocument();
+    expect(screen.queryByText("• Leite 200 mL")).not.toBeInTheDocument();
   });
 });

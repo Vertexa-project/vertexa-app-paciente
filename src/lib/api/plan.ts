@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { parseOptions, type MealOption } from "@/lib/mealOptions";
 import { getMyPatientId } from "./patient";
 
 // A meal shaped like the mock mealPlan entries the Plan screen already renders.
@@ -9,6 +10,8 @@ export interface MealView {
   items: string[];
   calories: number | null;
   done: boolean;
+  /** Alternativas cadastradas pela nutricionista (a "Opção 1" é a própria refeição). */
+  options: MealOption[];
 }
 
 export interface NutritionPlanView {
@@ -24,6 +27,7 @@ interface RawMeal {
   items: string[] | null;
   calories: number | null;
   order_index: number | null;
+  options: unknown;
 }
 
 /**
@@ -48,7 +52,7 @@ export async function getMyNutritionPlan(): Promise<NutritionPlanView | null> {
 
   const { data, error } = await supabase
     .from("meals")
-    .select("id, time, name, items, calories, order_index")
+    .select("id, time, name, items, calories, order_index, options")
     .eq("nutrition_plan_id", plan.id)
     .order("order_index", { ascending: true });
   if (error) throw error;
@@ -60,6 +64,7 @@ export async function getMyNutritionPlan(): Promise<NutritionPlanView | null> {
     name: m.name ?? "",
     items: m.items ?? [],
     calories: m.calories,
+    options: parseOptions(m.options),
     done: false, // "feita" agora vem de meal_logs (getMealsDoneToday), não desta leitura do plano.
   }));
 

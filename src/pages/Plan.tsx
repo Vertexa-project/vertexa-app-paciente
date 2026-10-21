@@ -11,6 +11,8 @@ import {
   getMyNutritionPlan,
   getMealsDoneToday,
   toggleMealDone,
+  registerMealOption,
+  getMealOptionsToday,
   getMySupplements,
   getSupplementsTakenToday,
   getWorkoutCompletionsSince,
@@ -22,6 +24,8 @@ import { tracker } from "@/lib/eventTracker";
 import { reminderLabel } from "@/lib/supplementReminders";
 import { localDateKey } from "@/lib/pendingLogic";
 import BottomNav from "@/components/BottomNav";
+import MealOptionsSheet from "@/components/MealOptionsSheet";
+import { allOptions, type MealOption } from "@/lib/mealOptions";
 import NoPrescriptionYet, {
   NO_MEAL_PLAN_TITLE,
   NO_MEAL_PLAN_MESSAGE,
@@ -40,6 +44,7 @@ interface MealRow {
   items: string[];
   calories: number | null;
   done: boolean;
+  options: MealOption[];
 }
 
 // Ícone por nome do suplemento (cosmético; o schema não guarda ícone — autoria web futura pode
@@ -83,7 +88,7 @@ export default function Plan() {
   }, [planError]);
   const usingRealMeals = !!(nutritionPlan && nutritionPlan.meals.length > 0);
   const meals: MealRow[] = usingRealMeals
-    ? nutritionPlan!.meals.map((m) => ({ id: m.id, time: m.time, name: m.name, items: m.items, calories: m.calories, done: m.done }))
+    ? nutritionPlan!.meals.map((m) => ({ id: m.id, time: m.time, name: m.name, items: m.items, calories: m.calories, done: m.done, options: m.options ?? [] }))
     : [];
   const planTitle = usingRealMeals ? nutritionPlan!.title : "";
 
@@ -129,6 +134,21 @@ export default function Plan() {
       void qc.invalidateQueries({ queryKey: ["mealAdherenceToday"] });
       // NÃO invalidar ['adherence'] aqui: o snapshot do VRI é escrito por cadeia async do eventSync;
       // invalidar agora releria o snapshot ANTIGO. Quem invalida ['adherence'] é o eventSync, pós-insert.
+    },
+  });
+
+  // Opções de troca (tela 19): opção usada hoje por refeição e a refeição cujo painel está aberto.
+  const optionsKey = ["mealOptionsToday", todayKey];
+  const { data: optionToday = {} } = useQuery({ queryKey: optionsKey, queryFn: getMealOptionsToday, enabled: usingRealMeals });
+  const [optionsMealId, setOptionsMealId] = useState<string | null>(null);
+  const optionMutation = useMutation({
+    mutationFn: ({ mealId, optionIndex }: { mealId: string; optionIndex: number }) => registerMealOption({ mealId, optionIndex }),
+    onSuccess: (_d, { mealId }) => {
+      if (!(doneToday?.has(mealId) ?? false)) tracker.track("meal_logged", { meal_id: mealId });
+      setOptionsMealId(null);
+      void qc.invalidateQueries({ queryKey: ["mealsDoneToday"] });
+      void qc.invalidateQueries({ queryKey: optionsKey });
+      void qc.invalidateQueries({ queryKey: ["mealAdherenceToday"] });
     },
   });
 
@@ -304,19 +324,41 @@ export default function Plan() {
                             {isDone && <Check size={12} className="text-success-foreground" />}
                           </button>
                         </div>
-                        <div className="flex flex-col gap-0.5 ml-6">
-                          {meal.items.map((item, j) => (<span key={j} className="text-xs text-muted-foreground">• {item}</span>))}
-                        </div>
-                        <div className="mt-2 ml-6 flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground">{meal.calories} kcal</span>
-                          {/* "Ver opções" saiu: era um botão sem ação e o plano não guarda alternativas de refeição.
-                              Volta quando a nutricionista puder cadastrar as opções (tela 19 do PDF do Ernâni; depende do web). */}
-                        </div>
+                        {(() => {
+                          const used = isDone ? (optionToday[meal.id] ?? 1) : 1;
+                          const shown = allOptions(meal, meal.options).find((o) => o.index === used) ?? allOptions(meal, meal.options)[0];
+                          return (
+                            <>
+                              <div className="flex flex-col gap-0.5 ml-6">
+                                {used > 1 && <span className="text-[10px] font-semibold text-primary" data-testid="meal-used-option">Opção {used} usada hoje</span>}
+                                {shown.items.map((item, j) => (<span key={j} className="text-xs text-muted-foreground">• {item}</span>))}
+                              </div>
+                              <div className="mt-2 ml-6 flex items-center justify-between">
+                                <span className="text-[10px] text-muted-foreground">{shown.calories} kcal</span>
+                                {meal.options.length > 0 && (
+                                  <button onClick={() => setOptionsMealId(meal.id)} className="text-[10px] text-primary font-medium">Ver opções</button>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     );
                   })}
                 </>
               )}
+              {meals.filter((m) => m.id === optionsMealId).map((m) => (
+                <MealOptionsSheet
+                  key={m.id}
+                  open
+                  onOpenChange={(o) => { if (!o) setOptionsMealId(null); }}
+                  meal={m}
+                  alternatives={m.options}
+                  current={doneToday?.has(m.id) ? (optionToday[m.id] ?? 1) : 1}
+                  pending={optionMutation.isPending}
+                  onUse={(optionIndex) => optionMutation.mutate({ mealId: m.id, optionIndex })}
+                />
+              ))}
             </motion.div>
           )}
 

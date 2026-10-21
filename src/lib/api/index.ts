@@ -21,7 +21,7 @@ export type { LogActivityEventInput } from "./events";
 export { getMuscleRecovery } from "./recovery";
 export { getMyNutritionPlan } from "./plan";
 export type { MealView, NutritionPlanView } from "./plan";
-export { toggleMealDone, getMealsDoneToday, getMealAdherenceToday, getMealLogsSince } from "./meals";
+export { toggleMealDone, registerMealOption, getMealOptionsToday, getMealsDoneToday, getMealAdherenceToday, getMealLogsSince } from "./meals";
 export type { ToggleMealDoneInput, MealAdherence } from "./meals";
 export { logActivitySession, getRecentActivitySessions, getActivitySessionsSince } from "./activities";
 export type { LogActivitySessionInput, ActivitySessionRow } from "./activities";
