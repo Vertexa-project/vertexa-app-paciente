@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
-import { getMyPatientId } from "./patient";
+import { getMyPatientId, getPatient } from "./patient";
+import { dayNumberFor, phaseForDay } from "@/lib/journey";
 import { adherenceStateFromSnapshot, type AdherenceState } from "@/lib/adherenceEngine";
 
 interface AdherenceSnapshotRow {
@@ -36,7 +37,10 @@ export async function getLatestAdherenceState(): Promise<AdherenceState | null> 
 
   const latest = rows[0];
   const prevScore = rows[1]?.score;
-  return adherenceStateFromSnapshot(
+  // Fase da Jornada = tempo de acompanhamento (não a sequência): o mesmo critério da tela Jornada.
+  const patient = await getPatient();
+  const phase = patient?.start_date ? phaseForDay(dayNumberFor(patient.start_date, new Date())) : null;
+  const state = adherenceStateFromSnapshot(
     {
       score: latest.score,
       level: latest.level,
@@ -48,6 +52,7 @@ export async function getLatestAdherenceState(): Promise<AdherenceState | null> 
     },
     prevScore
   );
+  return phase ? { ...state, journeyPhase: phase } : state;
 }
 
 /** Histórico do VRI (snapshots, só leitura), do mais novo ao mais antigo. O servidor só grava quando o score/nível muda. */

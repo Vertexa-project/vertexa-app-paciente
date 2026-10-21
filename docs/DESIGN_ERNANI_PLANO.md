@@ -63,3 +63,9 @@ Valem como ponto de partida até Ernâni/Juliana responderem; o que diverge entr
 ## Sequência (feito em 21/10)
 - Servidor: 1 falha perdoada por semana (seg–dom BRT), duas falhas seguidas ou na mesma semana quebram; ninguém perdeu sequência (22 iguais, 1 maior em 23 pacientes). `private.streak_walk`, `public.my_streak_summary()`.
 - App: tela da Sequência com recorde, dia protegido e regra explicada. Home/Jornada seguem lendo o último snapshot (atualiza no próximo registro).
+
+## Respostas aprovadas em 21/10 (segunda rodada)
+- Fases da Jornada: por TEMPO de acompanhamento, 1–14, 15–30, 31–60, 61–90 e 91+ dias (feito no app: `phaseForDay`; Home, Perfil e Jornada usam o mesmo critério). Os NOMES continuam provisórios; o Ernâni define os definitivos.
+- Dia cumprido: ≥80% das atividades PREVISTAS para aquele dia (treino do dia, refeições do plano, hidratação, suplementos). Dia de descanso marcado continua não quebrando a sequência. NÃO implementado ainda: endurece a regra do servidor (pode reduzir sequências atuais), então primeiro simular o efeito nos pacientes reais.
+- Ranking "Geral": só pacientes da própria clínica.
+- Convidados: 2 gratuitos por clínica; valor do adicional a definir com a Juliana.

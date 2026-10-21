@@ -55,12 +55,7 @@ export function deriveJourney(input: {
   const { startDate, now, achievements } = input;
 
   // "Dia X": diferença em dias LOCAIS + 1 (start_date = dia 1). Nunca < 1 quando há start_date.
-  let dayNumber = 0;
-  if (startDate) {
-    const startMid = localMidnight(startDate).getTime();
-    const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    dayNumber = Math.max(1, Math.round((nowMid - startMid) / 86_400_000) + 1);
-  }
+  const dayNumber = dayNumberFor(startDate, now);
 
   const onboarding: JourneyCheckpoint = {
     id: "onboarding",
@@ -120,4 +115,25 @@ export function startedOnLabel(startDate: string | null): string | null {
   const d = localMidnight(startDate);
   const mon = d.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
   return `Início em ${d.getDate()} ${mon}`;
+}
+
+/** "Dia X" do acompanhamento (start_date = dia 1; nunca < 1 com start_date). 0 sem start_date. */
+export function dayNumberFor(startDate: string | null, now: Date): number {
+  if (!startDate) return 0;
+  const startMid = localMidnight(startDate).getTime();
+  const nowMid = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.max(1, Math.round((nowMid - startMid) / 86_400_000) + 1);
+}
+
+/**
+ * Fase da Jornada pelo TEMPO de acompanhamento (decisão do Djeimyson, 21/10): 1–14, 15–30, 31–60, 61–90, 91+.
+ * As chaves são as de sempre; os NOMES ainda são provisórios (o Ernâni define os definitivos).
+ */
+export type PhaseKey = "inicio" | "constancia_inicial" | "acompanhamento_ativo" | "revisao_progresso" | "manutencao";
+export function phaseForDay(dayNumber: number): PhaseKey {
+  if (dayNumber <= 14) return "inicio";
+  if (dayNumber <= 30) return "constancia_inicial";
+  if (dayNumber <= 60) return "acompanhamento_ativo";
+  if (dayNumber <= 90) return "revisao_progresso";
+  return "manutencao";
 }

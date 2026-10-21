@@ -1,12 +1,12 @@
 import { getPatient } from "./patient";
 import { getAchievementsView } from "./achievements";
 import { getLatestAdherenceState } from "./adherence";
-import { deriveJourney, type JourneyView } from "@/lib/journey";
-import { getJourneyPhase, type JourneyPhase } from "@/lib/adherenceEngine";
+import { deriveJourney, phaseForDay, type JourneyView } from "@/lib/journey";
+import type { JourneyPhase } from "@/lib/adherenceEngine";
 
 // Monta a JORNADA VIVA a partir de dados REAIS: start_date (patients) + conquistas
 // (getAchievementsView, os marcos) + streak/score/fase do ÚLTIMO snapshot de VRI (getLatestAdherenceState).
-// LEITURA pura — NÃO recomputa nem grava VRI, NÃO altera o adherenceEngine (getJourneyPhase é import read-only).
+// LEITURA pura — NÃO recomputa nem grava VRI, A fase vem do TEMPO de acompanhamento (phaseForDay), não mais da sequência.
 export interface JourneyData extends JourneyView {
   streak: number;
   score: number | null; // VRI do snapshot real (null se ainda não há snapshot)
@@ -40,6 +40,6 @@ export async function getJourneyData(): Promise<JourneyData> {
     streak,
     score: adherence?.score ?? null,
     level: adherence?.level ?? null,
-    phase: adherence?.journeyPhase ?? getJourneyPhase(streak, 0),
+    phase: phaseForDay(view.dayNumber),
   };
 }

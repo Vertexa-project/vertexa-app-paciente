@@ -93,3 +93,20 @@ describe("marcos de 30/60/90 dias (PDF do Ernâni, tela 06)", () => {
     expect(startedOnLabel(null)).toBeNull();
   });
 });
+
+describe("fase pelo tempo de acompanhamento (decisão de 21/10)", () => {
+  it("limites 14/30/60/90: o último dia de cada fase e o primeiro da seguinte", async () => {
+    const { phaseForDay } = await import("./journey");
+    expect([1, 14].map(phaseForDay)).toEqual(["inicio", "inicio"]);
+    expect([15, 30].map(phaseForDay)).toEqual(["constancia_inicial", "constancia_inicial"]);
+    expect([31, 60].map(phaseForDay)).toEqual(["acompanhamento_ativo", "acompanhamento_ativo"]);
+    expect([61, 90].map(phaseForDay)).toEqual(["revisao_progresso", "revisao_progresso"]);
+    expect([91, 400].map(phaseForDay)).toEqual(["manutencao", "manutencao"]);
+  });
+  it("dia do acompanhamento: início = dia 1, sem data = 0", async () => {
+    const { dayNumberFor } = await import("./journey");
+    expect(dayNumberFor("2026-10-01", new Date(2026, 9, 1, 23))).toBe(1);
+    expect(dayNumberFor("2026-10-01", new Date(2026, 9, 15))).toBe(15);
+    expect(dayNumberFor(null, new Date())).toBe(0);
+  });
+});
