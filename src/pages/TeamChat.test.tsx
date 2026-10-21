@@ -192,6 +192,20 @@ describe("SENTIDO 2 — quem cuida de mim: a desativada NÃO é oferecida", () =
   });
 });
 
+// PDF do Ernâni (tela 26): cabeçalho "Sua equipe" com os PAPÉIS, e o canal seguro em destaque.
+describe("TeamChat / cabeçalho com papéis (PDF do Ernâni, tela 26)", () => {
+  it("título 'Sua equipe' e papéis da equipe no subtítulo", async () => {
+    renderChat();
+    expect(await screen.findByText("Sua equipe")).toBeInTheDocument();
+    expect(await screen.findByText("Fisioterapeuta")).toBeInTheDocument();
+    expect(screen.queryByText("Nutricionista")).not.toBeInTheDocument(); // quem saiu não aparece
+  });
+  it("o canal seguro diz que é só você e a equipe", async () => {
+    renderChat();
+    expect(await screen.findByText(/Canal seguro · só você e sua equipe/)).toBeInTheDocument();
+  });
+});
+
 describe("WP-09B2 — TeamChat continua roster-based, não Care Team", () => {
   it("T17/T19: monta o roster só com channel_professionals, nunca get_my_care_team", async () => {
     const { getMyCareTeam, listChannelProfessionals } = await import("@/lib/api");

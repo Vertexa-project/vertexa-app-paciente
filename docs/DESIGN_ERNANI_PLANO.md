@@ -9,11 +9,11 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - [x] Mapa muscular: "enfraquecido" deixa de ser verde (tela 15)
 - [x] Home: cards sequência e semana concluída (kcal estimadas fica p/ lote 2, sem origem de dado); "Próxima ação"; "Registro rápido"; sem elogio automático (tela 01)
 - [x] Notificações em painel sobre a Home (tela 02); ícones por tipo já existiam
-- [ ] Água: copo que enche + atalhos +150/+250/+500 + desfazer (tela 04)
+- [x] Água: copo que enche + atalhos 150/250/500 mL (tela 04). "Desfazer último": lote 2 (o contrato soma eventos; desfazer exige apagar evento)
 - [x] Plano › Treino: "Treino de hoje" + ficha da semana; sem "0 min" (tela 20). Status "feito" por dia: lote 2 (não há leitura)
-- [ ] Suplementos: adesão da semana + autor + semana em linha (tela 24)
+- [x] Suplementos: adesão da semana + semana em linha (tela 24). "Autor" (quem prescreveu): lote 2 (a tabela não guarda o autor)
 - [x] Conquistas: barra de progresso geral (tela 08). Contagem 7/14 nas bloqueadas: lote 2
-- [ ] Chat: papéis da equipe no cabeçalho; botão flutuante "Minha equipe" (telas 01, 26)
+- [x] Chat: "Sua equipe" com papéis e canal seguro em destaque (tela 26). Botão flutuante "Minha equipe" em todas as telas: pendente
 
 ## Lote 2 — dado novo, sem decisão externa
 - [ ] Trava de peso >2 kg/dia com confirmação; fora da curva não entra no VRI/ranking (tela 03)

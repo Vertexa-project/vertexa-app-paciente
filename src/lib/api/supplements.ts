@@ -118,3 +118,18 @@ export async function getSupplementAdherenceToday(): Promise<SupplementAdherence
   for (const id of takenToday) if (listIds.has(id)) taken++;
   return { taken, total: listIds.size };
 }
+
+/** Marcas "tomado" dos últimos 7 dias (hoje incluso) — base da adesão semanal. */
+export async function getSupplementIntakesWeek(): Promise<{ supplement_id: string; taken_on: string }[]> {
+  const patientId = await getMyPatientId();
+  if (!patientId) return [];
+  const since = new Date();
+  since.setDate(since.getDate() - 6);
+  const { data, error } = await supabase
+    .from("supplement_intakes")
+    .select("supplement_id, taken_on")
+    .eq("patient_id", patientId)
+    .gte("taken_on", localDateKey(since));
+  if (error) throw error;
+  return (data ?? []) as { supplement_id: string; taken_on: string }[];
+}

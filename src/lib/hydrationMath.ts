@@ -32,3 +32,16 @@ export function sumHydrationLiters(rows: HydrationEventRow[]): number {
   }
   return Math.round(total * 100) / 100;
 }
+
+/** Atalhos de registro (mL) — PDF do Ernâni, tela 04. O app grava sempre em litros (payload.liters). */
+export const WATER_QUICK_ML = [150, 250, 500] as const;
+
+export function mlToLiters(ml: number): number {
+  return Math.round(ml) / 1000;
+}
+
+/** Quanto do copo está cheio (0–100) em relação à meta do dia. */
+export function glassFillPercent(liters: number, goal: number = WATER_GOAL_LITERS): number {
+  if (!(goal > 0) || !(liters > 0)) return 0;
+  return Math.min(100, Math.round((liters / goal) * 100));
+}

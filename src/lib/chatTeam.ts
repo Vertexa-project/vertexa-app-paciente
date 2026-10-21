@@ -119,3 +119,23 @@ export function teamReadsLabel(names: string[]): string | null {
   const last = clean[clean.length - 1];
   return `${clean.slice(0, -1).join(", ")} e ${last} leem esta conversa`;
 }
+
+/**
+ * Papéis da equipe para o cabeçalho (PDF do Ernâni, tela 26): "Médico · Nutricionista · Educador Físico".
+ * Disciplinas distintas, na ordem da RPC; quem não tem disciplina informada não entra (não se inventa papel).
+ * Retorna null sem nenhum papel — o cabeçalho cai no texto de "quem lê esta conversa".
+ */
+export function teamRolesLabel(
+  professionals: Pick<ChannelProfessional, "disciplines" | "specialty" | "type">[],
+): string | null {
+  const seen = new Set<string>();
+  const roles: string[] = [];
+  for (const p of professionals) {
+    const label = professionalDisciplineLabel(p);
+    if (!label) continue;
+    for (const part of label.split(" · ")) {
+      if (!seen.has(part)) { seen.add(part); roles.push(part); }
+    }
+  }
+  return roles.length > 0 ? roles.join(" · ") : null;
+}

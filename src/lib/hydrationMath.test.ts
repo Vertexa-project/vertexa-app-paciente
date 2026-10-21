@@ -34,3 +34,20 @@ describe("sumHydrationLiters", () => {
     expect(sumHydrationLiters([])).toBe(0);
   });
 });
+
+describe("atalhos de água e copo (PDF do Ernâni, tela 04)", () => {
+  it("150/250/500 mL viram litros sem drift", async () => {
+    const m = await import("./hydrationMath");
+    expect(m.WATER_QUICK_ML).toEqual([150, 250, 500]);
+    expect(m.mlToLiters(150)).toBe(0.15);
+    expect(m.mlToLiters(500)).toBe(0.5);
+  });
+  it("o copo enche conforme a meta e trava em 100%", async () => {
+    const { glassFillPercent } = await import("./hydrationMath");
+    expect(glassFillPercent(0)).toBe(0);
+    expect(glassFillPercent(1.25)).toBe(50);
+    expect(glassFillPercent(9)).toBe(100);
+    expect(glassFillPercent(-1)).toBe(0);
+    expect(glassFillPercent(1, 0)).toBe(0);
+  });
+});

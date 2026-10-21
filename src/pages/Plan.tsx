@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import WeekWorkouts from "@/components/WeekWorkouts";
+import { WeekAdherenceCard, WeekStrip } from "@/components/SupplementWeekStrip";
+import { supplementWeek } from "@/lib/supplementWeek";
 import { ArrowLeft, Check, Clock, Pill, BookOpen, UtensilsCrossed, Dumbbell, Droplet, Moon, Utensils, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -10,6 +12,7 @@ import {
   toggleMealDone,
   getMySupplements,
   getSupplementsTakenToday,
+  getSupplementIntakesWeek,
   toggleSupplementTaken,
   getMyWorkoutPlan,
 } from "@/lib/api";
@@ -162,6 +165,14 @@ export default function Plan() {
     enabled: supplementList.length > 0,
   });
 
+  // Semana (tela 24 do PDF do Ernâni): marcas dos últimos 7 dias; refaz ao marcar/desmarcar.
+  const { data: weekIntakes } = useQuery({
+    queryKey: ["supplementsWeek", todayKey],
+    queryFn: getSupplementIntakesWeek,
+    enabled: supplementList.length > 0,
+  });
+  const week = supplementWeek(supplementList, weekIntakes ?? [], new Date());
+
   // Mesmo padrão otimista do toggleMeal (S13). Marcador + VRI só ao MARCAR; desmarcar não recomputa
   // (fator aditivo/não-negativo; o snapshot se auto-corrige no próximo evento). ['adherence'] é
   // invalidada pelo eventSync pós-snapshot, nunca aqui.
@@ -187,6 +198,7 @@ export default function Plan() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: ["supplementsTakenToday"] });
+      void qc.invalidateQueries({ queryKey: ["supplementsWeek"] });
     },
   });
 
@@ -349,7 +361,9 @@ export default function Plan() {
                   <p className="text-[10px] text-muted-foreground">Seu profissional publica a lista aqui.</p>
                 </div>
               ) : (
-                (["supplement", "medication"] as const).map((kind) => {
+                <>
+                <WeekAdherenceCard week={week} />
+                {(["supplement", "medication"] as const).map((kind) => {
                   const items = supplementList.filter((x) => (x.kind ?? "supplement") === kind);
                   if (items.length === 0) return null;
                   return (
@@ -370,6 +384,7 @@ export default function Plan() {
                               </p>
                               {s.brand && <p className="text-[11px] text-muted-foreground">Marca indicada: {s.brand}</p>}
                               {s.notes && <p className="text-[11px] text-muted-foreground mt-0.5">{s.notes}</p>}
+                              {week.perSupplement[s.id] && <WeekStrip flags={week.perSupplement[s.id]} days={week.days} name={s.name} />}
                             </div>
                             <button
                               onClick={() => handleToggleSupplement(s.id, isTaken)}
@@ -387,7 +402,8 @@ export default function Plan() {
                       })}
                     </section>
                   );
-                })
+                })}
+                </>
               )}
             </motion.div>
           )}

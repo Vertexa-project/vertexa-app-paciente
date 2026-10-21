@@ -23,6 +23,7 @@ import {
   professionalDisciplineLabel,
   professionalsByProfileId,
   teamReadsLabel,
+  teamRolesLabel,
 } from "@/lib/chatTeam";
 import { indexById, missingQuotedIds, quotedPreview } from "@/lib/chatReply";
 import type { ChatMessageView } from "@/lib/api";
@@ -279,6 +280,7 @@ export default function TeamChat() {
   // que o canal é, com os nomes reais da RPC — não como aviso de risco. Quando a lista não está
   // disponível, o cabeçalho diz qual é o estado; nunca inventa nem cala.
   const teamLabel = teamReadsLabel(professionals.map((p) => shortName(p.name)));
+  const teamRoles = teamRolesLabel(professionals);
   const teamSubtitle = teamLabel
     ?? (rosterQuery.isLoading
       ? "Carregando quem lê esta conversa..."
@@ -315,8 +317,8 @@ export default function TeamChat() {
               </div>
             </div>
             <div className="flex-1 text-left min-w-0">
-              <p className="text-sm font-semibold text-foreground">Conversa com a equipe</p>
-              <p className="text-[10px] text-muted-foreground leading-snug">{teamSubtitle}</p>
+              <p className="text-sm font-semibold text-foreground">Sua equipe</p>
+              <p className="text-[10px] text-muted-foreground leading-snug">{teamRoles ?? teamSubtitle}</p>
             </div>
           </button>
           <button onClick={() => setShowTeamInfo(true)}>
@@ -331,7 +333,9 @@ export default function TeamChat() {
         <div className="text-center mb-4">
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border">
             <Lock size={10} className="text-muted-foreground" />
-            <span className="text-[10px] text-muted-foreground">Canal seguro de acompanhamento</span>
+            <span className="text-[10px] text-muted-foreground">Canal seguro · só você e sua equipe</span>
+            <span aria-hidden className="text-[10px] text-muted-foreground">·</span>
+            <span className="text-[10px] text-muted-foreground" data-testid="team-reads">{teamSubtitle}</span>
           </div>
         </div>
 

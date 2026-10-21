@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tracker } from "@/lib/eventTracker";
 import { logHydration, getHydrationTodayLiters, getRecentSleep } from "@/lib/api";
 import { formatSleepHours, SLEEP_QUALITY_LABEL } from "@/lib/sleep";
-import { WATER_GOAL_LITERS, WATER_INCREMENT_LITERS } from "@/lib/hydrationMath";
+import { WATER_GOAL_LITERS, WATER_INCREMENT_LITERS, WATER_QUICK_ML, mlToLiters, glassFillPercent } from "@/lib/hydrationMath";
 import BottomNav from "@/components/BottomNav";
 import RestDayCard from "@/components/RestDayCard";
 import ComingSoonLock, { STEPS_LOCK_REASON } from "@/components/ComingSoonLock";
@@ -36,11 +36,11 @@ export default function Habits() {
   const goalReached = water >= WATER_GOAL_LITERS;
 
   const addWater = useMutation({
-    mutationFn: () => logHydration({ liters: WATER_INCREMENT_LITERS }),
-    onMutate: async () => {
+    mutationFn: (liters: number) => logHydration({ liters }),
+    onMutate: async (liters: number) => {
       await qc.cancelQueries({ queryKey: ["hydrationToday"] });
       const prev = qc.getQueryData<number>(["hydrationToday"]) ?? 0;
-      qc.setQueryData(["hydrationToday"], Math.round((prev + WATER_INCREMENT_LITERS) * 100) / 100);
+      qc.setQueryData(["hydrationToday"], Math.round((prev + liters) * 100) / 100);
       return { prev };
     },
     onError: (_e, _v, ctx) => {
@@ -96,11 +96,19 @@ export default function Habits() {
               <span className="text-3xl font-display font-bold text-foreground">{water.toFixed(2)}</span>
               <span className="text-sm text-muted-foreground ml-1">L hoje</span>
             </div>
-            <button onClick={() => addWater.mutate()} disabled={addWater.isPending}
-              className="h-12 px-5 rounded-full gradient-orange flex items-center gap-2 shadow-orange active:scale-95 transition-transform disabled:opacity-60">
-              <Plus size={20} className="text-primary-foreground" />
-              <span className="text-sm font-semibold text-primary-foreground">+{WATER_INCREMENT_LITERS}L</span>
-            </button>
+            <div role="img" aria-label={`Copo ${glassFillPercent(water)}% da meta`} className="relative w-10 h-14 rounded-b-xl rounded-t-sm border-2 border-primary/50 overflow-hidden bg-muted/40 shrink-0">
+              <div className="absolute bottom-0 left-0 right-0 gradient-orange transition-all duration-500" style={{ height: `${glassFillPercent(water)}%` }} />
+            </div>
+          </div>
+          <div className="flex items-center justify-center gap-2 mt-4" role="group" aria-label="Registrar água">
+            {WATER_QUICK_ML.map((ml) => (
+              <button key={ml} onClick={() => addWater.mutate(mlToLiters(ml))} disabled={addWater.isPending}
+                aria-label={`Registrar ${ml} mL de água`}
+                className="h-11 flex-1 rounded-full gradient-orange flex items-center justify-center gap-1 shadow-orange active:scale-95 transition-transform disabled:opacity-60">
+                <Plus size={16} className="text-primary-foreground" />
+                <span className="text-sm font-semibold text-primary-foreground">{ml} mL</span>
+              </button>
+            ))}
           </div>
           {goalReached && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-xs text-success font-medium mt-3">
@@ -204,7 +212,7 @@ export default function Habits() {
         animate={{ scale: 1, opacity: 1 }}
         whileTap={{ scale: 0.9 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
-        onClick={() => addWater.mutate()}
+        onClick={() => addWater.mutate(WATER_INCREMENT_LITERS)}
         disabled={addWater.isPending}
         aria-label={`Registrar +${WATER_INCREMENT_LITERS}L de água`}
         className="fixed z-40 right-5 bottom-[148px] w-14 h-14 rounded-full bg-card border border-primary/30 shadow-lg flex flex-col items-center justify-center active:scale-95 transition-transform disabled:opacity-60"

@@ -6,7 +6,7 @@ import {
   messageAuthor,
   professionalDisciplineLabel,
   professionalsByProfileId,
-  teamReadsLabel,
+  teamReadsLabel, teamRolesLabel,
 } from "./chatTeam";
 import type { ChannelProfessional } from "@/lib/api/types";
 
@@ -171,5 +171,16 @@ describe("messageAuthor — o ÚNICO lugar que resolve autor (bolha e citação)
     expect(
       messageAuthor({ isOwn: false, senderProfileId: "prof-1", senderName: "X" }, vazio).discipline,
     ).toBe(DISCIPLINE_NOT_INFORMED);
+  });
+});
+
+describe("teamRolesLabel (PDF do Ernâni, tela 26)", () => {
+  const P = (disciplines: string[], type: never = null as never) => ({ disciplines, specialty: null, type });
+  it("junta disciplinas distintas, sem repetir", () => {
+    expect(teamRolesLabel([P(["medico"]), P(["nutricionista"]), P(["nutricionista"]), P(["educador_fisico"])])).toBe("Médico · Nutricionista · Educador Físico");
+  });
+  it("sem nenhum papel conhecido: null (o cabeçalho cai no texto de quem lê)", () => {
+    expect(teamRolesLabel([P([])])).toBeNull();
+    expect(teamRolesLabel([])).toBeNull();
   });
 });

@@ -5,14 +5,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 const api = vi.hoisted(() => ({
   workouts: [] as unknown[],
+  supplements: [] as unknown[],
+  intakes: [] as unknown[],
 }));
 
 vi.mock("@/lib/api", () => ({
   getMyNutritionPlan: vi.fn(async () => null),
   getMealsDoneToday: vi.fn(async () => new Set<string>()),
   toggleMealDone: vi.fn(),
-  getMySupplements: vi.fn(async () => []),
+  getMySupplements: vi.fn(async () => api.supplements),
   getSupplementsTakenToday: vi.fn(async () => new Set<string>()),
+  getSupplementIntakesWeek: vi.fn(async () => api.intakes),
   toggleSupplementTaken: vi.fn(),
   getMyWorkoutPlan: vi.fn(async () => api.workouts),
 }));
@@ -43,6 +46,8 @@ function renderPlan() {
 
 beforeEach(() => {
   api.workouts = [];
+  api.supplements = [];
+  api.intakes = [];
 });
 
 describe("Meu Plano / aba Treino (WP-APP-4 item 6)", () => {
@@ -90,5 +95,28 @@ describe("Meu Plano / aba de dicas (WP-APP-4 item 4)", () => {
     expect(screen.getByText("Sono reparador")).toBeInTheDocument();
     expect(screen.getByText("Alimentação consciente")).toBeInTheDocument();
     expect(screen.getByText("Estresse")).toBeInTheDocument();
+  });
+});
+
+describe("Meu Plano / aba Suplementos — semana (PDF do Ernâni, tela 24)", () => {
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const SUP = { id: "s1", patient_id: "p", name: "Creatina", dose: "6 g", time_label: "Manhã", order_index: 0, kind: "supplement", brand: null, notes: null, reminder_time: null, created_at: new Date(2026, 0, 1).toISOString() };
+
+  it("mostra a adesão da semana e a linha dos 7 dias", async () => {
+    api.supplements = [SUP];
+    const today = new Date(); const y = new Date(); y.setDate(y.getDate() - 1);
+    api.intakes = [{ supplement_id: "s1", taken_on: ymd(today) }, { supplement_id: "s1", taken_on: ymd(y) }];
+    renderPlan();
+    fireEvent.click(screen.getByText("Suplem."));
+    expect(await screen.findByText("Adesão da semana")).toBeInTheDocument();
+    expect(await screen.findByText("2/7")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Semana de Creatina" })).toBeInTheDocument();
+  });
+
+  it("sem suplementos: nada de adesão", async () => {
+    renderPlan();
+    fireEvent.click(screen.getByText("Suplem."));
+    expect(await screen.findByText(/Nenhum suplemento ou medicamento/)).toBeInTheDocument();
+    expect(screen.queryByText("Adesão da semana")).not.toBeInTheDocument();
   });
 });
