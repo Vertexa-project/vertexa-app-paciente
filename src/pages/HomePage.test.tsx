@@ -278,3 +278,13 @@ describe("Home / VRI abre a tela de detalhe (PDF do Ernâni, tela 14)", () => {
     expect(await screen.findByRole("button", { name: "Ver detalhes do índice VRI" })).toBeInTheDocument();
   });
 });
+
+describe("Home / card de desafios sem ranking inventado", () => {
+  it("não exibe posição nem pontos fixos (#4 · 1.060 pts) — não há ranking real", async () => {
+    renderHome();
+    await screen.findByTestId("home-stat-cards");
+    expect(screen.queryByText(/#4 no ranking/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/1\.060/)).not.toBeInTheDocument();
+    expect(screen.getByText("Desafios")).toBeInTheDocument();
+  });
+});

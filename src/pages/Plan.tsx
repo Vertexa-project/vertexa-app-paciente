@@ -309,7 +309,8 @@ export default function Plan() {
                         </div>
                         <div className="mt-2 ml-6 flex items-center justify-between">
                           <span className="text-[10px] text-muted-foreground">{meal.calories} kcal</span>
-                          <button className="text-[10px] text-primary font-medium">Ver opções</button>
+                          {/* "Ver opções" saiu: era um botão sem ação e o plano não guarda alternativas de refeição.
+                              Volta quando a nutricionista puder cadastrar as opções (tela 19 do PDF do Ernâni; depende do web). */}
                         </div>
                       </div>
                     );

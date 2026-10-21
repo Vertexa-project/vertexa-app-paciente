@@ -480,8 +480,8 @@ export default function HomePage() {
               <Trophy size={20} className="text-primary" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground">Desafio Constância Abril</p>
-              <p className="text-xs text-muted-foreground">#4 no ranking · 1.060 pts</p>
+              <p className="text-sm font-semibold text-foreground">Desafios</p>
+              <p className="text-xs text-muted-foreground">Compita pela adesão ao seu plano</p>
             </div>
             <ChevronRight size={16} className="text-muted-foreground" />
           </div>

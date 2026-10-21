@@ -34,3 +34,10 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - [x] Comparar fotos com divisor arrastável e data + peso mais próximo de cada foto (tela 16); sem peso a até 7 dias, mostra só a data
 - [x] Mapa muscular: "recuperado" volta a ser verde e "enfraquecido" violeta (tela 15)
 - [x] Cartão do VRI na Evolução com "Detalhes ›" (tela 13)
+
+## Ficou para a volta ao web / decisão (não são só mobile)
+- Opções de refeição (tela 19): exige tabela de alternativas + editor da nutricionista no web + "usar opção registra a troca". Enquanto isso o botão morto "Ver opções" foi removido.
+- Desafio/ranking/ligas/feed/Perfil de ranking e LGPD (telas 09–12 e 27): a tela de Desafios é toda de dados de exemplo (participantes inventados). Precisa de back-end próprio (grupos, pontuação, consentimento, só iniciais). O card da Home deixou de mostrar "#4 · 1.060 pts" fixo.
+- Regras da sequência do PDF (dia = 80% das tarefas, proteção semanal, recorde) e nomes das 5 fases: mudam regra do servidor.
+- Dispositivos (sono e passos), compartilhar resumo semanal, recado da equipe no resumo, contagem 7/14 nas conquistas, desfazer água, autor do suplemento.
+- Equipe aprovar/rejeitar peso suspeito (web).

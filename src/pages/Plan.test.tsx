@@ -8,10 +8,11 @@ const api = vi.hoisted(() => ({
   supplements: [] as unknown[],
   intakes: [] as unknown[],
   completions: [] as unknown[],
+  nutrition: null as unknown,
 }));
 
 vi.mock("@/lib/api", () => ({
-  getMyNutritionPlan: vi.fn(async () => null),
+  getMyNutritionPlan: vi.fn(async () => api.nutrition),
   getMealsDoneToday: vi.fn(async () => new Set<string>()),
   toggleMealDone: vi.fn(),
   getMySupplements: vi.fn(async () => api.supplements),
@@ -51,6 +52,7 @@ beforeEach(() => {
   api.supplements = [];
   api.intakes = [];
   api.completions = [];
+  api.nutrition = null;
 });
 
 describe("Meu Plano / aba Treino (WP-APP-4 item 6)", () => {
@@ -140,5 +142,15 @@ describe("Meu Plano / Treino — 'feito' na semana (PDF do Ernâni, tela 20)", (
     fireEvent.click(screen.getByText("Treino"));
     expect(await screen.findByTestId("week-done-count")).toHaveTextContent("0 de 1 feitos");
     expect(screen.queryByText("✓ feito")).not.toBeInTheDocument();
+  });
+});
+
+describe("Meu Plano / Alimentar — sem botão morto (tela 19 do PDF do Ernâni depende de dado novo)", () => {
+  it("não mostra 'Ver opções' enquanto o plano não tiver alternativas cadastradas", async () => {
+    api.nutrition = { title: "Plano", status: "active", meals: [{ id: "m1", time: "09:00", name: "Café da manhã", items: ["Ovos 2"], calories: 325, done: false }] };
+    renderPlan();
+    expect(await screen.findByText("Café da manhã")).toBeInTheDocument();
+    expect(screen.getByText("325 kcal")).toBeInTheDocument();
+    expect(screen.queryByText("Ver opções")).not.toBeInTheDocument();
   });
 });
