@@ -10,10 +10,13 @@ export interface WeightLogRow {
   measured_at: string;
   source: string;
   created_at: string;
+  review_status?: "ok" | "pending" | "approved" | "rejected";
 }
 
 export interface LogWeightInput {
   weightKg: number;
+  /** true = variação >2 kg/dia confirmada pelo paciente: fica 'pending' até a equipe decidir (fora da curva e do VRI). */
+  suspect?: boolean;
   measuredAt?: string; // default: agora (coluna default now())
 }
 
@@ -22,7 +25,7 @@ export interface LogWeightInput {
  * patient_id é resolvido para patients.id. A web LÊ daqui (gráfico, ponto laranja = app).
  * activity_events(type='weight_logged') permanece apenas como MARCADOR de Timeline.
  */
-export async function logWeight({ weightKg, measuredAt }: LogWeightInput): Promise<WeightLogRow> {
+export async function logWeight({ weightKg, measuredAt, suspect }: LogWeightInput): Promise<WeightLogRow> {
   const patientId = await getMyPatientId();
   if (!patientId) throw new Error("Paciente não resolvido (patient_id ausente)");
 
@@ -31,6 +34,7 @@ export async function logWeight({ weightKg, measuredAt }: LogWeightInput): Promi
     weight_kg: weightKg,
     source: "app",
   };
+  if (suspect) row.review_status = "pending";
   if (measuredAt) row.measured_at = measuredAt;
 
   const { data, error } = await supabase
@@ -54,6 +58,22 @@ export async function getRecentWeightLogs(limit = 6): Promise<WeightLogRow[]> {
     .from("weight_logs")
     .select("*")
     .eq("patient_id", patientId)
+    .in("review_status", ["ok", "approved"]) // pendente/recusado não entra na curva nem na referência
+    .order("measured_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as WeightLogRow[];
+}
+
+/** Pesos confirmados com variação suspeita: "em análise" pela equipe ou "não aceitos" (mais recentes primeiro). */
+export async function getWeightsInReview(limit = 5): Promise<WeightLogRow[]> {
+  const patientId = await getMyPatientId();
+  if (!patientId) return [];
+  const { data, error } = await supabase
+    .from("weight_logs")
+    .select("*")
+    .eq("patient_id", patientId)
+    .in("review_status", ["pending", "rejected"])
     .order("measured_at", { ascending: false })
     .limit(limit);
   if (error) throw error;

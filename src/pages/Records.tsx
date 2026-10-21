@@ -8,6 +8,7 @@ import { tracker } from "@/lib/eventTracker";
 import {
   logWeight,
   getRecentWeightLogs,
+  getWeightsInReview,
   logHydration,
   logSleep,
   getRecentSleep,
@@ -79,6 +80,7 @@ export default function Records() {
   const [weightVal, setWeightVal] = useState("");
   const prefilled = useRef(false);
   const recentWeights = useQuery({ queryKey: ["recentWeights"], queryFn: () => getRecentWeightLogs(6) });
+  const inReview = useQuery({ queryKey: ["weightsInReview"], queryFn: () => getWeightsInReview(5) });
 
   useEffect(() => {
     if (prefilled.current) return;
@@ -93,13 +95,14 @@ export default function Records() {
   const [weightConfirm, setWeightConfirm] = useState<{ kg: number; message: string } | null>(null);
 
   const weightMutation = useMutation({
-    mutationFn: ({ kg }: { kg: number; suspect: boolean }) => logWeight({ weightKg: kg }),
+    mutationFn: ({ kg, suspect }: { kg: number; suspect: boolean }) => logWeight({ weightKg: kg, suspect }),
     onSuccess: (_row, { suspect }) => {
       // activity_events(weight_logged) permanece como MARCADOR de Timeline (valor vai p/ weight_logs).
       // Valor fora da curva, mesmo confirmado, NÃO emite o marcador: não conta no VRI até a equipe ver.
       if (!suspect) tracker.track("weight_logged", { source: "app" });
       setWeightConfirm(null);
       qc.invalidateQueries({ queryKey: ["recentWeights"] });
+      qc.invalidateQueries({ queryKey: ["weightsInReview"] });
       qc.invalidateQueries({ queryKey: ["me"] });
       flashSaved("Peso salvo! Sua jornada foi fortalecida ✨");
     },
@@ -318,6 +321,14 @@ export default function Records() {
                     </div>
                   ))
                 )}
+                {(inReview.data ?? []).map((h) => (
+                  <div key={h.id} data-testid="weight-in-review" className="flex items-center justify-between py-2.5 border-b border-border last:border-0">
+                    <span className="text-xs text-muted-foreground">{formatDayMonth(h.measured_at)}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {Number(h.weight_kg).toFixed(1)}kg · <span className={h.review_status === "pending" ? "text-amber-400" : "text-red-400"}>{h.review_status === "pending" ? "em análise da equipe" : "não aceito pela equipe"}</span>
+                    </span>
+                  </div>
+                ))}
               </div>
             </motion.div>
           )}

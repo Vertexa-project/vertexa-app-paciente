@@ -57,7 +57,7 @@ export type { NotificationRow, NotificationType } from "./notifications";
 export { getJourneyData } from "./journey";
 export type { JourneyData } from "./journey";
 export { getMyWorkoutPlan } from "./workouts";
-export { logWeight, getRecentWeightLogs } from "./weight";
+export { logWeight, getRecentWeightLogs, getWeightsInReview } from "./weight";
 export type { LogWeightInput, WeightLogRow } from "./weight";
 export { getRestDays, markRestDay, undoRestDay } from "./rest";
 export { getMyClinicBrand } from "./clinicBrand";

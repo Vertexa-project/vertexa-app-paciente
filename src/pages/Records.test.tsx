@@ -11,6 +11,7 @@ vi.mock("@/lib/api", () => ({
   getRecentSleep: vi.fn(async () => []),
   logWeight: vi.fn(),
   getRecentWeightLogs: vi.fn(async () => []),
+  getWeightsInReview: vi.fn(async () => []),
   logHydration: vi.fn(),
   uploadProgressPhoto: vi.fn(),
   getLatestProgressPhoto: vi.fn(async () => null),

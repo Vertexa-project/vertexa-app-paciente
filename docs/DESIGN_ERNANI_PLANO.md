@@ -16,7 +16,7 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - [x] Chat: "Sua equipe" com papéis e canal seguro em destaque (tela 26). Botão flutuante "Minha equipe" agora em todas as telas do paciente (tirei o contador "2" que era fixo/inventado)
 
 ## Lote 2 — dado novo, sem decisão externa
-- [x] Trava de peso >2 kg/dia com confirmação (tela 03); valor confirmado fora da curva não emite o marcador do VRI. Pendente: a equipe aprovar/rejeitar no web e o valor sair do gráfico até lá
+- [x] Trava de peso >2 kg/dia com confirmação (tela 03); valor confirmado fora da curva não emite o marcador do VRI. Equipe aprova/recusa no web (aba Antropometria); até lá o valor fica fora do gráfico e do VRI, e o paciente vê "em análise da equipe"
 - [x] Esforço percebido 1–10 ao concluir o treino (tela 23; evento workout_effort, aparece na timeline do web). Recado ao educador: publicado (vira mensagem no chat marcando o educador)
 - [ ] Preparação corporal opcional e miniatura sem quadrado branco (telas 21–22)
 - [x] Kcal estimadas da semana em barras na Evolução (tela 13) e Resumo da semana (tela 17; kcal = treino concluído + atividades, rotulado como estimativa). Pendente da tela 17: recado da equipe e compartilhar
@@ -40,4 +40,3 @@ Status: [x] feito · [ ] pendente · (R) depende de regra/decisão da cliente.
 - Desafio/ranking/ligas/feed/Perfil de ranking e LGPD (telas 09–12 e 27): a tela de Desafios é toda de dados de exemplo (participantes inventados). Precisa de back-end próprio (grupos, pontuação, consentimento, só iniciais). O card da Home deixou de mostrar "#4 · 1.060 pts" fixo.
 - Regras da sequência do PDF (dia = 80% das tarefas, proteção semanal, recorde) e nomes das 5 fases: mudam regra do servidor.
 - Dispositivos (sono e passos), compartilhar resumo semanal, recado da equipe no resumo, contagem 7/14 nas conquistas, desfazer água, autor do suplemento.
-- Equipe aprovar/rejeitar peso suspeito (web).

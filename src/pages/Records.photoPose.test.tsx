@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({ uploadProgressPhoto: vi.fn(async () => ({ url: "
 vi.mock("@/lib/api", () => ({
   logWeight: vi.fn(),
   getRecentWeightLogs: vi.fn(async () => []),
+  getWeightsInReview: vi.fn(async () => []),
   logHydration: vi.fn(),
   uploadProgressPhoto: api.uploadProgressPhoto,
   getLatestProgressPhoto: vi.fn(async () => null),

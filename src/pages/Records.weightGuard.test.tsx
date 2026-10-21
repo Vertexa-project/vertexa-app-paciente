@@ -7,6 +7,7 @@ const m = vi.hoisted(() => ({
   logWeight: vi.fn(async () => ({})),
   track: vi.fn(),
   last: null as { weight_kg: number; measured_at: string } | null,
+  review: [] as { id: string; weight_kg: number; measured_at: string; review_status: string }[],
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -14,6 +15,7 @@ vi.mock("@/lib/api", () => ({
   getRecentSleep: vi.fn(async () => []),
   logWeight: m.logWeight,
   getRecentWeightLogs: vi.fn(async () => (m.last ? [m.last] : [])),
+  getWeightsInReview: vi.fn(async () => m.review),
   logHydration: vi.fn(),
   uploadProgressPhoto: vi.fn(),
   getLatestProgressPhoto: vi.fn(async () => null),
@@ -38,7 +40,7 @@ async function typeWeight(value: string) {
   fireEvent.change(input, { target: { value } });
 }
 
-beforeEach(() => { m.logWeight.mockClear(); m.track.mockClear(); m.last = { weight_kg: 117, measured_at: daysAgo(2) }; });
+beforeEach(() => { m.logWeight.mockClear(); m.track.mockClear(); m.last = { weight_kg: 117, measured_at: daysAgo(2) }; m.review = []; });
 
 describe("Registrar peso — conferência antes de salvar (PDF do Ernâni, tela 03)", () => {
   it("117 → 108 em dois dias NÃO grava: pede confirmação com os números", async () => {
@@ -67,7 +69,7 @@ describe("Registrar peso — conferência antes de salvar (PDF do Ernâni, tela 
     await typeWeight("108");
     fireEvent.click(screen.getByText("Salvar registro"));
     fireEvent.click(await screen.findByText("Confirmar 108,0 kg"));
-    await waitFor(() => expect(m.logWeight).toHaveBeenCalledWith({ weightKg: 108 }));
+    await waitFor(() => expect(m.logWeight).toHaveBeenCalledWith({ weightKg: 108, suspect: true }));
     expect(m.track).not.toHaveBeenCalledWith("weight_logged", expect.anything());
   });
 
@@ -76,7 +78,7 @@ describe("Registrar peso — conferência antes de salvar (PDF do Ernâni, tela 
     await waitFor(() => expect(screen.getByPlaceholderText("0.0")).toHaveValue(117));
     await typeWeight("116.2");
     fireEvent.click(screen.getByText("Salvar registro"));
-    await waitFor(() => expect(m.logWeight).toHaveBeenCalledWith({ weightKg: 116.2 }));
+    await waitFor(() => expect(m.logWeight).toHaveBeenCalledWith({ weightKg: 116.2, suspect: false }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     await waitFor(() => expect(m.track).toHaveBeenCalledWith("weight_logged", { source: "app" }));
   });
@@ -86,6 +88,18 @@ describe("Registrar peso — conferência antes de salvar (PDF do Ernâni, tela 
     renderRecords();
     await typeWeight("90");
     fireEvent.click(screen.getByText("Salvar registro"));
-    await waitFor(() => expect(m.logWeight).toHaveBeenCalledWith({ weightKg: 90 }));
+    await waitFor(() => expect(m.logWeight).toHaveBeenCalledWith({ weightKg: 90, suspect: false }));
+  });
+
+  it("histórico mostra o peso 'em análise da equipe' e o 'não aceito', fora da lista normal", async () => {
+    m.review = [
+      { id: "r1", weight_kg: 58, measured_at: daysAgo(0), review_status: "pending" },
+      { id: "r2", weight_kg: 40, measured_at: daysAgo(1), review_status: "rejected" },
+    ];
+    renderRecords();
+    const rows = await screen.findAllByTestId("weight-in-review");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("58.0kg · em análise da equipe");
+    expect(rows[1]).toHaveTextContent("40.0kg · não aceito pela equipe");
   });
 });
