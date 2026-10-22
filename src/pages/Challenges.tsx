@@ -2,7 +2,8 @@ import { useState } from "react";
 import { ArrowLeft, Trophy, Crown, Info, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getClinicRanking, isInRanking, joinRanking, leaveRanking, type RankingPeriod } from "@/lib/api";
+import { getClinicRanking, isInRanking, joinRanking, leaveRanking } from "@/lib/api";
+import type { RankingPeriod } from "@/lib/api/ranking";
 import { DAILY_CAP, POINT_RULES, me, pointsToNext, positionLabel } from "@/lib/ranking";
 import BottomNav from "@/components/BottomNav";
 
