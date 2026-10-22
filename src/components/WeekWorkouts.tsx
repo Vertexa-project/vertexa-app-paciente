@@ -19,7 +19,7 @@ export function workoutMeta(w: Workout): string {
   return parts.join(" · ");
 }
 
-export default function WeekWorkouts({ plan, dow, onOpen, doneIds }: { plan: Workout[]; dow: number; onOpen: () => void; doneIds?: ReadonlySet<string> }) {
+export default function WeekWorkouts({ plan, dow, onOpen, doneIds }: { plan: Workout[]; dow: number; onOpen: (workoutId?: string) => void; doneIds?: ReadonlySet<string> }) {
   const picked = pickTodayWorkout(plan, dow);
   if (!picked) return null;
   const { workout, isToday } = picked;
@@ -32,7 +32,7 @@ export default function WeekWorkouts({ plan, dow, onOpen, doneIds }: { plan: Wor
         </p>
         <p className="text-base font-display font-bold text-foreground mt-1">Treino {workout.letter} · {workout.name}</p>
         <p className="text-[11px] text-muted-foreground mt-0.5">{meta}</p>
-        <button onClick={onOpen} className="mt-3 w-full h-11 rounded-xl gradient-orange text-primary-foreground text-sm font-bold flex items-center justify-center gap-2">
+        <button onClick={() => onOpen(workout.id)} className="mt-3 w-full h-11 rounded-xl gradient-orange text-primary-foreground text-sm font-bold flex items-center justify-center gap-2">
           <Play size={14} /> Abrir treino
         </button>
       </div>
@@ -44,7 +44,7 @@ export default function WeekWorkouts({ plan, dow, onOpen, doneIds }: { plan: Wor
         {plan.map((w) => {
           const today = isToday && w.id === workout.id;
           return (
-            <div key={w.id} className={`rounded-xl bg-card p-3 flex items-center gap-3 border ${today ? "border-primary/50" : "border-transparent"}`}>
+            <button type="button" key={w.id} onClick={() => onOpen(w.id)} data-testid={`week-${w.id}`} className={`w-full text-left rounded-xl bg-card p-3 flex items-center gap-3 border ${today ? "border-primary/50" : "border-transparent"}`}>
               <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold ${today ? "gradient-orange text-primary-foreground" : "bg-muted text-foreground"}`}>
                 {w.letter}
               </div>
@@ -57,7 +57,7 @@ export default function WeekWorkouts({ plan, dow, onOpen, doneIds }: { plan: Wor
               ) : today ? (
                 <span className="text-[10px] font-semibold text-primary px-2 py-0.5 rounded-full bg-primary/10">hoje</span>
               ) : null}
-            </div>
+            </button>
           );
         })}
       </section>

@@ -46,4 +46,13 @@ describe("Plano › Treino (PDF do Ernâni, tela 20)", () => {
     expect(screen.queryByTestId("week-done-count")).toBeNull();
     expect(screen.queryByText("✓ feito")).toBeNull();
   });
+
+  it("tocar em qualquer treino da ficha abre ESSE treino (não só o de hoje)", () => {
+    const onOpen = vi.fn();
+    render(<WeekWorkouts plan={PLAN} dow={5} onOpen={onOpen} />);
+    screen.getByTestId("week-a").click();
+    expect(onOpen).toHaveBeenLastCalledWith("a");
+    screen.getByRole("button", { name: /Abrir treino/ }).click();
+    expect(onOpen).toHaveBeenLastCalledWith("e");
+  });
 });

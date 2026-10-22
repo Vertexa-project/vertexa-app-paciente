@@ -3,12 +3,13 @@ import EducatorNote from "@/components/EducatorNote";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Play, X, ChevronRight, Clock, Flame, Dumbbell, CheckCircle2, Timer, StickyNote, Trophy, Zap, Video, Camera, Upload, Sparkles, AlertCircle, ChevronDown, StretchHorizontal } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getDayColor, getWarmupForWorkout, getWarmupFocusLabel, type Workout, type WarmupExercise } from "@/data/workoutData";
 import { useQuery } from "@tanstack/react-query";
 import { getMyWorkoutPlan } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
+import WorkoutList from "@/components/WorkoutList";
 import NoPrescriptionYet, { NO_WORKOUT_PLAN_TITLE, NO_WORKOUT_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
 import ComingSoonLock, { ComingSoonBadge } from "@/components/ComingSoonLock";
 
@@ -84,6 +85,7 @@ function getAnalysisForExercise(name: string): AnalysisResult {
 
 export default function WorkoutGuide() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [screen, setScreen] = useState<Screen>("list");
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null);
 
@@ -133,6 +135,16 @@ export default function WorkoutGuide() {
   useEffect(() => {
     tracker.track('training_plan_viewed');
   }, []);
+
+  // Vindo da ficha da semana (aba Plano): abre direto o treino tocado, uma vez.
+  const wantedId = searchParams.get("w");
+  const openedFromLink = useRef(false);
+  useEffect(() => {
+    if (!wantedId || openedFromLink.current) return;
+    const w = schedule.find((x) => x.id === wantedId);
+    if (w) { openedFromLink.current = true; openDetail(w); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedId, realPlan]);
 
   // Rest timer
   useEffect(() => {
@@ -323,48 +335,7 @@ export default function WorkoutGuide() {
             />
           ) : (
           <>
-          {todayId && (
-            <div className="mb-4 p-3 rounded-xl bg-primary/10 border border-primary/20">
-              <div className="flex items-center gap-2">
-                <Zap size={16} className="text-primary" />
-                <span className="text-xs font-semibold text-primary">Treino do dia</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1">Continue sua evolução. Seu treino de hoje está liberado abaixo.</p>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-3">
-            {schedule.map((w) => {
-              const isToday = w.id === todayId;
-              return (
-                <motion.button
-                  key={w.id}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => isToday ? openDetail(w) : undefined}
-                  className={`w-full text-left rounded-2xl p-4 flex items-center justify-between transition-all ${
-                    isToday
-                      ? "bg-card border border-primary/30 shadow-lg shadow-primary/5"
-                      : "bg-card/50 opacity-50"
-                  }`}
-                >
-                  <div className="flex-1">
-                    <p className="text-base font-bold text-foreground">
-                      Treino {w.letter} — {w.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {w.exercises.length} exercícios • {w.estimatedMinutes} Min • {w.estimatedCalories} kcal
-                    </p>
-                    {!isToday && (
-                      <p className="text-[10px] text-muted-foreground/60 mt-1">Programado para {w.dayOfWeek}</p>
-                    )}
-                  </div>
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold text-white ${getDayColor(w.dayOfWeek)}`}>
-                    {w.dayOfWeek}
-                  </div>
-                </motion.button>
-              );
-            })}
-          </div>
+          <WorkoutList schedule={schedule} todayId={todayId} onOpen={openDetail} />
           </>
           )}
         </div>

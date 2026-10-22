@@ -386,7 +386,7 @@ export default function Plan() {
                   icon={Dumbbell}
                 />
               ) : (
-                <WeekWorkouts plan={workoutPlan ?? []} dow={new Date().getDay()} onOpen={() => navigate('/workout-guide')} doneIds={weekDoneIds} />
+                <WeekWorkouts plan={workoutPlan ?? []} dow={new Date().getDay()} onOpen={(id) => navigate(id ? `/workout-guide?w=${id}` : '/workout-guide')} doneIds={weekDoneIds} />
               )}
             </motion.div>
           )}
