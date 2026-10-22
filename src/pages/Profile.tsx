@@ -14,6 +14,7 @@ import { tracker } from "@/lib/eventTracker";
 import { OwnAvatarControl } from "@/components/avatar/OwnAvatarControl";
 import { ProfilePhoto } from "@/components/avatar/ProfilePhoto";
 import BottomNav from "@/components/BottomNav";
+import AccountRights from "@/components/AccountRights";
 import NoPrescriptionYet, {
   NO_ACTIVE_LINK_TITLE,
   NO_ACTIVE_LINK_MESSAGE,
@@ -260,6 +261,8 @@ export default function Profile() {
             </button>
           ))}
         </motion.div>
+
+        <AccountRights />
 
         <button onClick={handleSignOut} className="w-full flex items-center justify-center gap-2 py-3 text-destructive text-sm font-medium">
           <LogOut size={16} />

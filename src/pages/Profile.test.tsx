@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/api", () => ({
+  exportMyData: vi.fn(), getMyDeletionRequest: vi.fn(async () => null), requestAccountDeletion: vi.fn(), cancelAccountDeletion: vi.fn(),
   getLatestAdherenceState: vi.fn(async () => api.snapshot),
   getMyCareTeam: vi.fn(() => {
     if (api.hang) return new Promise<CareTeamMember[]>(() => {});

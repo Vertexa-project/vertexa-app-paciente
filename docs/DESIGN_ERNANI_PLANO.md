@@ -85,3 +85,6 @@ Valem como ponto de partida até Ernâni/Juliana responderem; o que diverge entr
 
 ## Relatório em lote (21/10)
 - Web: "Exportar relatórios em lote" baixa por padrão um ZIP com um PDF por paciente (relatório individual completo); "PDF único (resumo)" continua como opção. Mesma RPC auditada, mesmo batch_id, falha parcial não derruba o lote. Até 50 pacientes.
+
+## Exportar e apagar conta (22/10)
+- Perfil > "Seus dados": exportar (JSON com tudo do paciente, só o próprio) e pedir exclusão (confirmação; clínica é avisada na Gestão; paciente pode cancelar). Exclusão feita pelo ADMIN da clínica: anonimiza nome/e-mail/nascimento/sexo/objetivo/avatar, apaga fotos, documentos e mídias, bloqueia o login; histórico clínico (peso, refeições, treinos, sono) fica sem identificação. Arquivos do Storage saem pela API (o banco proíbe delete direto) e o web confirma.
