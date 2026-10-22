@@ -82,3 +82,6 @@ Valem como ponto de partida até Ernâni/Juliana responderem; o que diverge entr
 
 ## Resumo semanal: recado e compartilhar (21/10)
 - Banco: `weekly_team_notes` (1 por paciente e semana) e RPC `set_weekly_note` (só a equipe grava; texto vazio apaga). Web: cartão "Recado da semana" na Visão geral do paciente. App: recado da equipe, ou automático por faixa (forte ≥80%, boa 50–79%, leve <50% da média treino+refeições; antes do 4º dia da semana aberta, "em andamento"), sempre rotulado. Compartilhar = imagem PNG desenhada no aparelho (sistema de compartilhar, senão baixa); sem nome, foto ou peso.
+
+## Relatório em lote (21/10)
+- Web: "Exportar relatórios em lote" baixa por padrão um ZIP com um PDF por paciente (relatório individual completo); "PDF único (resumo)" continua como opção. Mesma RPC auditada, mesmo batch_id, falha parcial não derruba o lote. Até 50 pacientes.
