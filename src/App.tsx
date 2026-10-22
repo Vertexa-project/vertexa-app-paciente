@@ -27,7 +27,6 @@ import WorkoutGuide from "./pages/WorkoutGuide";
 import Challenges from "./pages/Challenges";
 import TeamChat from "./pages/TeamChat";
 import ShareStory from "./pages/ShareStory";
-import ChallengeCheckIn from "./pages/ChallengeCheckIn";
 import LogActivity from "./pages/LogActivity";
 import NotFound from "./pages/NotFound";
 
@@ -57,7 +56,6 @@ const App = () => (
               <Route path="/challenges" element={<Challenges />} />
               <Route path="/team-chat" element={<TeamChat />} />
               <Route path="/share" element={<ShareStory />} />
-              <Route path="/challenge-checkin" element={<ChallengeCheckIn />} />
               <Route path="/log-activity" element={<LogActivity />} />
               <Route path="/habits" element={<Habits />} />
               <Route path="/records" element={<Records />} />

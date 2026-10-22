@@ -481,7 +481,7 @@ export default function HomePage() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-semibold text-foreground">Desafios</p>
-              <p className="text-xs text-muted-foreground">Compita pela adesão ao seu plano</p>
+              <p className="text-xs text-muted-foreground">Ranking da sua clínica (só entra quem aceitar)</p>
             </div>
             <ChevronRight size={16} className="text-muted-foreground" />
           </div>

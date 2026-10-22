@@ -35,6 +35,7 @@ export {
 export type { SupplementRow, ToggleSupplementTakenInput, SupplementAdherence } from "./supplements";
 export { getLatestAdherenceState, getAdherenceHistory, getStreakSummary } from "./adherence";
 export { getMyWeeklyNote } from "./weeklyNote";
+export { isInRanking, joinRanking, leaveRanking, getClinicRanking } from "./ranking";
 export { exportMyData, getMyDeletionRequest, requestAccountDeletion, cancelAccountDeletion } from "./account";
 export {
   getAchievementsCatalog,

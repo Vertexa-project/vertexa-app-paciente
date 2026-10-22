@@ -88,3 +88,8 @@ Valem como ponto de partida até Ernâni/Juliana responderem; o que diverge entr
 
 ## Exportar e apagar conta (22/10)
 - Perfil > "Seus dados": exportar (JSON com tudo do paciente, só o próprio) e pedir exclusão (confirmação; clínica é avisada na Gestão; paciente pode cancelar). Exclusão feita pelo ADMIN da clínica: anonimiza nome/e-mail/nascimento/sexo/objetivo/avatar, apaga fotos, documentos e mídias, bloqueia o login; histórico clínico (peso, refeições, treinos, sono) fica sem identificação. Arquivos do Storage saem pela API (o banco proíbe delete direto) e o web confirma.
+
+## Desafio e ranking (22/10)
+- Banco `20261104090000`: `ranking_members` (opt-in), `join_ranking`/`leave_ranking`, `clinic_ranking(week|month)` (só iniciais e pontos, só a própria clínica). Pontos/dia, teto 100: treino 40, refeições 30 (proporcional ao plano), água 10, suplemento 10, peso ou foto 10 (peso em análise não conta). Empate divide a posição. Semana seg–dom BRT.
+- App: /challenges agora é real (consentimento, posição, lista, Semana/Mês, regras, sair). Removidos: grupos/convites/criar desafio/feed e check-in com dados de exemplo; modelo "Desafio" do ShareStory (números fixos).
+- NÃO feito (precisa de decisão da Juliana/Ernâni): ligas Bronze→Platina (subida/descida semanal), desafios criados pela clínica, feed de atividades, selos de desafio.

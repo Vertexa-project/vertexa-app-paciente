@@ -18,7 +18,6 @@ type FormatType = 'story' | 'feed' | 'whatsapp';
 const templates: { type: TemplateType; label: string; icon: React.ReactNode; desc: string }[] = [
   { type: 'workout', label: 'Treino concluído', icon: <Dumbbell size={20} />, desc: 'Compartilhe que finalizou o treino do dia' },
   { type: 'evolution', label: 'Evolução', icon: <TrendingUp size={20} />, desc: 'Mostre seu comparativo ou marco de evolução' },
-  { type: 'challenge', label: 'Desafio / Ranking', icon: <Trophy size={20} />, desc: 'Destaque sua posição ou vitória no desafio' },
   { type: 'achievement', label: 'Conquista', icon: <Award size={20} />, desc: 'Celebre uma meta batida ou marco de constância' },
 ];
 
@@ -164,66 +163,6 @@ export default function ShareStory() {
     </div>
   );
 
-  const renderChallengeCard = () => (
-    <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-br from-background via-card to-background border border-border">
-      <div className="absolute top-0 inset-x-0 h-2/5 bg-gradient-to-b from-primary/20 via-primary/8 to-transparent" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,hsl(var(--primary)/0.2),transparent_50%)]" />
-
-      <div className="relative h-full flex flex-col justify-between p-6">
-        <div>
-          <p className="text-[10px] font-medium text-primary/80 uppercase tracking-widest mb-1">Acompanhamento profissional</p>
-          <ClinicBadge showSignature={false} className="mt-1" />
-        </div>
-
-        <div className="flex-1 flex flex-col items-center justify-center gap-4 py-6">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary/25 to-primary/5 border-2 border-primary/30 flex items-center justify-center">
-            <Trophy size={36} className="text-primary" />
-          </div>
-
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground mb-1">Desafio Constância Abril</p>
-            <p className="text-3xl font-bold text-foreground">#4</p>
-            <p className="text-sm text-muted-foreground mt-0.5">no ranking geral</p>
-          </div>
-
-          <div className="flex items-center gap-5 mt-3">
-            <div className="text-center">
-              <p className="text-lg font-bold text-primary">1.060</p>
-              <p className="text-[10px] text-muted-foreground">pontos</p>
-            </div>
-            <div className="w-px h-8 bg-border" />
-            <div className="text-center">
-              <p className="text-lg font-bold text-foreground">82%</p>
-              <p className="text-[10px] text-muted-foreground">adesão</p>
-            </div>
-            <div className="w-px h-8 bg-border" />
-            <div className="flex flex-col items-center">
-              <div className="flex items-center gap-1">
-                <Flame size={14} className="text-primary" />
-                <p className="text-lg font-bold text-foreground">10</p>
-              </div>
-              <p className="text-[10px] text-muted-foreground">streak</p>
-            </div>
-          </div>
-
-          <div className="px-4 py-2 rounded-full bg-primary/10 border border-primary/15 mt-2">
-            <p className="text-[11px] font-medium text-primary flex items-center gap-1.5">
-              <TrendingUp size={12} /> Subindo no ranking
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-end justify-between">
-          <p className="text-[10px] text-muted-foreground">8 participantes · 29 dias</p>
-          <div className="text-right">
-            <p className="text-[9px] text-muted-foreground/60 tracking-wide">via</p>
-            <p className="text-[10px] font-semibold text-muted-foreground/50 tracking-wider">VERTEXA</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderAchievementCard = () => (
     <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden bg-gradient-to-br from-background via-card to-background border border-border">
       <div className="absolute top-0 inset-x-0 h-1/3 bg-gradient-to-b from-primary/18 via-primary/5 to-transparent" />
@@ -283,7 +222,6 @@ export default function ShareStory() {
     switch (selectedTemplate) {
       case 'workout': return renderWorkoutCard();
       case 'evolution': return renderEvolutionCard();
-      case 'challenge': return renderChallengeCard();
       case 'achievement': return renderAchievementCard();
       default: return null;
     }
