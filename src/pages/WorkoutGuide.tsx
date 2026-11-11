@@ -10,6 +10,7 @@ import { getMyWorkoutPlan } from "@/lib/api";
 import { tracker } from "@/lib/eventTracker";
 import BottomNav from "@/components/BottomNav";
 import WorkoutList from "@/components/WorkoutList";
+import ExerciseThumb from "@/components/ExerciseThumb";
 import NoPrescriptionYet, { NO_WORKOUT_PLAN_TITLE, NO_WORKOUT_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
 import ComingSoonLock, { ComingSoonBadge } from "@/components/ComingSoonLock";
 
@@ -469,7 +470,7 @@ export default function WorkoutGuide() {
               {selectedWorkout.exercises.map((ex) => (
                 <div key={ex.id} className="bg-card rounded-xl p-3 flex items-center gap-3">
                   <div className="w-16 h-16 rounded-lg bg-white overflow-hidden flex-shrink-0">
-                    <img src={ex.gifUrl} alt={ex.name} className="w-full h-full object-cover" loading="lazy" />
+                    <ExerciseThumb src={ex.gifUrl} alt={ex.name} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{ex.name}</p>
@@ -689,7 +690,7 @@ export default function WorkoutGuide() {
           {/* Exercise info */}
           <div className="flex items-start gap-3 mb-5">
             <div className="w-20 h-20 rounded-xl bg-white overflow-hidden flex-shrink-0">
-              <img src={currentExercise.gifUrl} alt={currentExercise.name} className="w-full h-full object-cover" />
+              <ExerciseThumb key={currentExercise.id} src={currentExercise.gifUrl} alt={currentExercise.name} lazy={false} />
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-bold text-foreground">{currentExercise.name}</h2>
@@ -797,7 +798,7 @@ export default function WorkoutGuide() {
               <p className="text-xs text-muted-foreground font-medium mb-2">Próximo exercício</p>
               <div className="bg-card rounded-xl p-3 flex items-center gap-3">
                 <div className="w-14 h-14 rounded-lg bg-white overflow-hidden flex-shrink-0">
-                  <img src={nextExercise.gifUrl} alt={nextExercise.name} className="w-full h-full object-cover" loading="lazy" />
+                  <ExerciseThumb key={nextExercise.id} src={nextExercise.gifUrl} alt={nextExercise.name} />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">{nextExercise.name}</p>

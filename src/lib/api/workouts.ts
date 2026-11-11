@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { getMyPatientId } from "./patient";
 import { registerWorkoutMuscles } from "@/lib/muscleMap";
 import { workoutSchedule, type Workout, type ExerciseSet } from "@/data/workoutData";
+import { getExerciseLibraryMediaIndex, normalizeExerciseName } from "./exerciseLibrary";
 
 // GIF fallback: the real seed has gif_url = null. Reuse the mock exercise GIFs by name
 // (the seed exercise names match the mock) until the web fills gif_url. PROVISIONAL.
@@ -9,8 +10,11 @@ const GIF_BY_NAME = new Map<string, string>();
 for (const w of workoutSchedule) {
   for (const ex of w.exercises) GIF_BY_NAME.set(ex.name.trim().toLowerCase(), ex.gifUrl);
 }
-function gifForName(name: string, gifUrl: string | null): string {
+/** Ordem: GIF gravado no exercício > Biblioteca de exercícios (nome/apelido) > GIF antigo empacotado. */
+export function gifForName(name: string, gifUrl: string | null, library?: Map<string, string>): string {
   if (gifUrl) return gifUrl;
+  const fromLibrary = library?.get(normalizeExerciseName(name));
+  if (fromLibrary) return fromLibrary;
   return GIF_BY_NAME.get(name.trim().toLowerCase()) ?? "";
 }
 
@@ -64,6 +68,7 @@ export async function getMyWorkoutPlan(): Promise<Workout[]> {
   if (planError) throw planError;
   if (!plan) return [];
 
+  const libraryPromise = getExerciseLibraryMediaIndex();
   const { data, error } = await supabase
     .from("workouts")
     .select(
@@ -75,6 +80,7 @@ export async function getMyWorkoutPlan(): Promise<Workout[]> {
   if (error) throw error;
 
   const rows = (data ?? []) as unknown as RawWorkout[];
+  const library = await libraryPromise;
 
   return rows.map((w) => {
     const exercises = [...(w.workout_exercises ?? [])]
@@ -92,7 +98,7 @@ export async function getMyWorkoutPlan(): Promise<Workout[]> {
           muscleGroups: ex.muscle_groups ?? [],
           sets,
           restSeconds: ex.rest_seconds ?? 60,
-          gifUrl: gifForName(ex.name, ex.gif_url),
+          gifUrl: gifForName(ex.name, ex.gif_url, library),
           notes: ex.notes ?? undefined,
         };
       });
