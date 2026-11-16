@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const api = vi.hoisted(() => ({ list: [] as unknown[], throws: false, open: vi.fn(async () => "https://x/signed") }));
+const api = vi.hoisted(() => ({ list: [] as unknown[], throws: false, open: vi.fn(async (_d: unknown) => "https://x/signed") }));
 vi.mock("@/lib/api", () => ({
   getMyDeliveries: vi.fn(async () => { if (api.throws) throw new Error("x"); return api.list; }),
   openDelivery: api.open,
