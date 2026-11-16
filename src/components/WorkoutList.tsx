@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Zap } from "lucide-react";
+import { workoutSummaryLine } from "@/lib/workoutStats";
 import { getDayColor, type Workout } from "@/data/workoutData";
 
 /** Lista da ficha na aba Treino. Qualquer treino da semana pode ser aberto e feito; o de hoje só ganha destaque. */
@@ -30,7 +31,7 @@ export default function WorkoutList({ schedule, todayId, onOpen }: { schedule: W
             >
               <div className="flex-1">
                 <p className="text-base font-bold text-foreground">Treino {w.letter} — {w.name}</p>
-                <p className="text-xs text-muted-foreground mt-1">{w.exercises.length} exercícios • {w.estimatedMinutes} Min • {w.estimatedCalories} kcal</p>
+                <p className="text-xs text-muted-foreground mt-1">{workoutSummaryLine(w)}</p>
                 {!isToday && <p className="text-[10px] text-muted-foreground/60 mt-1">Programado para {w.dayOfWeek}</p>}
               </div>
               <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold text-white ${getDayColor(w.dayOfWeek)}`}>{w.dayOfWeek}</div>

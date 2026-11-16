@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { getMyPatientId } from "./patient";
 import { registerWorkoutMuscles } from "@/lib/muscleMap";
 import { workoutSchedule, type Workout, type ExerciseSet } from "@/data/workoutData";
+import { estimateKcal, workoutMinutes } from "@/lib/workoutStats";
 import { getExerciseLibraryMediaIndex, normalizeExerciseName } from "./exerciseLibrary";
 
 // GIF fallback: the real seed has gif_url = null. Reuse the mock exercise GIFs by name
@@ -107,7 +108,7 @@ export async function getMyWorkoutPlan(): Promise<Workout[]> {
     const ptTokens = exercises.flatMap((e) => e.muscleGroups);
     registerWorkoutMuscles(w.id, ptTokens);
 
-    const minutes = w.estimated_minutes ?? 0;
+    const minutes = workoutMinutes(w.estimated_minutes, exercises); // cadastro ou estimativa pelas séries; nunca 0 com exercício
     return {
       id: w.id,
       letter: w.letter ?? "",
@@ -117,7 +118,7 @@ export async function getMyWorkoutPlan(): Promise<Workout[]> {
       dayIndex: w.day_index ?? 0,
       exercises,
       estimatedMinutes: minutes,
-      estimatedCalories: Math.round(minutes * 6), // derived (schema has no calories)
+      estimatedCalories: estimateKcal(minutes), // derivado (o cadastro não tem calorias)
       completed: false,
     } as Workout;
   });

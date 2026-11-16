@@ -1,3 +1,4 @@
+import { workoutSummaryLine } from "@/lib/workoutStats";
 import { checkWeight, confirmMessage } from "@/lib/weightGuard";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -428,7 +429,7 @@ export default function Records() {
                       Treino {todayWorkout.letter} — {todayWorkout.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {todayWorkout.dayOfWeek} • {todayWorkout.estimatedMinutes}min • {todayWorkout.exercises.length} exercícios
+                      {todayWorkout.dayOfWeek} • {workoutSummaryLine(todayWorkout)}
                     </p>
                   </div>
                   <div className="flex flex-col gap-1.5">
