@@ -22,6 +22,7 @@ import Achievements from "./pages/Achievements";
 import Journey from "./pages/Journey";
 import SOS from "./pages/SOS";
 import Notifications from "./pages/Notifications";
+import Documents from "./pages/Documents";
 import Profile from "./pages/Profile";
 import WorkoutGuide from "./pages/WorkoutGuide";
 import Challenges from "./pages/Challenges";
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/journey" element={<Journey />} />
               <Route path="/sos" element={<SOS />} />
               <Route path="/notifications" element={<Notifications />} />
+              <Route path="/documents" element={<Documents />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
 

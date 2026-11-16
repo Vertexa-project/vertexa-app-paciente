@@ -18,6 +18,8 @@ import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, ge
 import { localYmd, SLEEP_GOAL_HOURS } from "@/lib/sleep";
 import ClinicBadge from "@/components/ClinicBadge";
 import SupplementReminders from "@/components/SupplementReminders";
+import ClinicReminders from "@/components/ClinicReminders";
+import ClinicDocsCard from "@/components/ClinicDocsCard";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
 import NotificationsPanel from "@/components/NotificationsPanel";
@@ -271,6 +273,8 @@ export default function HomePage() {
           </button>
         </motion.div>
 
+        <ClinicReminders />
+        <ClinicDocsCard />
         <SupplementReminders />
 
         {/* VRI Score Card — QUATRO estados distintos, na ordem de precedência (WP-APP-6 3.2).

@@ -19,6 +19,7 @@ export type {
 export { logActivityEvent, getActivityEventsSince, getWorkoutCompletionsSince } from "./events";
 export type { LogActivityEventInput } from "./events";
 export { getMuscleRecovery } from "./recovery";
+export { getMyDeliveries, openDelivery, getMyReminders } from "./clinicDocs";
 export { getMyNutritionPlan } from "./plan";
 export type { MealView, NutritionPlanView } from "./plan";
 export { toggleMealDone, registerMealOption, getMealOptionsToday, getMealsDoneToday, getMealAdherenceToday, getMealLogsSince } from "./meals";

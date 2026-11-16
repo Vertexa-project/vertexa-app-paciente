@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 // Settings e Shield saíram junto com os itens "Configurações" e "Privacidade" (WP-APP-6 3.3).
-import { ArrowLeft, ChevronRight, Target, Stethoscope, Bell as BellIcon, LogOut, Zap, Route } from "lucide-react";
+import { ArrowLeft, ChevronRight, Target, Stethoscope, Bell as BellIcon, FileText, LogOut, Zap, Route } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/providers/auth-context";
@@ -83,6 +83,7 @@ export default function Profile() {
   //    media_consent_revoke); este app é que nunca leu essa tabela. Remover não afirma nada.
   //    Construir a tela seria inventar tela nova, o que o WP proíbe explicitamente.
   const menuItems = [
+    { icon: FileText, label: "Meus documentos", path: "/documents" },
     { icon: BellIcon, label: "Notificações", path: "/notifications" },
   ];
 
