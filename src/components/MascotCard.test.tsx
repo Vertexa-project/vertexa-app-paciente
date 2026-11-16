@@ -28,6 +28,8 @@ vi.mock("@/lib/api", () => ({
 
 import { accessibleAccent, APP_ACCENT } from "@/lib/mascot/brandAccent";
 
+import { localDateKey } from "@/lib/pendingLogic";
+
 import MascotCard from "./MascotCard";
 
 function renderCard() {
@@ -40,6 +42,7 @@ function renderCard() {
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   api.water = 1.5;
   api.meals = { done: 5, total: 5 };
   api.plan = [{ letter: "B" }];
@@ -81,6 +84,21 @@ describe("MascotCard — tigrezinho", () => {
     renderCard();
     await waitFor(() => expect(screen.getByTestId("mascot-line")).toHaveTextContent("Faltam os remédios para fechar o dia."));
     expect(screen.queryByText(/dias? seguidos?/)).toBeNull();
+  });
+
+  it("comemora quando volta com mais metas fechadas que da última vez (hoje); sem histórico ou sem mudança, não", async () => {
+    api.water = 2.5; // 3 de 3 feitas
+    sessionStorage.setItem(`vertexa:mascot:done:${localDateKey(new Date())}`, "2");
+    renderCard();
+    await waitFor(() => expect(screen.getByTestId("mascot-line")).toHaveTextContent("Dia fechado!"));
+    await waitFor(() => expect(screen.getByTestId("mascot-card")).toHaveAttribute("data-celebrations", "1"));
+  });
+
+  it("primeira vez no dia ou nada novo: não comemora", async () => {
+    api.water = 2.5;
+    renderCard();
+    await waitFor(() => expect(screen.getByTestId("mascot-line")).toHaveTextContent("Dia fechado!"));
+    expect(screen.getByTestId("mascot-card")).toHaveAttribute("data-celebrations", "0");
   });
 
   it("sem cor da clínica: laranja do app", async () => {

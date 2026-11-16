@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { motion, useAnimationControls } from "framer-motion";
 import { Zap } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import tigre from "@/assets/mascot/tigre.webp";
 import { useClinicBrand } from "@/hooks/useClinicBrand";
@@ -18,6 +18,7 @@ import { WATER_GOAL_LITERS } from "@/lib/hydrationMath";
 import { accessibleAccent } from "@/lib/mascot/brandAccent";
 import { mascotSpeech, shouldCelebrate, type MascotGoal } from "@/lib/mascot/mascotRules";
 import { localDateKey } from "@/lib/pendingLogic";
+import { readSeenDone, writeSeenDone } from "@/lib/mascot/seenDone";
 
 /**
  * Metas do dia COM DADO REAL para o tigrezinho (mesmas queries/chaves da Home → cache compartilhado, sem leitura nova).
@@ -58,15 +59,21 @@ export default function MascotCard() {
   const accent = accessibleAccent(brand?.color);
   const speech = useMemo(() => mascotSpeech({ streak, goals }), [streak, goals]);
   const controls = useAnimationControls();
-  const prevDone = useRef<number | null>(null);
+  const [celebrations, setCelebrations] = useState(0);
+  const prevDone = useRef<number | null | undefined>(undefined);
 
   useEffect(() => {
     if (!ready) return;
+    const day = localDateKey(new Date());
+    // 1ª leitura desta montagem: compara com o que ele já tinha visto hoje (volta da tela de registro).
+    if (prevDone.current === undefined) prevDone.current = readSeenDone(day);
     if (shouldCelebrate(prevDone.current, speech.doneCount)) {
+      setCelebrations((n) => n + 1);
       // Efeito sempre ligado (sem toggle, não para com reduced-motion — regra do Lucas).
       void controls.start({ scale: [1, 1.22, 0.94, 1.1, 1], rotate: [0, -10, 9, -4, 0], y: [0, -8, 0, -3, 0], transition: { duration: 0.9, ease: "easeInOut" } });
     }
     prevDone.current = speech.doneCount;
+    writeSeenDone(day, speech.doneCount);
   }, [ready, speech.doneCount, controls]);
 
   return (
@@ -74,6 +81,7 @@ export default function MascotCard() {
       aria-label="Tigrezinho, mascote das metas do dia"
       data-testid="mascot-card"
       data-accent={accent}
+      data-celebrations={celebrations}
       className="mb-5 flex items-center gap-3 rounded-2xl border p-3.5"
       style={{ borderColor: `${accent}66`, backgroundColor: `${accent}1A` }}
     >
