@@ -13,6 +13,7 @@ import WorkoutList from "@/components/WorkoutList";
 import ExerciseThumb from "@/components/ExerciseThumb";
 import NoPrescriptionYet, { NO_WORKOUT_PLAN_TITLE, NO_WORKOUT_PLAN_MESSAGE } from "@/components/NoPrescriptionYet";
 import ComingSoonLock, { ComingSoonBadge } from "@/components/ComingSoonLock";
+import { warmupCountLabel } from "@/lib/workoutStats";
 
 /** Motivo do cadeado da análise por vídeo. Honesto: falta a análise de verdade, não é bug. */
 const ANALYSIS_LOCK_REASON =
@@ -221,14 +222,14 @@ export default function WorkoutGuide() {
     }
   };
 
-  const startWorkout = () => {
+  const startWorkout = (fromExercise = 0) => {
     if (!selectedWorkout) return;
     const initial: Record<string, boolean[]> = {};
     selectedWorkout.exercises.forEach((ex) => {
       initial[ex.id] = ex.sets.map(() => false);
     });
     setCompletedSets(initial);
-    setExerciseIndex(0);
+    setExerciseIndex(Math.min(Math.max(0, fromExercise), Math.max(0, selectedWorkout.exercises.length - 1)));
     setSetIndex(0);
     setIsResting(false);
     setWorkoutStartTime(Date.now());
@@ -362,17 +363,21 @@ export default function WorkoutGuide() {
           </h1>
 
           <div className="flex items-center gap-5 mt-3 mb-5">
-            <div className="flex items-center gap-1.5">
-              <Clock size={16} className="text-primary" />
-              <span className="text-sm text-muted-foreground">{selectedWorkout.estimatedMinutes} Min</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Flame size={16} className="text-primary" />
-              <span className="text-sm text-muted-foreground">{selectedWorkout.estimatedCalories} kcal</span>
-            </div>
-            <div className="flex items-center gap-1.5">
+            {selectedWorkout.estimatedMinutes > 0 && (
+              <div className="flex items-center gap-1.5" data-testid="detail-minutes">
+                <Clock size={16} className="text-primary" />
+                <span className="text-sm text-muted-foreground">~{selectedWorkout.estimatedMinutes} min</span>
+              </div>
+            )}
+            {selectedWorkout.estimatedCalories > 0 && (
+              <div className="flex items-center gap-1.5" data-testid="detail-kcal">
+                <Flame size={16} className="text-primary" />
+                <span className="text-sm text-muted-foreground">~{selectedWorkout.estimatedCalories} kcal</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5" data-testid="detail-exercises">
               <Dumbbell size={16} className="text-primary" />
-              <span className="text-sm text-muted-foreground">{selectedWorkout.exercises.reduce((s, e) => s + e.sets.reduce((a, set) => a + set.weight, 0), 0)} kg</span>
+              <span className="text-sm text-muted-foreground">{selectedWorkout.exercises.length} {selectedWorkout.exercises.length === 1 ? "exercício" : "exercícios"}</span>
             </div>
           </div>
 
@@ -432,7 +437,7 @@ export default function WorkoutGuide() {
             <div className="flex items-center gap-4 mb-4">
               <div className="flex items-center gap-1.5">
                 <Dumbbell size={12} className="text-muted-foreground" />
-                <span className="text-[10px] text-muted-foreground">{warmupList.length} exercícios</span>
+                <span className="text-[10px] text-muted-foreground">{warmupCountLabel(warmupList.length)}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock size={12} className="text-muted-foreground" />
@@ -454,7 +459,7 @@ export default function WorkoutGuide() {
           {/* Main workout CTA */}
           <motion.button
             whileTap={{ scale: 0.97 }}
-            onClick={startWorkout}
+            onClick={() => startWorkout()}
             className={`w-full h-14 rounded-2xl font-bold text-base mb-6 flex items-center justify-center gap-2 ${
               warmupCompleted
                 ? "gradient-orange text-primary-foreground shadow-orange"
@@ -467,8 +472,15 @@ export default function WorkoutGuide() {
           <div className="border-t border-border pt-5">
             <h2 className="text-lg font-bold text-foreground mb-4">Exercícios</h2>
             <div className="flex flex-col gap-3">
-              {selectedWorkout.exercises.map((ex) => (
-                <div key={ex.id} className="bg-card rounded-xl p-3 flex items-center gap-3">
+              {selectedWorkout.exercises.map((ex, i) => (
+                <button
+                  type="button"
+                  key={ex.id}
+                  data-testid={`open-exercise-${i}`}
+                  aria-label={`Abrir o exercício ${ex.name}`}
+                  onClick={() => startWorkout(i)}
+                  className="bg-card rounded-xl p-3 flex items-center gap-3 w-full text-left"
+                >
                   <div className="w-16 h-16 rounded-lg bg-white overflow-hidden flex-shrink-0">
                     <ExerciseThumb src={ex.gifUrl} alt={ex.name} />
                   </div>
@@ -478,7 +490,8 @@ export default function WorkoutGuide() {
                       {ex.sets.length} séries • {ex.sets[0]?.reps} reps
                     </p>
                   </div>
-                </div>
+                  <ChevronRight size={18} className="text-muted-foreground flex-shrink-0" aria-hidden />
+                </button>
               ))}
             </div>
           </div>
@@ -1172,12 +1185,12 @@ export default function WorkoutGuide() {
             </div>
             <div className="bg-card rounded-xl p-4">
               <Clock size={20} className="text-primary mx-auto mb-1" />
-              <p className="text-lg font-bold text-foreground">{elapsedMinutes || selectedWorkout.estimatedMinutes}</p>
+              <p className="text-lg font-bold text-foreground">{elapsedMinutes || selectedWorkout.estimatedMinutes || "—"}</p>
               <p className="text-[10px] text-muted-foreground">Minutos</p>
             </div>
             <div className="bg-card rounded-xl p-4">
               <Flame size={20} className="text-primary mx-auto mb-1" />
-              <p className="text-lg font-bold text-foreground">{selectedWorkout.estimatedCalories}</p>
+              <p className="text-lg font-bold text-foreground">{selectedWorkout.estimatedCalories > 0 ? `~${selectedWorkout.estimatedCalories}` : "—"}</p>
               <p className="text-[10px] text-muted-foreground">kcal</p>
             </div>
           </div>
