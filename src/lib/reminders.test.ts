@@ -45,6 +45,11 @@ describe("lembretes no app: o que o paciente vê", () => {
     expect(renderMessage(row({ kind: "exam", title: "Hemograma" }), "Mariana Teste", today)).toContain("o exame Hemograma deve ser feito até 30/11/2026 (em 3 dias)");
     expect(DEFAULT_TEMPLATES.exam).toContain("{exame}");
   });
+  it("cards usam o dia de Brasília: 23:30 de 30/11 em BRT (02:30 UTC de 01/12) ainda faltam 8 dias; 00:30 já faltam 7", () => {
+    const r = [row({ due_on: "2026-12-08" })];
+    expect(reminderCards(r, "Ana", new Date("2026-12-01T02:30:00Z"))).toEqual([]);
+    expect(reminderCards(r, "Ana", new Date("2026-12-01T03:30:00Z"))).toHaveLength(1);
+  });
   it("cards: atrasado primeiro, depois o mais próximo; hoje marcado", () => {
     const now = new Date("2026-11-27T15:00:00Z");
     const cards = reminderCards([row({ id: "a", due_on: "2026-11-30" }), row({ id: "b", kind: "exam", title: "Ferritina", due_on: "2026-11-25" }), row({ id: "c", due_on: "2026-11-27" })], "Ana", now);
