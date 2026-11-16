@@ -9,6 +9,9 @@ export interface Identity {
   fullName: string; // "Mariana Albuquerque"
   avatar: string; // avatar_url legado or ""
   avatarPath?: string | null;
+  avatarKind?: string | null;
+  avatarKey?: string | null;
+  avatarBg?: string | null;
   profileId?: string | null;
   goal: string;
   currentWeight: number | null;
@@ -47,6 +50,9 @@ function adapt(p: PatientWithProfile): Identity {
     fullName: fullName || "Paciente",
     avatar: p.profile?.avatar_url ?? "",
     avatarPath: p.profile?.avatar_path ?? null,
+    avatarKind: p.profile?.avatar_kind ?? null,
+    avatarKey: p.profile?.avatar_key ?? null,
+    avatarBg: p.profile?.avatar_bg ?? null,
     profileId: p.profile?.id ?? p.profile_id ?? null,
     goal: p.goal ?? "",
     currentWeight: toNumber(p.current_weight),

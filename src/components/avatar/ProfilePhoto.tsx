@@ -9,19 +9,21 @@ export function ProfilePhoto({
   legacyUrl,
   className,
   alt,
+  style,
 }: {
   name: string | null | undefined;
   avatarPath?: string | null;
   legacyUrl?: string | null;
   className?: string;
   alt?: string;
+  style?: React.CSSProperties;
 }) {
   const signed = useSignedAvatarUrl(avatarPath ?? null);
   const src = signed.data || (!avatarPath ? legacyUrl || undefined : undefined);
   const label = alt ?? name ?? "Foto de perfil";
 
   return (
-    <Avatar className={cn("bg-muted", className)}>
+    <Avatar className={cn("bg-muted", className)} style={style}>
       {src ? <AvatarImage src={src} alt={label} className="object-cover" /> : null}
       <AvatarFallback aria-hidden className="text-[0.7em] font-semibold tracking-wide">
         {avatarInitials(name)}

@@ -14,6 +14,12 @@ describe("mascotSpeech", () => {
     expect(s.total).toBe(3);
   });
 
+  it("concordância: uma meta no plural usa 'Faltam'", () => {
+    expect(mascotSpeech({ streak: 0, goals: [g("meals", 3, 5)] }).line).toBe("Faltam as refeições para fechar o dia.");
+    expect(mascotSpeech({ streak: 0, goals: [g("workout", 0, 1)] }).line).toBe("Falta o treino para fechar o dia.");
+    expect(mascotSpeech({ streak: 0, goals: [g("meds", 0, 2)] }).line).toBe("Faltam os remédios para fechar o dia.");
+  });
+
   it("tudo feito: 'Dia fechado!'", () => {
     const s = mascotSpeech({ streak: 5, goals: [g("water", 2.5, 2.5), g("meals", 5, 5)] });
     expect(s.line).toBe("Dia fechado!");

@@ -24,6 +24,7 @@ const api = vi.hoisted(() => ({
   adherenceThrows: false,
   workouts: [] as unknown[],
   pending: null as unknown,
+  note: null as string | null,
 }));
 
 vi.mock("@/lib/api", () => ({
@@ -38,6 +39,7 @@ vi.mock("@/lib/api", () => ({
   getSupplementsTakenToday: vi.fn(async () => new Set()),
   toggleSupplementTaken: vi.fn(),
   getMyWorkoutPlan: vi.fn(async () => api.workouts),
+  getMyWeeklyNote: vi.fn(async () => api.note),
   getMyDeliveries: vi.fn(async () => []),
   getMyReminders: vi.fn(async () => []),
   getRecentWeightLogs: vi.fn(async () => []),
@@ -47,7 +49,7 @@ vi.mock("@/lib/api", () => ({
 vi.mock("@/hooks/useMe", () => ({
   useMe: () => ({
     me: {
-      name: "Mariana", fullName: "Mariana Lopes", avatar: "", goal: "",
+      name: "Mariana", fullName: "Mariana Lopes", avatar: "", avatarKind: "avatar", avatarKey: "tigre", avatarBg: "#FFEDE8", goal: "",
       currentWeight: null, startWeight: null, targetWeight: null, startDate: null,
     },
     isLoading: false,
@@ -81,6 +83,7 @@ beforeEach(() => {
   api.adherenceThrows = false;
   api.workouts = [];
   api.pending = null;
+  api.note = null;
 });
 
 describe("Home / barra semanal (WP-APP-4 item 1)", () => {
@@ -288,5 +291,27 @@ describe("Home / card de desafios sem ranking inventado", () => {
     expect(screen.queryByText(/#4 no ranking/)).not.toBeInTheDocument();
     expect(screen.queryByText(/1\.060/)).not.toBeInTheDocument();
     expect(screen.getByText("Desafios")).toBeInTheDocument();
+  });
+});
+
+describe("Home / tigrezinho e avatar (redesign P7)", () => {
+  it("cabeçalho mostra o avatar escolhido e leva ao Perfil; o card do tigrezinho aparece com a sequência", async () => {
+    renderHome();
+    expect(await screen.findByTestId("patient-avatar-pick")).toHaveAttribute("data-avatar-key", "tigre");
+    expect(screen.getByRole("button", { name: "Abrir meu perfil" })).toBeInTheDocument();
+    expect(await screen.findByText("2 dias seguidos")).toBeInTheDocument();
+    expect(screen.getByTestId("mascot-card")).toBeInTheDocument();
+  });
+
+  it("o recado do profissional aparece só quando existe", async () => {
+    renderHome();
+    await screen.findByTestId("mascot-card");
+    expect(screen.queryByTestId("team-note")).not.toBeInTheDocument();
+  });
+
+  it("com recado da equipe: mostra o texto", async () => {
+    api.note = "Semana de reforçar a água.";
+    renderHome();
+    expect(await screen.findByText("Semana de reforçar a água.")).toBeInTheDocument();
   });
 });

@@ -11,7 +11,8 @@ import { getLatestAdherenceState, getMyCareTeam } from "@/lib/api";
 import { careTeamDisplayName } from "@/lib/careTeam";
 import { DISCIPLINE_NOT_INFORMED, professionalDisciplineLabel } from "@/lib/chatTeam";
 import { tracker } from "@/lib/eventTracker";
-import { OwnAvatarControl } from "@/components/avatar/OwnAvatarControl";
+import { ProfileAvatarSection } from "@/components/avatar/ProfileAvatarSection";
+import { PatientAvatar } from "@/components/avatar/PatientAvatar";
 import { ProfilePhoto } from "@/components/avatar/ProfilePhoto";
 import BottomNav from "@/components/BottomNav";
 import AccountRights from "@/components/AccountRights";
@@ -100,15 +101,18 @@ export default function Profile() {
         {/* Avatar */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center mb-6">
           {me.profileId ? (
-            <OwnAvatarControl
+            <ProfileAvatarSection
               profileId={me.profileId}
               name={me.fullName}
               avatarPath={me.avatarPath ?? null}
               legacyUrl={me.avatar || null}
+              kind={me.avatarKind ?? null}
+              avatarKey={me.avatarKey ?? null}
+              bg={me.avatarBg ?? null}
             />
           ) : (
             <div className="mb-3">
-              <ProfilePhoto name={me.fullName} className="h-24 w-24 border-2 border-primary text-lg" />
+              <PatientAvatar name={me.fullName} size={96} className="border-2 border-primary" />
             </div>
           )}
           <h2 className="text-lg font-display font-bold text-foreground">{meLoading ? <Skeleton className="h-6 w-44 rounded" /> : me.fullName}</h2>

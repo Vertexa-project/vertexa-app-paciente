@@ -25,6 +25,8 @@ const PENDING_LABEL: Record<MascotGoalId, string> = {
   meds: "os remédios",
 };
 
+const PLURAL: Record<MascotGoalId, boolean> = { water: false, meals: true, workout: false, meds: true };
+
 // Ordem em que a falta é citada.
 const ORDER: MascotGoalId[] = ["water", "meals", "workout", "meds"];
 
@@ -60,7 +62,9 @@ export function mascotSpeech(input: { streak: number | null | undefined; goals: 
   }
   const names = pending.map((g) => PENDING_LABEL[g.id]);
   const line =
-    names.length === 1 ? `Falta ${names[0]} para fechar o dia.` : `Faltam ${joinPt(names)} para fechar o dia.`;
+    pending.length === 1 && !PLURAL[pending[0].id]
+      ? `Falta ${names[0]} para fechar o dia.`
+      : `Faltam ${joinPt(names)} para fechar o dia.`;
   return { headline, line, allDone: false, doneCount: done.length, total: goals.length };
 }
 

@@ -17,6 +17,9 @@ import { getAutoActions } from "@/lib/adherenceEngine";
 import { getLatestAdherenceState, getPendingSummary, getHydrationTodayLiters, getRecentSleep, getMyWorkoutPlan, getRecentWeightLogs, getMealAdherenceToday } from "@/lib/api";
 import { localYmd, SLEEP_GOAL_HOURS } from "@/lib/sleep";
 import ClinicBadge from "@/components/ClinicBadge";
+import MascotCard from "@/components/MascotCard";
+import TeamNoteCard from "@/components/TeamNoteCard";
+import { PatientAvatar } from "@/components/avatar/PatientAvatar";
 import SupplementReminders from "@/components/SupplementReminders";
 import ClinicReminders from "@/components/ClinicReminders";
 import ClinicDocsCard from "@/components/ClinicDocsCard";
@@ -235,8 +238,20 @@ export default function HomePage() {
       <div className="max-w-[430px] mx-auto px-5 pt-14">
         <ClinicBadge className="mb-4" />
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-5">
-          <div>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 mb-5">
+          <button type="button" onClick={() => navigate("/profile")} aria-label="Abrir meu perfil" className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <PatientAvatar
+              name={me.fullName}
+              size={44}
+              kind={me.avatarKind}
+              avatarKey={me.avatarKey}
+              bg={me.avatarBg}
+              avatarPath={me.avatarPath}
+              legacyUrl={me.avatar || null}
+              className="border-2 border-primary"
+            />
+          </button>
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-display font-bold text-foreground">{meLoading ? <Skeleton className="inline-block h-6 w-3/4 max-w-[260px] align-middle rounded" /> : pickWelcomeMessage({ name: me.name })} 👋</h1>
             {/* Frase de coaching DERIVADA do score (adherenceEngine.ts:169-177). Sem score não
                 há do que derivar: sem snapshot ela dizia "Você está arrasando! 🔥" para quem
@@ -252,6 +267,9 @@ export default function HomePage() {
             )}
           </button>
         </motion.div>
+
+        <MascotCard />
+        <TeamNoteCard />
 
         {/* Status badge + journey phase */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="flex items-center gap-2 mb-5">

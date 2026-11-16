@@ -18,6 +18,10 @@ export interface Profile {
   email: string | null;
   avatar_url: string | null;
   avatar_path?: string | null;
+  /** P7: 'photo' | 'avatar' | null; bichinho e cor de fundo do avatar escolhido. */
+  avatar_kind?: string | null;
+  avatar_key?: string | null;
+  avatar_bg?: string | null;
   created_at: string | null;
 }
 
