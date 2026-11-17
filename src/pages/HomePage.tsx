@@ -19,6 +19,7 @@ import { localYmd, SLEEP_GOAL_HOURS } from "@/lib/sleep";
 import ClinicBadge from "@/components/ClinicBadge";
 import MascotCard from "@/components/MascotCard";
 import TeamNoteCard from "@/components/TeamNoteCard";
+import RoutineMissionCards from "@/components/RoutineMissionCards";
 import { PatientAvatar } from "@/components/avatar/PatientAvatar";
 import SupplementReminders from "@/components/SupplementReminders";
 import ClinicReminders from "@/components/ClinicReminders";
@@ -270,6 +271,7 @@ export default function HomePage() {
 
         <MascotCard />
         <TeamNoteCard />
+        <RoutineMissionCards />
 
         {/* Status badge + journey phase */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="flex items-center gap-2 mb-5">
