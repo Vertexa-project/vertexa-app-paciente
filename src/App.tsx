@@ -23,6 +23,7 @@ import Journey from "./pages/Journey";
 import SOS from "./pages/SOS";
 import Notifications from "./pages/Notifications";
 import Documents from "./pages/Documents";
+import PreConsulta from "./pages/PreConsulta";
 import Profile from "./pages/Profile";
 import WorkoutGuide from "./pages/WorkoutGuide";
 import Challenges from "./pages/Challenges";
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="/sos" element={<SOS />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/documents" element={<Documents />} />
+              <Route path="/pre-consulta" element={<PreConsulta />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
 

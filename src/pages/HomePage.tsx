@@ -23,6 +23,7 @@ import { PatientAvatar } from "@/components/avatar/PatientAvatar";
 import SupplementReminders from "@/components/SupplementReminders";
 import ClinicReminders from "@/components/ClinicReminders";
 import ClinicDocsCard from "@/components/ClinicDocsCard";
+import PreConsultaCard from "@/components/PreConsultaCard";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
 import NotificationsPanel from "@/components/NotificationsPanel";
@@ -293,6 +294,7 @@ export default function HomePage() {
 
         <ClinicReminders />
         <ClinicDocsCard />
+        <PreConsultaCard />
         <SupplementReminders />
 
         {/* VRI Score Card — QUATRO estados distintos, na ordem de precedência (WP-APP-6 3.2).
