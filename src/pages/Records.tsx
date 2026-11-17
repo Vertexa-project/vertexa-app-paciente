@@ -3,7 +3,7 @@ import { checkWeight, confirmMessage } from "@/lib/weightGuard";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Scale, Camera, Dumbbell, Droplets, Moon, FileText, Check, Loader2, X, Lock } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tracker } from "@/lib/eventTracker";
 import {
@@ -45,7 +45,9 @@ function formatDayMonth(iso: string): string {
 export default function Records() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [activeRecord, setActiveRecord] = useState("weight");
+  // Rotina/missão (A4/A5) abrem direto no registro certo: /records?tab=photo&pose=front | /records?tab=weight
+  const [params] = useSearchParams();
+  const [activeRecord, setActiveRecord] = useState(params.get("tab") === "photo" ? "photo" : "weight");
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -103,6 +105,8 @@ export default function Records() {
       if (!suspect) tracker.track("weight_logged", { source: "app" });
       setWeightConfirm(null);
       qc.invalidateQueries({ queryKey: ["recentWeights"] });
+      qc.invalidateQueries({ queryKey: ["myRoutine"] }); // A4/A5: o peso real fecha o passo da rotina/missão
+      qc.invalidateQueries({ queryKey: ["myMission"] });
       qc.invalidateQueries({ queryKey: ["weightsInReview"] });
       qc.invalidateQueries({ queryKey: ["me"] });
       flashSaved("Peso salvo! Sua jornada foi fortalecida ✨");
@@ -128,7 +132,10 @@ export default function Records() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoPose, setPhotoPose] = useState<PhotoPose | null>(null);
+  const [photoPose, setPhotoPose] = useState<PhotoPose | null>(() => {
+    const p = params.get("pose");
+    return (PHOTO_POSES as readonly string[]).includes(p ?? "") ? (p as PhotoPose) : null;
+  });
   const latestPhoto = useQuery({ queryKey: ["latestPhoto"], queryFn: getLatestProgressPhoto });
   // Guia de pose (PDF do Ernâni, tela 05): check nas poses da série da última semana + próxima sugerida.
   const poseShots = useQuery({ queryKey: ["poseShots"], queryFn: () => getRecentPoseShots(45) });
@@ -170,6 +177,8 @@ export default function Records() {
     onSuccess: () => {
       tracker.track("progress_photo_uploaded", { source: "app" }); // MARCADOR de Timeline
       qc.invalidateQueries({ queryKey: ["latestPhoto"] });
+      qc.invalidateQueries({ queryKey: ["myRoutine"] }); // A4/A5: a foto real fecha o passo da rotina/missão
+      qc.invalidateQueries({ queryKey: ["myMission"] });
       clearPhoto();
       flashSaved("Foto enviada! ✨");
     },

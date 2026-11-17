@@ -46,6 +46,7 @@ vi.mock("@/lib/api", () => ({
   getMealAdherenceToday: vi.fn(async () => null),
 }));
 
+vi.mock("@/components/RoutineMissionCards", () => ({ default: () => null })); // A4+A5: tem teste próprio
 vi.mock("@/hooks/useMe", () => ({
   useMe: () => ({
     me: {
