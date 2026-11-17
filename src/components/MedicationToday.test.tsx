@@ -36,4 +36,12 @@ describe("Cartão da aplicação no Início", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Já apliquei" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível registrar agora");
   });
+  it("depois de 'Já apliquei' confirma na tela, mesmo com o cartão do dia saindo", async () => {
+    api.today = { enabled: true, state: "today", medication: "Tirzepatida", dose_mg: 5, treatment_id: "t9" };
+    view();
+    fireEvent.click(await screen.findByRole("button", { name: "Já apliquei" }));
+    api.today = { enabled: true, state: "done", medication: "Tirzepatida", dose_mg: 5, treatment_id: "t9" };
+    expect(await screen.findByRole("status")).toHaveTextContent("Aplicação registrada! Tirzepatida 5 mg");
+    expect(screen.queryByRole("button", { name: "Já apliquei" })).toBeNull();
+  });
 });
