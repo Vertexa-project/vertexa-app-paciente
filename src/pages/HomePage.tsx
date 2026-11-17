@@ -25,6 +25,7 @@ import SupplementReminders from "@/components/SupplementReminders";
 import ClinicReminders from "@/components/ClinicReminders";
 import ClinicDocsCard from "@/components/ClinicDocsCard";
 import PreConsultaCard from "@/components/PreConsultaCard";
+import MedicationToday from "@/components/MedicationToday";
 import { tracker } from "@/lib/eventTracker";
 import { pickWelcomeMessage } from "@/lib/welcomeMessages";
 import NotificationsPanel from "@/components/NotificationsPanel";
@@ -294,6 +295,7 @@ export default function HomePage() {
           </button>
         </motion.div>
 
+        <MedicationToday />
         <ClinicReminders />
         <ClinicDocsCard />
         <PreConsultaCard />
