@@ -8,6 +8,7 @@ import { useClinicAccessState } from "@/hooks/useClinicAccessState";
 import { resolvePatientClinicAccess } from "@/lib/auth/patientClinicAccess";
 import { PendingAccessScreen } from "@/pages/PendingAccessScreen";
 import { ClinicSuspendedScreen } from "@/pages/ClinicSuspendedScreen";
+import { OnboardingTutorialProvider } from "@/components/onboarding/OnboardingTutorial";
 
 function Loading() {
   return (
@@ -54,7 +55,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       return <ClinicSuspendedScreen />;
     }
     if (clinicAccess === "ok") {
-      return <>{children}</>;
+      return <OnboardingTutorialProvider>{children}</OnboardingTutorialProvider>;
     }
     return <ClinicSuspendedScreen />;
   }

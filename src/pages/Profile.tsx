@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 // Settings e Shield saíram junto com os itens "Configurações" e "Privacidade" (WP-APP-6 3.3).
-import { ArrowLeft, ChevronRight, Target, Stethoscope, Bell as BellIcon, FileText, LogOut, Zap, Route } from "lucide-react";
+import { ArrowLeft, ChevronRight, Target, Stethoscope, Bell as BellIcon, FileText, LogOut, Zap, Route, PlayCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/providers/auth-context";
@@ -16,6 +16,7 @@ import { PatientAvatar } from "@/components/avatar/PatientAvatar";
 import { ProfilePhoto } from "@/components/avatar/ProfilePhoto";
 import BottomNav from "@/components/BottomNav";
 import AccountRights from "@/components/AccountRights";
+import { useOnboardingTutorialControls } from "@/components/onboarding/tutorialContext";
 import NoPrescriptionYet, {
   NO_ACTIVE_LINK_TITLE,
   NO_ACTIVE_LINK_MESSAGE,
@@ -40,6 +41,7 @@ function formatMonthYear(isoDate: string): string | null {
 
 export default function Profile() {
   const navigate = useNavigate();
+  const tutorial = useOnboardingTutorialControls();
   const { me, isLoading: meLoading } = useMe();
   const { signOut } = useAuth();
 
@@ -254,6 +256,17 @@ export default function Profile() {
           {/* NOTIFICAÇÕES — o único dos quatro que já tinha destino: /notifications existe
               (App.tsx), lê dado real e trata os quatro estados. Aqui a seta deixa de mentir
               porque agora ela leva mesmo. */}
+          {tutorial.available ? (
+            <button
+              type="button"
+              onClick={tutorial.open}
+              className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-border"
+            >
+              <PlayCircle size={18} className="text-primary" />
+              <span className="text-sm text-foreground flex-1 text-left">Tutorial do app</span>
+              <ChevronRight size={16} className="text-muted-foreground" />
+            </button>
+          ) : null}
           {menuItems.map((item) => (
             <button
               key={item.path}

@@ -19,6 +19,10 @@ vi.mock("@/hooks/useIdentity", () => ({
 vi.mock("@/pages/PendingAccessScreen", () => ({
   PendingAccessScreen: () => <div data-testid="tela-pendente" />,
 }));
+vi.mock("@/hooks/useOnboardingTutorial", () => ({
+  useMyOnboardingTutorial: () => ({ data: null }),
+  useMarkOnboardingTutorialSeen: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock("@/pages/ClinicSuspendedScreen", () => ({
   ClinicSuspendedScreen: () => <div data-testid="tela-suspensa" />,
 }));
